@@ -233,6 +233,7 @@
                                 <exclude>**/javax.annotation.processing.Processor</exclude>
                                 <!-- comments are usupported by our rsrc parser -->
                                 <exclude>**/*.rsrc</exclude>
+                                <exclude>**/*Test.java</exclude>
                                 <!-- comments are usupported in these files -->
                                 <exclude>**/org.apache.openjpa.revision.properties</exclude>
                                 <exclude>scripts/*.list</exclude>
