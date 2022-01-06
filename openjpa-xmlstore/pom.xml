@@ -86,7 +86,7 @@
             </plugin>
 
             <!-- new way of using openjpa-maven-plugin to enhance classes -->
-            <plugin>
+           <!-- <plugin>
                 <groupId>org.apache.openjpa</groupId>
                 <artifactId>openjpa-maven-plugin</artifactId>
                 <configuration>
@@ -105,14 +105,14 @@
                     </execution>
                 </executions>
                 <dependencies>
-                    <!-- use o-p-j instead of openjpa to avoid cyclical dependency in maven graph -->
+
                     <dependency>
                         <groupId>org.apache.openjpa</groupId>
                         <artifactId>openjpa-persistence-jdbc</artifactId>
                         <version>${project.version}</version>
                     </dependency>
                 </dependencies>
-            </plugin>
+            </plugin> -->
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

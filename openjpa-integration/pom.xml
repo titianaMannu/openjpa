@@ -36,12 +36,12 @@
     <name>OpenJPA Integration Tests</name>
 
     <modules>
-        <module>daytrader</module>
+        <!-- <module>daytrader</module>
         <module>examples</module>
         <module>slf4j</module>
         <module>tck</module>
         <module>validation</module>
-        <module>jmx</module>
+        <module>jmx</module> -->
     </modules>
 
     <profiles>

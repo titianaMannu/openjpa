@@ -37,7 +37,7 @@
 
     <profiles>
         <!-- Profile for testing with test-dynamic-enhancer -->
-        <profile>
+       <!-- <profile>
             <id>test-dynamic-enhancer</id>
 
             <activation>
@@ -61,7 +61,7 @@
                     </plugin>
                 </plugins>
             </build>
-        </profile>
+        </profile>-->
 
 
 
@@ -105,7 +105,7 @@
 
     <build>
         <plugins>
-            <plugin>
+         <!--   <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
@@ -129,7 +129,7 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin>-->
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

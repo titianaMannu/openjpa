@@ -48,7 +48,7 @@ public class GraphTest {
 
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         assert topology != null;
         graph = topology.buildTopology(directed);
     }

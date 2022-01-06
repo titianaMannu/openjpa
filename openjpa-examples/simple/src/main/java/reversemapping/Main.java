@@ -35,7 +35,7 @@ public class Main {
     }
 
     @SuppressWarnings("unchecked")
-    public static void main(String[] args) {
+    public static void main(String[] args) {/*
         // Create a new EntityManagerFactory using the System properties.
         // The "reversemapping" name will be used to configure based on the
         // corresponding name in the META-INF/persistence.xml file
@@ -115,6 +115,6 @@ public class Main {
         // Again, it is always good to clean up after ourselves
         em.close();
 
-        factory.close();
+        factory.close();*/
     }
 }

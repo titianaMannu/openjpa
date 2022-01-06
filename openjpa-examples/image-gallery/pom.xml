@@ -84,8 +84,8 @@
     </pluginManagement>
 
     <plugins>
-      <plugin>
-          <!-- Use the openjpa maven plugin to enhance the domain model classes -->
+      <!--  <plugin>
+
           <groupId>org.apache.openjpa</groupId>
           <artifactId>openjpa-maven-plugin</artifactId>
           <configuration>
@@ -110,7 +110,7 @@
               <version>${project.version}</version>
             </dependency>
           </dependencies>
-      </plugin>
+      </plugin> -->
     </plugins>
   </build>
 </project>

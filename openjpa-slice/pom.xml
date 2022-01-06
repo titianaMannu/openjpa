@@ -71,38 +71,12 @@
              persistence.xml to create the required slices -->
 
         <!-- Sample profile for testing with MySQL DB -->
-        <profile>
-            <!-- different id, so this doesn't run during automated testing -->
-            <id>test-mysql-slice</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-                <property>
-                    <name>test-mysql-slice</name>
-                </property>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>mysql</groupId>
-                    <artifactId>mysql-connector-java</artifactId>
-                    <version>${mysql.connector.version}</version>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-            <properties>
-                <connection.driver.name>com.mysql.jdbc.Driver</connection.driver.name>
-                <connection.url>${openjpa.mysql.url}</connection.url>
-                <connection.username>${openjpa.mysql.username}</connection.username>
-                <connection.password>${openjpa.mysql.password}</connection.password>
-                <!-- DBCP overrides for MySQL testing -->
-                <dbcp.maxIdle>0</dbcp.maxIdle>
-                <dbcp.minIdle>0</dbcp.minIdle>
-            </properties>
-        </profile>
+
     </profiles>
 
     <build>
         <plugins>
-            <plugin>
+       <!--     <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
@@ -124,7 +98,7 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin>-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
