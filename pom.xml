@@ -105,6 +105,13 @@
         <jmock.version>2.9.0</jmock.version>
         <dbcp2.version>2.8.0</dbcp2.version>
 	<pool2.version>2.9.0</pool2.version>
+        <aggregate.report.dir>tests/target/site/jacoco-aggregate/jacoco.xml</aggregate.report.dir>
+        <ba-dua-dir>${session.executionRootDirectory}/resources</ba-dua-dir>
+        <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
+        <maven-deploy-plugin.version>2.7</maven-deploy-plugin.version>
+        <maven-surefire-plugin.version>2.21.0</maven-surefire-plugin.version>
+        <argLine>-Xmx2G -Djava.net.preferIPv4Stack=true -Dio.netty.leakDetection.level=paranoid</argLine>
+
     </properties>
 
     <licenses>
@@ -185,18 +192,40 @@
         <module>openjpa-kubernetes</module>
         <module>openjpa</module>
         <module>openjpa-project</module>
-        <module>openjpa-examples</module>
         <module>openjpa-integration</module>
         <module>openjpa-all</module>
         <module>openjpa-tools</module>
         <module>openjpa-features</module>
         <module>openjpa-junit5</module>
+        <module>tests</module>
     </modules>
 
     <profiles>
         <!-- ================ -->
         <!--  Build Profiles  -->
         <!-- ================ -->
+        <profile>
+            <id>coverage</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>prepare-agent</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
 
         <!-- Override some release settings inherited from apache-7.pom -->
         <profile>
@@ -211,48 +240,6 @@
                 <createSource>verify</createSource>
                 <createSources>true</createSources>
             </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.rat</groupId>
-                        <artifactId>apache-rat-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>check</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                        <configuration>
-                            <excludeSubProjects>false</excludeSubProjects>
-                            <numUnapprovedLicenses>0</numUnapprovedLicenses>
-                            <excludes>
-                                <!-- comments are usupported in services files -->
-                                <exclude>**/javax.persistence.spi.PersistenceProvider</exclude>
-                                <exclude>**/javax.annotation.processing.Processor</exclude>
-                                <!-- comments are usupported by our rsrc parser -->
-                                <exclude>**/*.rsrc</exclude>
-                                <exclude>**/*Test.java</exclude>
-                                <!-- comments are usupported in these files -->
-                                <exclude>**/org.apache.openjpa.revision.properties</exclude>
-                                <exclude>scripts/*.list</exclude>
-                                <exclude>scripts/*.options</exclude>
-                                <exclude>scripts/*.dict</exclude>
-                                <!-- generated content -->
-                                <exclude>**/.*/**</exclude>
-                                <exclude>**/target/**/*</exclude>
-                                <exclude>**/dependency-reduced-pom.xml</exclude>
-                                <exclude>**/*.log</exclude>
-                                <exclude>**/maven-eclipse.xml</exclude>
-                                <exclude>**/rat.txt</exclude>
-                                <exclude>release.properties</exclude>
-                                <exclude>DEPENDENCIES</exclude>
-                            </excludes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
         </profile>
 
         <profile>
@@ -415,7 +402,7 @@
             -->
             <id>test-derby</id>
             <activation>
-                <activeByDefault>true</activeByDefault>
+                <activeByDefault>false</activeByDefault>
             <property>
                 <name>test-derby</name>
             </property>
@@ -1899,11 +1886,19 @@
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
                 <version>4.13.2</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.google.code.findbugs</groupId>
                 <artifactId>annotations</artifactId>
                 <version>3.0.1</version>
+            </dependency>
+            <!-- https://mvnrepository.com/artifact/org.mockito/mockito-all -->
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-all</artifactId>
+                <version>1.10.19</version>
+                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -1919,10 +1914,17 @@
             <artifactId>commons-dbcp2</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.mockito/mockito-all -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-all</artifactId>
+            <version>1.10.19</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
-        <defaultGoal>install</defaultGoal>
+    <!--    <defaultGoal>install</defaultGoal> -->
 
         <resources>
             <resource>
@@ -1937,7 +1939,13 @@
         </testResources>
 
         <pluginManagement>
+
             <plugins>
+                <plugin>
+                    <groupId>org.sonarsource.scanner.maven</groupId>
+                    <artifactId>sonar-maven-plugin</artifactId>
+                    <version>3.6.0.1398</version>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
@@ -1947,6 +1955,29 @@
                         <target>${compile.class.target}</target>
                         <encoding>${project.build.sourceEncoding}</encoding>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>0.8.5</version>
+                    <executions>
+                        <execution>
+                            <id>prepare-agent</id>
+                            <goals>
+                                <goal>prepare-agent</goal>
+                            </goals>
+                           <!-- <configuration>
+                                <destFile>${sonar.jacoco.reportPath}</destFile>
+                                <propertyName>jacoco.argLine</propertyName>
+                            </configuration> -->
+                        </execution>
+                        <execution>
+                            <id>report</id>
+                            <goals>
+                                <goal>report</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -1969,7 +2000,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven.surefire.version}</version>
                     <configuration>
-                        <argLine>${surefire.jvm.args}</argLine>
+                    <!--    <argLine>${surefire.jvm.args}</argLine> -->
                         <redirectTestOutputToFile>true</redirectTestOutputToFile>
                         <trimStackTrace>false</trimStackTrace>
                         <useSystemClassLoader>true</useSystemClassLoader>
@@ -1978,60 +2009,12 @@
                                  are not test cases per OpenJPA standards -->
                             <exclude>org/apache/openjpa/**/*$*.class</exclude>
                         </excludes>
-                    <systemProperties>
-                        <property>
-                            <name>openjpa.Log</name>
-                            <value>${openjpa.Log}</value>
-                        </property>
-                        <property>
-                            <name>openjpa.DynamicEnhancementAgent</name>
-                            <value>${openjpa.DynamicEnhancementAgent}</value>
-                        </property>
-                        <property>
-                            <name>openjpa.ConnectionDriverName</name>
-                            <value>${connection.driver.name}</value>
-                        </property>
-                        <property>
-                            <name>openjpa.ConnectionURL</name>
-                            <value>${connection.url}</value>
-                        </property>
-                        <property>
-                            <name>openjpa.ConnectionUserName</name>
-                            <value>${connection.username}</value>
-                        </property>
-                        <property>
-                            <name>openjpa.ConnectionPassword</name>
-                            <value>${connection.password}</value>
-                        </property>
-                        <property>
-                            <name>openjpa.jdbc.DBDictionary</name>
-                            <value>${jdbc.DBDictionary}</value>
-                        </property>
-                        <property>
-                            <name>derby.stream.error.file</name>
-                            <value>target/derby.log</value>
-                        </property>
-                        <property>
-                            <name>derby.locks.deadlockTimeout</name>
-                            <value>${derby.locks.deadlockTimeout}</value>
-                        </property>
-                        <property>
-                            <name>derby.locks.waitTimeout</name>
-                            <value>${derby.locks.waitTimeout}</value>
-                        </property>
-                        <property>
-                            <name>openjpa.ConnectionProperties</name>
-                            <value>${dbcp.args}</value>
-                        </property>
-                        <property>
-                            <name>tests.openjpa.allowfailure</name>
-                            <value>${tests.openjpa.allowfailure}</value>
-                        </property>
-                        <property>
-                            <name>openjpa.jdbc.DriverDataSource</name>
-                            <value>${tests.openjpa.driverDataSource}</value>
-                        </property>
-                    </systemProperties>
+                        <testFailureIgnore>true</testFailureIgnore>
+                        <redirectTestOutputToFile>${redirectTestOutputToFile}</redirectTestOutputToFile>
+                        <forkCount>1</forkCount>
+                        <reuseForks>false</reuseForks>
+                        <forkedProcessTimeoutInSeconds>1800</forkedProcessTimeoutInSeconds>
+                        <rerunFailingTestsCount>0</rerunFailingTestsCount>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -2067,11 +2050,6 @@
                             </goals>
                         </execution>
                     </executions>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.rat</groupId>
-                    <artifactId>apache-rat-plugin</artifactId>
-                    <version>0.12</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -2299,41 +2277,6 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.rat</groupId>
-                <artifactId>apache-rat-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <excludeSubProjects>false</excludeSubProjects>
-                    <numUnapprovedLicenses>0</numUnapprovedLicenses>
-                    <excludes>
-                        <!-- generated content -->
-                        <exclude>**/.*/**</exclude>
-                        <exclude>**/target/**/*</exclude>
-                    </excludes>
-                    <includes>
-                        <!-- only check common source files -->
-                        <include>**/src/**/*.bat</include>
-                        <include>**/src/**/*.css</include>
-                        <include>**/src/**/*.html</include>
-                        <include>**/src/**/*.java</include>
-                        <include>**/src/**/*.js</include>
-                        <include>**/src/**/*.jsp</include>
-                        <include>**/src/**/*.properties</include>
-                        <include>**/src/**/*.sh</include>
-                        <include>**/src/**/*.txt</include>
-                        <include>**/src/**/*.vm</include>
-                        <include>**/src/**/*.xml</include>
-                    </includes>
-                </configuration>
             </plugin>
         </plugins>
     </build>

@@ -40,6 +40,9 @@ public class OnlyCycleTopology implements Topology {
         Edge e4 = new Edge(n3, n1, directed);
         graph.addEdge(e4);
 
+       Edge e7 = new Edge(n1, n3, directed);
+        graph.addEdge(e7);
+
         // self edge for 3
         Edge e5 = new Edge(n3, n3, directed);
         graph.addEdge(e5);
@@ -57,6 +60,8 @@ public class OnlyCycleTopology implements Topology {
         backList.add(e5);
         backList.add(e6);
         backList.add(e4);
+
+        forwardList.add(e7);
 
         return graph;
     }

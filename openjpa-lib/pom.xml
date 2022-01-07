@@ -35,6 +35,8 @@
     <name>OpenJPA Utilities Library</name>
     <description>OpenJPA Utilities Library</description>
 
+
+
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.mockito/mockito-all -->
         <dependency>
@@ -88,69 +90,98 @@
         </dependency>
     </dependencies>
 
+
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire-plugin.version}</version>
+                <configuration>
+                    <testFailureIgnore>true</testFailureIgnore>
+                </configuration>
+            </plugin>
             <!--
                 get the git revision number and set it in the git.revision setting - disabled for now
                 since we need to be able to build from sources zip (when there is no .git/config)
             -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>set git version</id>
-                        <phase>compile</phase>
-                        <configuration>
-                            <target>
-                                <!-- SVN would have appended 'M' to the end of the revision number if there were
-                                     uncommitted changes.  Git doesn't do that, so we have to work a bit to
-                                     emulate that behavior.  -->
-                                <echo>Determining if there are uncommitted changes...</echo>
-                                <exec outputproperty="git.diff.exitval" resultproperty="diff.state" failonerror="false" failifexecutionfails="false" executable="git">
-                                    <arg line="diff --quiet HEAD" />
-                                </exec>
-                                <exec outputproperty="git.diff.cached.exitval" resultproperty="diff.state.cached" failonerror="false" failifexecutionfails="false" executable="git">
-                                    <arg line="diff --cached --quiet HEAD" />
-                                </exec>
-                                <condition property="uncommitted.changes" value="M" else="">
-                                    <or>
-                                        <equals arg1="${diff.state}" arg2="1" />
-                                        <equals arg1="${diff.state.cached}" arg2="1" />
-                                    </or>
-                                </condition>
-                                
-                                <echo>Getting the 'GIT' revision value</echo>
-                                <exec outputproperty="git.revision" failonerror="false" failifexecutionfails="false" executable="git">
-                                    <arg line="rev-parse --short=7 HEAD" />
-                                </exec>
-                                <echo>Revision: ${git.revision}${uncommitted.changes}</echo>
 
-                                <echo>Getting the 'PCEnhancer' revision value</echo>
-                                <exec outputproperty="pcenhancer.git.revision" failonerror="false" failifexecutionfails="false" executable="git" append="false">
-                                    <arg line="rev-parse --short=7 HEAD:./../openjpa-kernel/src/main/java/org/apache/openjpa/enhance/PCEnhancer.java" />
-                                </exec>
-                                <echo>openjpa.enhancer.revision=${pcenhancer.git.revision}${uncommitted.changes}</echo>
-
-                                <echo>OpenJPA version: ${project.version}</echo>
-                                <condition property="outdir" value="${project.build.outputDirectory}" else="${java.io.tmpdir}/openjpamvntmp">
-                                    <available type="dir" file="${project.build.outputDirectory}" />
-                                </condition>
-                                <mkdir dir="${outdir}/META-INF" />
-
-                                <echo file="${outdir}/META-INF/org.apache.openjpa.revision.properties">
-revision.number=${git.revision}${uncommitted.changes}
-openjpa.version=${project.version}
-openjpa.enhancer.revision=${pcenhancer.git.revision}${uncommitted.changes}
-                                </echo>
-                            </target>
-                        </configuration>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
+
+    <properties>
+        <sonar.coverage.jacoco.xmlReportPaths>${basedir}/../${aggregate.report.dir}
+        </sonar.coverage.jacoco.xmlReportPaths>
+    </properties>
+    <profiles>
+        <profile>
+            <id>pit-test</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <version>1.7.3</version>
+                        <configuration>
+                            <targetClasses>
+                                <param>org.apache.openjpa.lib.graph.Graph</param>
+                                <param>org.apache.openjpa.lib.graph.DepthFirstAnalysis</param>
+                            </targetClasses>
+                            <targetTests>
+                                <param>org.apache.openjpa.lib.graph.GraphTest</param>
+                                <param>org.apache.openjpa.lib.graph.DepthFirstAnalysisTest</param>
+                            </targetTests>
+                            <threads>3</threads>
+                            <avoidCallsTo>
+                                <avoidCallsTo>java.util.logging</avoidCallsTo>
+                                <avoidCallsTo>org.apache.log4j</avoidCallsTo>
+                                <avoidCallsTo>org.slf4j</avoidCallsTo>
+                                <avoidCallsTo>org.apache.commons.logging</avoidCallsTo>
+                            </avoidCallsTo>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>pit-report</id>
+                                <phase>test</phase>
+                                <goals>
+                                    <goal>mutationCoverage</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <!-- data flow test profiles-->
+        <profile>
+            <id>ba-dua</id>
+            <activation>
+                <!--todo change this to trigger ba-dua -->
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>test</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <argLine>
+                                -javaagent:${ba-dua-dir}/ba-dua-agent-rt-0.6.0-all.jar
+                                -Xbootclasspath/a:${ba-dua-dir}/ba-dua-agent-rt-0.6.0-all.jar
+                            </argLine>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+
 </project>

@@ -10,6 +10,7 @@ import org.junit.runners.Parameterized;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 
 
 import static org.junit.Assert.*;
@@ -20,11 +21,14 @@ public class GraphTest {
     public static Collection<Object[]> data() {
         return Arrays.asList(new Object[][]{
                 {GraphType.GENERAL, 1, 9, true},
-                {GraphType.ONLY_CYCLE_TOPOLOGY, 1, -1, true},
                 {GraphType.GENERAL, 1, 2, false},
-                {GraphType.STAR_TOPOLOGY, -1, 2, false},
                 {GraphType.GENERAL, null, null, true},
-                {GraphType.EMPTY_TOPOLOGY, 1, 2, true}
+                //improve statement and condition coverage
+                {GraphType.ONLY_CYCLE_TOPOLOGY, 1, -1, true},
+                {GraphType.STAR_TOPOLOGY, -1, 2, false},
+
+                // empty topology not change coverage --> deleted from test suit
+                //{GraphType.EMPTY_TOPOLOGY, 1, 2, true}
         });
     }
 
@@ -71,8 +75,17 @@ public class GraphTest {
         if (!graph.containsNode(node1)) {
             graph.addNode(this.node1);
             assertEquals(initialSize + 1, graph.getNodes().size());
+            // improve coverage
             graph.removeNode(this.node1);
             assertEquals(initialSize, graph.getNodes().size());
+        }
+
+        // improve  removeNode statement and condition coverage
+        Iterator<Object> iterator = graph.getNodes().iterator();
+        if (iterator.hasNext()) {
+            Object node = iterator.next();
+            graph.removeNode(node);
+            assertEquals(initialSize - 1, graph.getNodes().size());
         }
 
         graph.clear();
@@ -91,6 +104,7 @@ public class GraphTest {
         int initialNodeSize = graph.getNodes().size();
 
         if (edge != null && (!graph.containsNode(edge.getFrom()) || !graph.containsNode(edge.getTo()))) {
+            //improve condition coverage
             assertThrows(IllegalArgumentException.class, () -> graph.addEdge(edge));
             assertFalse(graph.removeEdge(edge));
         }else if (edge != null && !graph.getEdges().contains(edge)) {
