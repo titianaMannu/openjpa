@@ -107,7 +107,7 @@ public class GraphTest {
             //improve condition coverage
             assertThrows(IllegalArgumentException.class, () -> graph.addEdge(edge));
             assertFalse(graph.removeEdge(edge));
-        }else if (edge != null && !graph.getEdges().contains(edge)) {
+        } else if (edge != null && !graph.getEdges().contains(edge)) {
             graph.addEdge(edge);
             assertTrue(graph.getEdges().size() >= initialEdgeSize);
         }

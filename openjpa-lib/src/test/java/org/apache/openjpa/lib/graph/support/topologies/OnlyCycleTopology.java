@@ -40,7 +40,8 @@ public class OnlyCycleTopology implements Topology {
         Edge e4 = new Edge(n3, n1, directed);
         graph.addEdge(e4);
 
-       Edge e7 = new Edge(n1, n3, directed);
+        //improve coverage
+        Edge e7 = new Edge(n1, n3, directed);
         graph.addEdge(e7);
 
         // self edge for 3

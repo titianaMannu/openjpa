@@ -57,7 +57,6 @@ public class GeneralTopology implements Topology {
         graph.addEdge(e3);
         Edge e10 = new Edge(n4, n9, directed);
         graph.addEdge(e10);
-
         //improve statement and condition coverage
         Edge e11 = new Edge(n4, n10, directed);
         graph.addEdge(e11);
