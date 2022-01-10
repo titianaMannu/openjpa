@@ -26,9 +26,6 @@ public class GraphTest {
                 //improve statement and condition coverage
                 {GraphType.ONLY_CYCLE_TOPOLOGY, 1, -1, true},
                 {GraphType.STAR_TOPOLOGY, -1, 2, false},
-
-                // empty topology not change coverage --> deleted from test suit
-                //{GraphType.EMPTY_TOPOLOGY, 1, 2, true}
         });
     }
 

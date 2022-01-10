@@ -44,10 +44,6 @@ public class GeneralTopology implements Topology {
         Integer n10 = 10;
         graph.addNode(n10);
 
-        //improve statement and condition coverage
-        Integer n11 = 11;
-        graph.addNode(n11);
-
         //fork1
         Edge e1 = new Edge(n1, n2, directed);
         graph.addEdge(e1);
@@ -57,13 +53,16 @@ public class GeneralTopology implements Topology {
         graph.addEdge(e3);
         Edge e10 = new Edge(n4, n9, directed);
         graph.addEdge(e10);
-        //improve statement and condition coverage
         Edge e11 = new Edge(n4, n10, directed);
         graph.addEdge(e11);
-        Edge e12 = new Edge(n8, n11, directed);
+
+        //improve statement and condition coverage
+        Edge e12 = new Edge(n2, n1, directed);
         graph.addEdge(e12);
         Edge e13 = new Edge(n8, n6, directed);
         graph.addEdge(e13);
+        Edge e14 = new Edge(n7, n10, directed);
+        graph.addEdge(e14);
 
         //fork2
         Edge e4 = new Edge(n1, n3, directed);
@@ -91,13 +90,13 @@ public class GeneralTopology implements Topology {
         treeList.add(e9);
         treeList.add(e10);
         treeList.add(e11);
-        treeList.add(e12);
 
+        forwardList.add(e14);
         forwardList.add(e7);
         forwardList.add(e13);
 
         backList.add(e8);
-
+        backList.add(e12);
         return graph;
     }
 
