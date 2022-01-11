@@ -20,12 +20,12 @@ public class GraphTest {
     @Parameterized.Parameters
     public static Collection<Object[]> data() {
         return Arrays.asList(new Object[][]{
-                {GraphType.GENERAL, 1, 9, true},
-                {GraphType.GENERAL, 1, 2, false},
-                {GraphType.GENERAL, null, null, true},
+                {GraphType.GENERAL, 1, 1, true},
+                {GraphType.ONLY_CYCLE_TOPOLOGY, 1, 2, false},
+                {GraphType.STAR_TOPOLOGY, null, null, true},
                 //improve statement and condition coverage
                 {GraphType.ONLY_CYCLE_TOPOLOGY, 1, -1, true},
-                {GraphType.STAR_TOPOLOGY, -1, 2, false},
+                {GraphType.GENERAL, -1, 1, false},
         });
     }
 
