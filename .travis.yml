@@ -15,6 +15,6 @@ addons:
       secure: "Nmnn76mL6p//D1r8Nj0mXu304fdPBrN4PX69D39x6eJB62+kMYowhgSXog1fhNSu0/Y4kXQkjIiJbPiv+WhDqgSNVnxt6n1pBcDP12526FAWR8uPMjZtLq7EkYubL4gvr93KNy8x6qC7cfeB9oNwCDIXFnWvHNiSHcpwiGySpEu/v58rsWlt7DUlqKhkIwceorgXIIkA3krHuxBhDvMKJIphoaBsQHLZV8fZLuI+h+TbQc8A97QqBwkCUMqe39gZSCEHliiWOwMdsoqa5qnpqAH3r7tRaPpZ83meRvX7IjOKxSfW5qmkwtW7SLCw+c+7AQcnThWkX/ziELo8v3vCquTXEOKtqp1C8vMAJxEjNgQ4a1gmtLi4ZX4yGKlXfpw7vX+pYL3qxHMP5o7XQLToNAt2K1xoXX5zZjqBQyINn26rcMFMV+XfehZgZHKu0hIzx36dd7XpWPls7rMWd4U+gsupmqqf/OKkSg5gLtsk4PdR6ytqC0oVvBv6DC+IeU4wofTJigaaiq5vpBRTuvXLgUTCLATOv76/ZLcjXVdRVpXCwzJqY4feMEJIyLttMxcrgeb8Ua+FJufN3PQRhfjNqDjd8LahJEWINg+a174VrIaIXQ40koTL8lY5ok6BOng3LBWHUyfVmvHcOPNuI4MPI/6hSFkDfG+XzIpxdUewaTM="
 script:
   # the following command line builds the project, runs the tests with coverage and then execute the SonarCloud analysis
-  - mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent verify sonar:sonar -Dsurefire.excludes.locking=**/* -Drat.skip=true -Dsonar.projectKey=titianaMannu_bookkeeper
+  - mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent verify sonar:sonar -Dsurefire.excludes.locking=**/* -Drat.skip=true -Dsonar.projectKey=titianaMannu_openjpa
 
 
