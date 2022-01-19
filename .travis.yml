@@ -6,6 +6,9 @@ notifications:
   email: false
 
 addons:
+  apt:
+    packages:
+      - oracle-java8-installer
   sonarcloud:
     organization: "titianamannu"
     token:
