@@ -38,6 +38,7 @@
     <version>3.2.1-SNAPSHOT</version>
 
     <properties>
+        <javac.target>1.8</javac.target>
      <!--   <sonar.projectKey>titianamannu:${project.groupId}:${project.artifactId}</sonar.projectKey>
         <sonar.links.homepage>https://github.com/titianaMannu/openjpa</sonar.links.homepage>
         <sonar.links.ci> https://app.travis-ci.com/titianaMannu/openjpa</sonar.links.ci>
@@ -1948,11 +1949,11 @@
         <pluginManagement>
 
             <plugins>
-        <!--        <plugin>
+                <plugin>
                     <groupId>org.sonarsource.scanner.maven</groupId>
                     <artifactId>sonar-maven-plugin</artifactId>
-                    <version>3.5.0.1254</version>
-                </plugin> -->
+                    <version>3.6.0.1398</version>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
