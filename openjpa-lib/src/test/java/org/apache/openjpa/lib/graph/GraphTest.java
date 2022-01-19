@@ -20,6 +20,7 @@ public class GraphTest {
     @Parameterized.Parameters
     public static Collection<Object[]> data() {
         return Arrays.asList(new Object[][]{
+                /* GraphType, node1, node2, directed */
                 {GraphType.GENERAL, 1, 1, true},
                 {GraphType.ONLY_CYCLE_TOPOLOGY, 1, 2, false},
                 {GraphType.STAR_TOPOLOGY, null, null, true},
