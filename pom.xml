@@ -43,6 +43,7 @@
         <sonar.links.ci> https://app.travis-ci.com/titianaMannu/openjpa</sonar.links.ci>
         <sonar.links.scm>https://github.com/titianaMannu/openjpa</sonar.links.scm>
         <sonar.links.issue>https://github.com/titianaMannu/openjpa/issues</sonar.links.issue>
+        <sonar.scanner.force-deprecated-java-version>true</sonar.scanner.force-deprecated-java-version>
 
         <java.class.version>1.8</java.class.version>
         <java.testclass.version>1.8</java.testclass.version>
