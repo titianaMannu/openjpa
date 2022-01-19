@@ -38,12 +38,12 @@
     <version>3.2.1-SNAPSHOT</version>
 
     <properties>
-        <sonar.projectKey>titianamannu:${project.groupId}:${project.artifactId}</sonar.projectKey>
+     <!--   <sonar.projectKey>titianamannu:${project.groupId}:${project.artifactId}</sonar.projectKey>
         <sonar.links.homepage>https://github.com/titianaMannu/openjpa</sonar.links.homepage>
         <sonar.links.ci> https://app.travis-ci.com/titianaMannu/openjpa</sonar.links.ci>
         <sonar.links.scm>https://github.com/titianaMannu/openjpa</sonar.links.scm>
         <sonar.links.issue>https://github.com/titianaMannu/openjpa/issues</sonar.links.issue>
-        <sonar.scanner.force-deprecated-java-version>true</sonar.scanner.force-deprecated-java-version>
+        <sonar.scanner.force-deprecated-java-version>true</sonar.scanner.force-deprecated-java-version> -->
 
         <java.class.version>1.8</java.class.version>
         <java.testclass.version>1.8</java.testclass.version>
