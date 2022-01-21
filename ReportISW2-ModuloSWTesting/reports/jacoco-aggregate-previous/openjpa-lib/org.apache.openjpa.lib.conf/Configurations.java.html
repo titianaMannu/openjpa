@@ -1,0 +1,774 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>Configurations.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.conf</a> &gt; <span class="el_source">Configurations.java</span></div><h1>Configurations.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.conf;
+
+import java.io.File;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.MissingResourceException;
+import java.util.Properties;
+import java.util.TreeSet;
+
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+
+import org.apache.openjpa.lib.util.collections.AbstractReferenceMap.ReferenceStrength;
+import org.apache.openjpa.lib.log.Log;
+import org.apache.openjpa.lib.util.ClassUtil;
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.lib.util.Options;
+import org.apache.openjpa.lib.util.ParseException;
+import org.apache.openjpa.lib.util.StringDistance;
+import org.apache.openjpa.lib.util.StringUtil;
+import org.apache.openjpa.lib.util.concurrent.ConcurrentReferenceHashMap;
+
+
+/**
+ * Utility methods dealing with configuration.
+ *
+ * @author Abe White
+ */
+<span class="nc" id="L54">public class Configurations {</span>
+
+<span class="nc" id="L56">    private static final Localizer _loc = Localizer.forPackage(Configurations.class);</span>
+
+<span class="nc" id="L58">    private static final ConcurrentReferenceHashMap _loaders = new</span>
+        ConcurrentReferenceHashMap(ReferenceStrength.WEAK, ReferenceStrength.HARD);
+
+<span class="nc" id="L61">    private static final Object NULL_LOADER = &quot;null-loader&quot;;</span>
+
+    public static final String CONFIG_RESOURCE_PATH = &quot;configResourcePath&quot;;
+    public static final String CONFIG_RESOURCE_ANCHOR = &quot;configResourceAnchor&quot;;
+
+    /**
+     * Return the class name from the given plugin string, or null if none.
+     */
+    public static String getClassName(String plugin) {
+<span class="nc" id="L70">        return getPluginComponent(plugin, true);</span>
+    }
+
+    /**
+     * Return the properties part of the given plugin string, or null if none.
+     */
+    public static String getProperties(String plugin) {
+<span class="nc" id="L77">        return getPluginComponent(plugin, false);</span>
+    }
+
+    /**
+     * Return either the class name or properties string from a plugin string.
+     */
+    private static String getPluginComponent(String plugin, boolean clsName) {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        if (plugin != null)</span>
+<span class="nc" id="L85">            plugin = plugin.trim();</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (StringUtil.isEmpty(plugin))</span>
+<span class="nc" id="L87">            return null;</span>
+
+<span class="nc" id="L89">        int openParen = -1;</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        if (plugin.charAt(plugin.length() - 1) == ')')</span>
+<span class="nc" id="L91">            openParen = plugin.indexOf('(');</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if (openParen == -1) {</span>
+<span class="nc" id="L93">            int eq = plugin.indexOf('=');</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">            if (eq == -1)</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">                return (clsName) ? plugin : null;</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">            return (clsName) ? null : plugin;</span>
+        }
+
+        // clsName(props) form
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (clsName)</span>
+<span class="nc" id="L101">            return plugin.substring(0, openParen).trim();</span>
+<span class="nc" id="L102">        String prop = plugin.substring(openParen + 1,</span>
+<span class="nc" id="L103">            plugin.length() - 1).trim();</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        return (prop.length() == 0) ? null : prop;</span>
+    }
+
+    /**
+     * Combine the given class name and properties into a plugin string.
+     */
+    public static String getPlugin(String clsName, String props) {
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        if (StringUtil.isEmpty(clsName))</span>
+<span class="nc" id="L112">            return props;</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        if (StringUtil.isEmpty(props))</span>
+<span class="nc" id="L114">            return clsName;</span>
+<span class="nc" id="L115">        return clsName + &quot;(&quot; + props + &quot;)&quot;;</span>
+    }
+
+    /**
+     * Return a plugin string that combines the properties of the given plugin
+     * strings, where properties of &lt;code&gt;override&lt;/code&gt; will override the
+     * same properties of &lt;code&gt;orig&lt;/code&gt;.
+     */
+    public static String combinePlugins(String orig, String override) {
+<span class="nc bnc" id="L124" title="All 2 branches missed.">        if (StringUtil.isEmpty(orig))</span>
+<span class="nc" id="L125">            return override;</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        if (StringUtil.isEmpty(override))</span>
+<span class="nc" id="L127">            return orig;</span>
+
+<span class="nc" id="L129">        String origCls = getClassName(orig);</span>
+<span class="nc" id="L130">        String overrideCls = getClassName(override);</span>
+        String cls;
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (StringUtil.isEmpty(origCls))</span>
+<span class="nc" id="L133">            cls = overrideCls;</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        else if (StringUtil.isEmpty(overrideCls))</span>
+<span class="nc" id="L135">            cls = origCls;</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        else if (!origCls.equals(overrideCls))</span>
+<span class="nc" id="L137">            return override; // completely different plugin</span>
+        else
+<span class="nc" id="L139">            cls = origCls;</span>
+
+<span class="nc" id="L141">        String origProps = getProperties(orig);</span>
+<span class="nc" id="L142">        String overrideProps = getProperties(override);</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        if (StringUtil.isEmpty(origProps))</span>
+<span class="nc" id="L144">            return getPlugin(cls, overrideProps);</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">        if (StringUtil.isEmpty(overrideProps))</span>
+<span class="nc" id="L146">            return getPlugin(cls, origProps);</span>
+
+<span class="nc" id="L148">        Properties props = parseProperties(origProps);</span>
+<span class="nc" id="L149">        props.putAll(parseProperties(overrideProps));</span>
+<span class="nc" id="L150">        return getPlugin(cls, serializeProperties(props));</span>
+    }
+
+    /**
+     * Create the instance with the given class name, using the given
+     * class loader. No configuration of the instance is performed by
+     * this method.
+     */
+    public static Object newInstance(String clsName, ClassLoader loader) {
+<span class="nc" id="L159">        return newInstance(clsName, null, null, loader, true);</span>
+    }
+
+    /**
+     * Create and configure an instance with the given class name and
+     * properties as a String.
+     */
+    public static Object newInstance(String clsName, Configuration conf,
+        String props, ClassLoader loader) {
+<span class="nc" id="L168">        Object obj = newInstance(clsName, null, conf, loader, true);</span>
+<span class="nc" id="L169">        configureInstance(obj, conf, props);</span>
+<span class="nc" id="L170">        return obj;</span>
+    }
+
+    /**
+     * Create and configure an instance with the given class name and
+     * properties.
+     */
+    public static Object newInstance(String clsName, Configuration conf,
+        Properties props, ClassLoader loader) {
+<span class="nc" id="L179">        Object obj = newInstance(clsName, null, conf, loader, true);</span>
+<span class="nc" id="L180">        configureInstance(obj, conf, props);</span>
+<span class="nc" id="L181">        return obj;</span>
+    }
+
+    /**
+     * Loads the given class name by the given loader.
+     * For efficiency, a cache per class loader is maintained of classes already loader.
+     * @param clsName
+     * @param loader
+     */
+    static Class&lt;?&gt; loadClass(String clsName, ClassLoader loader) {
+<span class="nc" id="L191">        Class&lt;?&gt; cls = null;</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        Object key = loader == null ? NULL_LOADER : loader;</span>
+<span class="nc" id="L193">        Map&lt;String,Class&lt;?&gt;&gt; loaderCache = (Map&lt;String,Class&lt;?&gt;&gt;) _loaders.get(key);</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        if (loaderCache == null) { // We don't have a cache for this loader.</span>
+            //OPENJPA-2636: Changed to HARD/WEAK to avoid Classloader leak:
+<span class="nc" id="L196">            loaderCache = new ConcurrentReferenceHashMap(ReferenceStrength.HARD,</span>
+                ReferenceStrength.WEAK);
+<span class="nc" id="L198">            _loaders.put(key, loaderCache);</span>
+        } else {  // We have a cache for this loader.
+<span class="nc" id="L200">            cls = (Class&lt;?&gt;) loaderCache.get(clsName);</span>
+        }
+<span class="nc bnc" id="L202" title="All 2 branches missed.">        if (cls == null) {</span>
+            try {
+<span class="nc" id="L204">                cls = ClassUtil.toClass(clsName, loader);</span>
+<span class="nc" id="L205">                loaderCache.put(clsName, cls);</span>
+<span class="nc" id="L206">            } catch (RuntimeException re) {</span>
+                // TODO, empty block is never good
+<span class="nc" id="L208">            }</span>
+        }
+<span class="nc" id="L210">        return cls;</span>
+    }
+
+    /**
+     * Helper method used by members of this package to instantiate plugin
+     * values.
+     */
+    static Object newInstance(String clsName, Value val, Configuration conf,
+        ClassLoader loader, boolean fatal) {
+<span class="nc bnc" id="L219" title="All 2 branches missed.">        if (StringUtil.isEmpty(clsName))</span>
+<span class="nc" id="L220">            return null;</span>
+
+<span class="nc" id="L222">        Class&lt;?&gt; cls = loadClass(clsName, findDerivedLoader(conf, loader));</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        if (cls == null) {</span>
+<span class="nc" id="L224">        	cls = loadClass(clsName, findDerivedLoader(conf, null));</span>
+        }
+<span class="nc bnc" id="L226" title="All 4 branches missed.">        if (cls == null &amp;&amp; conf.getUserClassLoader() != null) {</span>
+<span class="nc" id="L227">        	cls = loadClass(clsName, conf.getUserClassLoader());</span>
+        }
+
+<span class="nc bnc" id="L230" title="All 2 branches missed.">        if (cls == null) {</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">            if (fatal)</span>
+<span class="nc" id="L232">              throw getCreateException(clsName, val, new ClassNotFoundException(clsName));</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">            Log log = (conf == null) ? null : conf.getConfigurationLog();</span>
+<span class="nc bnc" id="L234" title="All 4 branches missed.">	        if (log != null &amp;&amp; log.isErrorEnabled())</span>
+<span class="nc" id="L235">	            log.error(_loc.get(&quot;plugin-creation-exception&quot;, val));</span>
+<span class="nc" id="L236">	        return null;</span>
+       }
+
+        try {
+<span class="nc" id="L240">            return AccessController.doPrivileged(J2DoPrivHelper.newInstanceAction(cls));</span>
+<span class="nc" id="L241">        } catch (Exception e) {</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">            if (e instanceof PrivilegedActionException) {</span>
+<span class="nc" id="L243">                e = ((PrivilegedActionException) e).getException();</span>
+            }
+<span class="nc" id="L245">            RuntimeException re = new RuntimeException(_loc.get(&quot;obj-create&quot;, cls).getMessage(), e);</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">            if (fatal)</span>
+<span class="nc" id="L247">                throw re;</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">            Log log = (conf == null) ? null : conf.getConfigurationLog();</span>
+<span class="nc bnc" id="L249" title="All 4 branches missed.">            if (log != null &amp;&amp; log.isErrorEnabled())</span>
+<span class="nc" id="L250">                log.error(_loc.get(&quot;plugin-creation-exception&quot;, val), re);</span>
+<span class="nc" id="L251">            return null;</span>
+        }
+    }
+
+    /**
+     * Attempt to find a derived loader that delegates to our target loader.
+     * This allows application loaders that delegate appropriately for known
+     * classes first crack at class names.
+     */
+    private static ClassLoader findDerivedLoader(Configuration conf, ClassLoader loader) {
+        // we always prefer the thread loader, because it's the only thing we
+        // can access that isn't bound to the OpenJPA classloader, unless
+        // the conf object is of a custom class
+<span class="nc" id="L264">        ClassLoader ctxLoader = AccessController.doPrivileged(J2DoPrivHelper.getContextClassLoaderAction());</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">        if (loader == null) {</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">            if (ctxLoader != null) {</span>
+<span class="nc" id="L267">                return ctxLoader;</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">            } else if (conf != null) {</span>
+<span class="nc" id="L269">                return classLoaderOf(conf.getClass());</span>
+            } else {
+<span class="nc" id="L271">            	return classLoaderOf(Configurations.class);</span>
+            }
+        }
+
+<span class="nc bnc" id="L275" title="All 2 branches missed.">        for (ClassLoader parent = ctxLoader; parent != null; parent = parentClassLoaderOf(parent)) {</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">            if (parent == loader)</span>
+<span class="nc" id="L277">                return ctxLoader;</span>
+        }
+<span class="nc bnc" id="L279" title="All 2 branches missed.">        if (conf != null) {</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">            for (ClassLoader parent = classLoaderOf(conf.getClass()); parent != null;</span>
+<span class="nc" id="L281">                    parent = parentClassLoaderOf(parent)) {</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">                if (parent == loader)</span>
+<span class="nc" id="L283">                    return classLoaderOf(conf.getClass());</span>
+            }
+        }
+<span class="nc" id="L286">        return loader;</span>
+    }
+
+    static ClassLoader classLoaderOf(Class&lt;?&gt; cls) {
+<span class="nc" id="L290">    	return AccessController.doPrivileged(J2DoPrivHelper.getClassLoaderAction(cls));</span>
+    }
+
+    static ClassLoader parentClassLoaderOf(ClassLoader loader) {
+<span class="nc" id="L294">    	return AccessController.doPrivileged(J2DoPrivHelper.getParentAction(loader));</span>
+    }
+
+    /**
+     * Return a List&lt;String&gt; of all the fully-qualified anchors specified in the
+     * properties location listed in &lt;code&gt;opts&lt;/code&gt;. If no properties
+     * location is listed in &lt;code&gt;opts&lt;/code&gt;, this returns whatever the
+     * product derivations can find in their default configurations.
+     * If the properties location specified in &lt;code&gt;opts&lt;/code&gt; already
+     * contains an anchor spec, this returns that anchor. Note that in this
+     * fully-qualified-input case, the logic involving product derivations
+     * and resource parsing is short-circuited, so this method
+     * should not be used as a means to test that a particular anchor is
+     * defined in a given location by invoking with a fully-qualified anchor.
+     *
+     * This does not mutate &lt;code&gt;opts&lt;/code&gt;.
+     *
+     * @since 1.1.0
+     */
+    public static List&lt;String&gt; getFullyQualifiedAnchorsInPropertiesLocation(
+        Options opts) {
+<span class="nc" id="L315">        String props = opts.getProperty(&quot;properties&quot;, &quot;p&quot;, null);</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        if (props != null) {</span>
+<span class="nc" id="L317">            int anchorPosition = props.indexOf(&quot;#&quot;);</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">            if (anchorPosition &gt; -1)</span>
+<span class="nc" id="L319">                return Arrays.asList(new String[] { props });</span>
+        }
+
+<span class="nc" id="L322">        return ProductDerivations.getFullyQualifiedAnchorsInPropertiesLocation(</span>
+            props);
+    }
+
+    /**
+     * Set the given {@link Configuration} instance from the command line
+     * options provided. All property names of the given configuration are
+     * recognized; additionally, if a &lt;code&gt;properties&lt;/code&gt; or
+     * &lt;code&gt;p&lt;/code&gt; argument exists, the resource it
+     * points to will be loaded and set into the given configuration instance.
+     * It can point to either a file or a resource name.
+     */
+    public static void populateConfiguration(Configuration conf, Options opts) {
+<span class="nc" id="L335">        String props = opts.removeProperty(&quot;properties&quot;, &quot;p&quot;, null);</span>
+        ConfigurationProvider provider;
+<span class="nc bnc" id="L337" title="All 2 branches missed.">        if (!StringUtil.isEmpty(props)) {</span>
+<span class="nc" id="L338">            Map&lt;String, String&gt; result = parseConfigResource(props);</span>
+<span class="nc" id="L339">            String path = result.get(CONFIG_RESOURCE_PATH);</span>
+<span class="nc" id="L340">            String anchor = result.get(CONFIG_RESOURCE_ANCHOR);</span>
+
+<span class="nc" id="L342">            File file = new File(path);</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">            if (AccessController.doPrivileged(J2DoPrivHelper</span>
+<span class="nc" id="L344">                    .isFileAction(file)))</span>
+<span class="nc" id="L345">                provider = ProductDerivations.load(file, anchor, null);</span>
+            else {
+<span class="nc" id="L347">                file = new File(&quot;META-INF&quot; + File.separatorChar + path);</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">                if (AccessController.doPrivileged(J2DoPrivHelper</span>
+<span class="nc" id="L349">                        .isFileAction(file)))</span>
+<span class="nc" id="L350">                    provider = ProductDerivations.load(file, anchor, null);</span>
+                else
+<span class="nc" id="L352">                    provider = ProductDerivations.load(path, anchor, null);</span>
+            }
+<span class="nc bnc" id="L354" title="All 2 branches missed.">            if (provider != null)</span>
+<span class="nc" id="L355">                provider.setInto(conf);</span>
+            else
+<span class="nc" id="L357">                throw new MissingResourceException(_loc.get(&quot;no-provider&quot;,</span>
+<span class="nc" id="L358">                    props).getMessage(), Configurations.class.getName(),</span>
+                    props);
+<span class="nc" id="L360">        } else {</span>
+<span class="nc" id="L361">            provider = ProductDerivations.loadDefaults(null);</span>
+<span class="nc bnc" id="L362" title="All 2 branches missed.">            if (provider != null)</span>
+<span class="nc" id="L363">                provider.setInto(conf);</span>
+        }
+<span class="nc" id="L365">        opts.setInto(conf);</span>
+<span class="nc" id="L366">    }</span>
+
+    public static Map&lt;String, String&gt; parseConfigResource(String props) {
+<span class="nc" id="L369">        String path = props;</span>
+<span class="nc" id="L370">        String anchor = null;</span>
+<span class="nc" id="L371">        int idx = path.lastIndexOf('#');</span>
+<span class="nc bnc" id="L372" title="All 2 branches missed.">        if (idx != -1) {</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">            if (idx &lt; path.length() - 1)</span>
+<span class="nc" id="L374">                anchor = path.substring(idx + 1);</span>
+<span class="nc" id="L375">            path = path.substring(0, idx);</span>
+<span class="nc bnc" id="L376" title="All 2 branches missed.">            if (path.length() == 0)</span>
+<span class="nc" id="L377">                throw new MissingResourceException(_loc.get(&quot;anchor-only&quot;,</span>
+<span class="nc" id="L378">                    props).getMessage(), Configurations.class.getName(),</span>
+                    props);
+        }
+<span class="nc" id="L381">        Map &lt;String, String&gt; result = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L382">        result.put(CONFIG_RESOURCE_PATH, path);</span>
+<span class="nc" id="L383">        result.put(CONFIG_RESOURCE_ANCHOR, anchor);</span>
+<span class="nc" id="L384">        return result;</span>
+    }
+
+    /**
+     * Helper method to throw an informative description on instantiation error.
+     */
+    private static RuntimeException getCreateException(String clsName, Value val, Exception e) {
+        // re-throw the exception with some better information
+        final String msg;
+        final Object[] params;
+
+<span class="nc" id="L395">        String alias = val.alias(clsName);</span>
+<span class="nc" id="L396">        String[] aliases = val.getAliases();</span>
+        String[] keys;
+<span class="nc bnc" id="L398" title="All 2 branches missed.">        if (aliases.length == 0)</span>
+<span class="nc" id="L399">            keys = aliases;</span>
+        else {
+<span class="nc" id="L401">            keys = new String[aliases.length / 2];</span>
+<span class="nc bnc" id="L402" title="All 2 branches missed.">            for (int i = 0; i &lt; aliases.length; i += 2)</span>
+<span class="nc" id="L403">                keys[i / 2] = aliases[i];</span>
+        }
+
+        String closest;
+<span class="nc bnc" id="L407" title="All 2 branches missed.">        if (keys.length == 0) {</span>
+<span class="nc" id="L408">            msg = &quot;invalid-plugin&quot;;</span>
+<span class="nc" id="L409">            params = new Object[]{ val.getProperty(), alias, e.toString(), };</span>
+<span class="nc" id="L410">        } else if ((closest = StringDistance.getClosestLevenshteinDistance</span>
+<span class="nc bnc" id="L411" title="All 2 branches missed.">            (alias, keys, 0.5f)) == null) {</span>
+<span class="nc" id="L412">            msg = &quot;invalid-plugin-aliases&quot;;</span>
+<span class="nc" id="L413">            params = new Object[]{</span>
+<span class="nc" id="L414">                val.getProperty(), alias, e.toString(),</span>
+<span class="nc" id="L415">                new TreeSet&lt;&gt;(Arrays.asList(keys)), };</span>
+        } else {
+<span class="nc" id="L417">            msg = &quot;invalid-plugin-aliases-hint&quot;;</span>
+<span class="nc" id="L418">            params = new Object[]{</span>
+<span class="nc" id="L419">                val.getProperty(), alias, e.toString(),</span>
+<span class="nc" id="L420">                new TreeSet&lt;&gt;(Arrays.asList(keys)), closest, };</span>
+        }
+<span class="nc" id="L422">        return new ParseException(_loc.get(msg, params), e);</span>
+    }
+
+    /**
+     * Configures the given object with the given properties by
+     * matching the properties string to the object's setter
+     * methods. The properties string should be in the form
+     * &quot;prop1=val1, prop2=val2 ...&quot;. Does not validate that setter
+     * methods exist for the properties.
+     *
+     * @throws RuntimeException on configuration error
+     */
+    public static void configureInstance(Object obj, Configuration conf,
+        String properties) {
+<span class="nc" id="L436">        configureInstance(obj, conf, properties, null);</span>
+<span class="nc" id="L437">    }</span>
+
+    /**
+     * Configures the given object with the given properties by
+     * matching the properties string to the object's setter
+     * methods. The properties string should be in the form
+     * &quot;prop1=val1, prop2=val2 ...&quot;. Validates that setter methods
+     * exist for the properties.
+     *
+     * @throws RuntimeException on configuration error
+     */
+    public static void configureInstance(Object obj, Configuration conf,
+        String properties, String configurationName) {
+<span class="nc bnc" id="L450" title="All 2 branches missed.">        if (obj == null)</span>
+<span class="nc" id="L451">            return;</span>
+
+<span class="nc" id="L453">        Properties props = null;</span>
+<span class="nc bnc" id="L454" title="All 2 branches missed.">        if (!StringUtil.isEmpty(properties))</span>
+<span class="nc" id="L455">            props = parseProperties(properties);</span>
+<span class="nc" id="L456">        configureInstance(obj, conf, props, configurationName);</span>
+<span class="nc" id="L457">    }</span>
+
+    /**
+     * Configures the given object with the given properties by
+     * matching the properties string to the object's setter
+     * methods. Does not validate that setter methods exist for the properties.
+     *
+     * @throws RuntimeException on configuration error
+     */
+    public static void configureInstance(Object obj, Configuration conf,
+        Properties properties) {
+<span class="nc" id="L468">        configureInstance(obj, conf, properties, null);</span>
+<span class="nc" id="L469">    }</span>
+
+    /**
+     * Configures the given object with the given properties by
+     * matching the properties string to the object's setter
+     * methods. If &lt;code&gt;configurationName&lt;/code&gt; is
+     * non-&lt;code&gt;null&lt;/code&gt;, validates that setter methods exist for
+     * the properties.
+     *
+     * @throws RuntimeException on configuration error
+     */
+    public static void configureInstance(Object obj, Configuration conf,
+        Properties properties, String configurationName) {
+<span class="nc bnc" id="L482" title="All 2 branches missed.">        if (obj == null)</span>
+<span class="nc" id="L483">            return;</span>
+
+        Options opts;
+<span class="nc bnc" id="L486" title="All 2 branches missed.">        if (properties instanceof Options)</span>
+<span class="nc" id="L487">            opts = (Options) properties;</span>
+        else {
+<span class="nc" id="L489">            opts = new Options();</span>
+<span class="nc bnc" id="L490" title="All 2 branches missed.">            if (properties != null)</span>
+<span class="nc" id="L491">                opts.putAll(properties);</span>
+        }
+
+<span class="nc" id="L494">        Configurable configurable = null;</span>
+<span class="nc bnc" id="L495" title="All 4 branches missed.">        if (conf != null &amp;&amp; obj instanceof Configurable)</span>
+<span class="nc" id="L496">            configurable = (Configurable) obj;</span>
+
+<span class="nc bnc" id="L498" title="All 2 branches missed.">        if (configurable != null) {</span>
+<span class="nc" id="L499">            configurable.setConfiguration(conf);</span>
+<span class="nc" id="L500">            configurable.startConfiguration();</span>
+        }
+<span class="nc" id="L502">        Options invalidEntries = opts.setInto(obj);</span>
+<span class="nc bnc" id="L503" title="All 2 branches missed.">        if (obj instanceof GenericConfigurable)</span>
+<span class="nc" id="L504">            ((GenericConfigurable) obj).setInto(invalidEntries);</span>
+
+<span class="nc bnc" id="L506" title="All 4 branches missed.">		if (!invalidEntries.isEmpty() &amp;&amp; configurationName != null) {</span>
+<span class="nc" id="L507">			Localizer.Message msg = null;</span>
+<span class="nc" id="L508">            String first = (String) invalidEntries.keySet().iterator().next();</span>
+<span class="nc bnc" id="L509" title="All 2 branches missed.">			if (invalidEntries.keySet().size() == 1 &amp;&amp;</span>
+<span class="nc bnc" id="L510" title="All 2 branches missed.">				first.indexOf('.') == -1) {</span>
+                // if there's just one misspelling and this is not a
+				// path traversal, check for near misses.
+<span class="nc" id="L513">                Collection&lt;String&gt; options = findOptionsFor(obj.getClass());</span>
+<span class="nc" id="L514">                String close = StringDistance.getClosestLevenshteinDistance</span>
+<span class="nc" id="L515">					(first, options, 0.75f);</span>
+<span class="nc bnc" id="L516" title="All 2 branches missed.">				if (close != null)</span>
+<span class="nc" id="L517">                    msg = _loc.get(&quot;invalid-config-param-hint&quot;, new Object[]{</span>
+<span class="nc" id="L518">                            configurationName, obj.getClass(), first, close,</span>
+						    options, });
+			}
+
+<span class="nc bnc" id="L522" title="All 2 branches missed.">            if (msg == null) {</span>
+<span class="nc" id="L523">                msg = _loc.get(&quot;invalid-config-params&quot;, new String[]{</span>
+<span class="nc" id="L524">                    configurationName, obj.getClass().getName(),</span>
+<span class="nc" id="L525">                    invalidEntries.keySet().toString(),</span>
+<span class="nc" id="L526">                    findOptionsFor(obj.getClass()).toString(), });</span>
+            }
+<span class="nc" id="L528">            throw new ParseException(msg);</span>
+        }
+<span class="nc bnc" id="L530" title="All 2 branches missed.">        if (configurable != null)</span>
+<span class="nc" id="L531">            configurable.endConfiguration();</span>
+<span class="nc" id="L532">    }</span>
+
+    private static Collection&lt;String&gt; findOptionsFor(Class&lt;?&gt; cls) {
+<span class="nc" id="L535">        Collection&lt;String&gt; c = Options.findOptionsFor(cls);</span>
+
+        // remove Configurable.setConfiguration() and
+        // GenericConfigurable.setInto() from the set, if applicable.
+<span class="nc bnc" id="L539" title="All 2 branches missed.">        if (Configurable.class.isAssignableFrom(cls))</span>
+<span class="nc" id="L540">            c.remove(&quot;Configuration&quot;);</span>
+<span class="nc bnc" id="L541" title="All 2 branches missed.">        if (GenericConfigurable.class.isAssignableFrom(cls))</span>
+<span class="nc" id="L542">            c.remove(&quot;Into&quot;);</span>
+
+<span class="nc" id="L544">        return c;</span>
+    }
+
+    /**
+     * Turn a set of properties into a comma-separated string.
+     */
+    public static String serializeProperties(Map map) {
+<span class="nc bnc" id="L551" title="All 4 branches missed.">        if (map == null || map.isEmpty())</span>
+<span class="nc" id="L552">            return null;</span>
+
+<span class="nc" id="L554">        StringBuilder buf = new StringBuilder();</span>
+        Map.Entry entry;
+        String val;
+<span class="nc bnc" id="L557" title="All 2 branches missed.">        for (Object o : map.entrySet()) {</span>
+<span class="nc" id="L558">            entry = (Map.Entry) o;</span>
+<span class="nc bnc" id="L559" title="All 2 branches missed.">            if (buf.length() &gt; 0)</span>
+<span class="nc" id="L560">                buf.append(&quot;, &quot;);</span>
+<span class="nc" id="L561">            buf.append(entry.getKey()).append('=');</span>
+<span class="nc" id="L562">            val = String.valueOf(entry.getValue());</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">            if (val.indexOf(',') != -1)</span>
+<span class="nc" id="L564">                buf.append('&quot;').append(val).append('&quot;');</span>
+            else
+<span class="nc" id="L566">                buf.append(val);</span>
+<span class="nc" id="L567">        }</span>
+<span class="nc" id="L568">        return buf.toString();</span>
+    }
+
+    /**
+     * Parse a set of properties from a comma-separated string.
+     */
+    public static Options parseProperties(String properties) {
+<span class="nc" id="L575">        Options opts = new Options();</span>
+<span class="nc" id="L576">        properties = StringUtil.trimToNull(properties);</span>
+<span class="nc bnc" id="L577" title="All 2 branches missed.">        if (properties == null)</span>
+<span class="nc" id="L578">            return opts;</span>
+
+        try {
+<span class="nc" id="L581">            String[] props = StringUtil.split(properties, &quot;,&quot;, 0);</span>
+            int idx;
+            char quote;
+            String prop;
+            String val;
+<span class="nc bnc" id="L586" title="All 2 branches missed.">            for (int i = 0; i &lt; props.length; i++) {</span>
+<span class="nc" id="L587">                idx = props[i].indexOf('=');</span>
+<span class="nc bnc" id="L588" title="All 2 branches missed.">                if (idx == -1) {</span>
+                    // if the key is not assigned to any value, set the
+                    // value to the same thing as the key, and continue.
+                    // This permits GenericConfigurable instances to
+                    // behave meaningfully. We might consider setting the
+                    // value to some well-known &quot;value was not set, but
+                    // key is present&quot; string so that instances getting
+                    // values injected can differentiate between a mentioned
+                    // property and one set to a particular value.
+<span class="nc" id="L597">                    prop = props[i];</span>
+<span class="nc" id="L598">                    val = prop;</span>
+                } else {
+<span class="nc" id="L600">                    prop = props[i].substring(0, idx).trim();</span>
+<span class="nc" id="L601">                    val = props[i].substring(idx + 1).trim();</span>
+                }
+
+                // if the value is quoted, read until the end quote
+<span class="nc bnc" id="L605" title="All 4 branches missed.">                if (((val.startsWith(&quot;\&quot;&quot;) &amp;&amp; val.endsWith(&quot;\&quot;&quot;))</span>
+<span class="nc bnc" id="L606" title="All 4 branches missed.">                    || (val.startsWith(&quot;'&quot;) &amp;&amp; val.endsWith(&quot;'&quot;)))</span>
+<span class="nc bnc" id="L607" title="All 2 branches missed.">                    &amp;&amp; val.length() &gt; 1)</span>
+<span class="nc" id="L608">                    val = val.substring(1, val.length() - 1);</span>
+<span class="nc bnc" id="L609" title="All 4 branches missed.">                else if (val.startsWith(&quot;\&quot;&quot;) || val.startsWith(&quot;'&quot;)) {</span>
+<span class="nc" id="L610">                    quote = val.charAt(0);</span>
+<span class="nc" id="L611">                    StringBuilder buf = new StringBuilder(val.substring(1));</span>
+                    int quotIdx;
+<span class="nc bnc" id="L613" title="All 2 branches missed.">                    while (++i &lt; props.length) {</span>
+<span class="nc" id="L614">                        buf.append(&quot;,&quot;);</span>
+
+<span class="nc" id="L616">                        quotIdx = props[i].indexOf(quote);</span>
+<span class="nc bnc" id="L617" title="All 2 branches missed.">                        if (quotIdx != -1) {</span>
+<span class="nc" id="L618">                            buf.append(props[i].substring(0, quotIdx));</span>
+<span class="nc bnc" id="L619" title="All 2 branches missed.">                            if (quotIdx + 1 &lt; props[i].length())</span>
+<span class="nc" id="L620">                                buf.append(props[i].substring(quotIdx + 1));</span>
+                            break;
+                        } else
+<span class="nc" id="L623">                            buf.append(props[i]);</span>
+                    }
+<span class="nc" id="L625">                    val = buf.toString();</span>
+                }
+<span class="nc" id="L627">                opts.put(prop, val);</span>
+            }
+<span class="nc" id="L629">            return opts;</span>
+<span class="nc" id="L630">        } catch (RuntimeException re) {</span>
+<span class="nc" id="L631">            throw new ParseException(_loc.get(&quot;prop-parse&quot;, properties), re);</span>
+        }
+    }
+
+    /**
+     * Looks up the given name in JNDI. If the name is null, null is returned.
+     */
+    public static Object lookup(String name, String userKey, Log log) {
+<span class="nc bnc" id="L639" title="All 2 branches missed.">        if (StringUtil.isEmpty(name))</span>
+<span class="nc" id="L640">            return null;</span>
+
+<span class="nc" id="L642">        Context ctx = null;</span>
+        try {
+<span class="nc" id="L644">            ctx = new InitialContext();</span>
+<span class="nc" id="L645">            Object result = ctx.lookup(name);</span>
+<span class="nc bnc" id="L646" title="All 6 branches missed.">            if (result == null &amp;&amp; log != null &amp;&amp; log.isWarnEnabled())</span>
+<span class="nc" id="L647">            	log.warn(_loc.get(&quot;jndi-lookup-failed&quot;, userKey, name));</span>
+<span class="nc" id="L648">            return result;</span>
+<span class="nc" id="L649">        } catch (NamingException ne) {</span>
+<span class="nc" id="L650">            throw new RuntimeException(</span>
+<span class="nc" id="L651">                _loc.get(&quot;naming-err&quot;, name).getMessage(), ne);</span>
+        } finally {
+<span class="nc bnc" id="L653" title="All 2 branches missed.">            if (ctx != null) {</span>
+                try {
+<span class="nc" id="L655">                    ctx.close();</span>
+<span class="nc" id="L656">                } catch (NamingException ne) {</span>
+                    // ignore
+<span class="nc" id="L658">                }</span>
+            }
+        }
+    }
+
+    /**
+     * Test whether the map contains the given partial key, prefixed with any
+     * possible configuration prefix.
+     */
+    public static boolean containsProperty(Value value, Map props) {
+<span class="nc bnc" id="L668" title="All 6 branches missed.">        if (value == null || props == null || props.isEmpty())</span>
+<span class="nc" id="L669">            return false;</span>
+<span class="nc" id="L670">        List&lt;String&gt; partialKeys = value.getPropertyKeys();</span>
+<span class="nc bnc" id="L671" title="All 2 branches missed.">        for (String partialKey : partialKeys) {</span>
+<span class="nc bnc" id="L672" title="All 2 branches missed.">            if (props.containsKey(</span>
+<span class="nc" id="L673">                ProductDerivations.getConfigurationKey(partialKey, props)))</span>
+<span class="nc" id="L674">                return true;</span>
+<span class="nc" id="L675">        }</span>
+<span class="nc" id="L676">        return false;</span>
+    }
+
+    /**
+     * Test whether the map contains the given partial key, prefixed with any
+     * possible configuration prefix.
+     */
+    public static boolean containsProperty(String partialKey, Map props) {
+<span class="nc bnc" id="L684" title="All 6 branches missed.">        if (partialKey == null || props == null || props.isEmpty())</span>
+<span class="nc" id="L685">            return false;</span>
+        else
+<span class="nc" id="L687">            return props.containsKey(</span>
+<span class="nc" id="L688">                ProductDerivations.getConfigurationKey(partialKey, props));</span>
+    }
+
+    /**
+     * Get the property under the given partial key, prefixed with any possible
+     * configuration prefix.
+     */
+    public static Object getProperty(String partialKey, Map m) {
+<span class="nc bnc" id="L696" title="All 6 branches missed.">        if (partialKey == null || m == null || m.isEmpty())</span>
+<span class="nc" id="L697">            return null;</span>
+        else
+<span class="nc" id="L699">            return m.get(ProductDerivations.getConfigurationKey(partialKey, m));</span>
+    }
+
+    /**
+     * Remove the property under the given partial key, prefixed with any
+     * possible configuration prefix.
+     */
+    public static Object removeProperty(String partialKey, Map props) {
+<span class="nc bnc" id="L707" title="All 6 branches missed.">        if (partialKey == null || props == null || props.isEmpty())</span>
+<span class="nc" id="L708">            return null;</span>
+<span class="nc bnc" id="L709" title="All 2 branches missed.">        if (containsProperty(partialKey, props))</span>
+<span class="nc" id="L710">            return props.remove(ProductDerivations.getConfigurationKey(partialKey, props));</span>
+        else
+<span class="nc" id="L712">            return null;</span>
+    }
+
+    public static void removeProperty(String partialKey, Map&lt;?,?&gt; remaining, Map&lt;?,?&gt; props) {
+<span class="nc bnc" id="L716" title="All 2 branches missed.">        if (removeProperty(partialKey, remaining) != null) {</span>
+<span class="nc" id="L717">            removeProperty(partialKey, props);</span>
+        }
+<span class="nc" id="L719">    }</span>
+
+    /**
+     * Runs &lt;code&gt;runnable&lt;/code&gt; against all the anchors in the configuration
+     * pointed to by &lt;code&gt;opts&lt;/code&gt;. Each invocation gets a fresh clone of
+     * &lt;code&gt;opts&lt;/code&gt; with the &lt;code&gt;properties&lt;/code&gt; option set
+     * appropriately.
+     *
+     * @since 1.1.0
+     */
+    public static boolean runAgainstAllAnchors(Options opts,
+        Configurations.Runnable runnable) {
+<span class="nc bnc" id="L731" title="All 4 branches missed.">        if (opts.containsKey(&quot;help&quot;) || opts.containsKey(&quot;-help&quot;)) {</span>
+<span class="nc" id="L732">            return false;</span>
+        }
+<span class="nc" id="L734">        List&lt;String&gt; anchors =</span>
+<span class="nc" id="L735">            Configurations.getFullyQualifiedAnchorsInPropertiesLocation(opts);</span>
+
+        // We use 'properties' below; get rid of 'p' to avoid conflicts. This
+        // relies on knowing what getFullyQualifiedAnchorsInPropertiesLocation
+        // looks for.
+<span class="nc bnc" id="L740" title="All 2 branches missed.">        if (opts.containsKey(&quot;p&quot;))</span>
+<span class="nc" id="L741">            opts.remove(&quot;p&quot;);</span>
+
+<span class="nc" id="L743">        boolean ret = true;</span>
+<span class="nc bnc" id="L744" title="All 2 branches missed.">        if (anchors.size() == 0) {</span>
+<span class="nc" id="L745">            ret = launchRunnable(opts, runnable);</span>
+        } else {
+<span class="nc bnc" id="L747" title="All 2 branches missed.">            for(String s : anchors ) {</span>
+<span class="nc" id="L748">                Options clonedOptions = (Options) opts.clone();</span>
+<span class="nc" id="L749">                clonedOptions.setProperty(&quot;properties&quot;, s);</span>
+<span class="nc" id="L750">                ret &amp;= launchRunnable(clonedOptions, runnable);</span>
+<span class="nc" id="L751">            }</span>
+        }
+<span class="nc" id="L753">        return ret;</span>
+    }
+
+    private static boolean launchRunnable(Options opts,
+        Configurations.Runnable runnable) {
+<span class="nc" id="L758">        boolean ret = true;</span>
+        try {
+<span class="nc" id="L760">            ret = runnable.run(opts);</span>
+<span class="nc" id="L761">        } catch (Exception e) {</span>
+<span class="nc bnc" id="L762" title="All 2 branches missed.">            if (!(e instanceof RuntimeException))</span>
+<span class="nc" id="L763">                throw new RuntimeException(e);</span>
+            else
+<span class="nc" id="L765">                throw (RuntimeException) e;</span>
+<span class="nc" id="L766">        }</span>
+<span class="nc" id="L767">        return ret;</span>
+    }
+
+    public interface Runnable {
+        boolean run(Options opts) throws Exception;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

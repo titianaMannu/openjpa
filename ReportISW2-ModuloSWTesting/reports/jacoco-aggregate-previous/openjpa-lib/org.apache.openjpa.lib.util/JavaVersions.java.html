@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>JavaVersions.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">JavaVersions.java</span></div><h1>JavaVersions.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.security.AccessController;
+
+/**
+ * Utilities for dealing with different Java specification versions.
+ *
+ * @author Abe White
+ * @author Pinaki Poddar
+ *
+ */
+<span class="nc" id="L34">public class JavaVersions {</span>
+
+    /**
+     * Java version; one of 2, 3, 4, 5, 6, or 7.
+     */
+    public static final int VERSION;
+
+<span class="nc" id="L41">    private static final Class&lt;?&gt;[] EMPTY_CLASSES = new Class[0];</span>
+
+    static {
+<span class="nc" id="L44">        String specVersion = AccessController.doPrivileged(</span>
+<span class="nc" id="L45">            J2DoPrivHelper.getPropertyAction(&quot;java.specification.version&quot;));</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        if (&quot;1.2&quot;.equals(specVersion))</span>
+<span class="nc" id="L47">            VERSION = 2;</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        else if (&quot;1.3&quot;.equals(specVersion))</span>
+<span class="nc" id="L49">            VERSION = 3;</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        else if (&quot;1.4&quot;.equals(specVersion))</span>
+<span class="nc" id="L51">            VERSION = 4;</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">        else if (&quot;1.5&quot;.equals(specVersion))</span>
+<span class="nc" id="L53">            VERSION = 5;</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        else if (&quot;1.6&quot;.equals(specVersion))</span>
+<span class="nc" id="L55">            VERSION = 6;</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        else if (&quot;1.7&quot;.equals(specVersion))</span>
+<span class="nc" id="L57">            VERSION = 7;</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        else if (&quot;1.8&quot;.equals(specVersion))</span>
+<span class="nc" id="L59">            VERSION = 8;</span>
+        else
+<span class="nc" id="L61">            VERSION = 9; // maybe someday...</span>
+<span class="nc" id="L62">    }</span>
+
+    /**
+     * Collects the parameterized type declarations for a given field.
+     */
+    public static Class&lt;?&gt;[] getParameterizedTypes(Field f) {
+        try {
+<span class="nc" id="L69">            return collectParameterizedTypes(f.getGenericType(), f.getType());</span>
+<span class="nc" id="L70">        } catch (Exception e) {</span>
+<span class="nc" id="L71">            return EMPTY_CLASSES;</span>
+        }
+    }
+
+    /**
+     * Collects the parameterized return type declarations for a given method.
+     */
+    public static Class&lt;?&gt;[] getParameterizedTypes(Method meth) {
+        try {
+<span class="nc" id="L80">            return collectParameterizedTypes(meth.getGenericReturnType(), meth.getReturnType());</span>
+<span class="nc" id="L81">        } catch (Exception e) {</span>
+<span class="nc" id="L82">            return EMPTY_CLASSES;</span>
+        }
+    }
+
+    /**
+     * Return all parameterized classes for the given type.
+     */
+    private static Class&lt;?&gt;[] collectParameterizedTypes(Type type, Class&lt;?&gt; cls) throws Exception {
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        if (type instanceof ParameterizedType) {</span>
+<span class="nc" id="L91">            Type[] args = ((ParameterizedType)type).getActualTypeArguments();</span>
+<span class="nc" id="L92">            Class&lt;?&gt;[] clss = new Class[args.length];</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">            for (int i = 0; i &lt; args.length; i++) {</span>
+<span class="nc" id="L94">                Class&lt;?&gt; c = extractClass(args[i]);</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">                if (c == null) {</span>
+<span class="nc" id="L96">                    return EMPTY_CLASSES;</span>
+                }
+<span class="nc" id="L98">                clss[i] = c;</span>
+            }
+<span class="nc" id="L100">            return clss;</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        } else if (cls.getSuperclass() != Object.class) {</span>
+<span class="nc" id="L102">            return collectParameterizedTypes(cls.getGenericSuperclass(), cls.getSuperclass());</span>
+        } else {
+<span class="nc" id="L104">            return EMPTY_CLASSES;</span>
+        }
+    }
+
+    /**
+     * Extracts the class from the given argument, if possible. Null otherwise.
+     */
+    static Class&lt;?&gt; extractClass(Type type) throws Exception {
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        if (type instanceof Class) {</span>
+<span class="nc" id="L113">            return (Class&lt;?&gt;)type;</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        } else if (type instanceof ParameterizedType) {</span>
+<span class="nc" id="L115">            return extractClass(((ParameterizedType)type).getRawType());</span>
+        }
+<span class="nc" id="L117">        return null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

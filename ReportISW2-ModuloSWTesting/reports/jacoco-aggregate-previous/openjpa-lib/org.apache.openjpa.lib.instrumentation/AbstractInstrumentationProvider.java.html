@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>AbstractInstrumentationProvider.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.instrumentation</a> &gt; <span class="el_source">AbstractInstrumentationProvider.java</span></div><h1>AbstractInstrumentationProvider.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.instrumentation;
+
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.openjpa.lib.conf.Configurable;
+import org.apache.openjpa.lib.conf.Configuration;
+import org.apache.openjpa.lib.conf.PluginListValue;
+
+/**
+ * Specialized instrumentation providers can extend this class to get basic
+ * provider state and capabilities.  It implements Configurable so it can
+ * be used within the configuration framework to participate in automatic
+ * configuration.
+ */
+<span class="nc" id="L36">public abstract class AbstractInstrumentationProvider implements InstrumentationProvider, Configurable {</span>
+
+<span class="nc" id="L38">    private Map&lt;String, Instrument&gt; _instruments = new ConcurrentHashMap&lt;&gt;();</span>
+
+<span class="nc" id="L40">    private boolean _started = false;</span>
+    private PluginListValue _instrumentValues;
+    private String _options;
+    private Configuration _config;
+
+    @Override
+    public void setConfiguration(Configuration conf) {
+<span class="nc" id="L47">        _config = conf;</span>
+<span class="nc" id="L48">    }</span>
+
+    @Override
+    public Configuration getConfiguration() {
+<span class="nc" id="L52">        return _config;</span>
+    }
+
+    @Override
+    public void startConfiguration() {
+<span class="nc" id="L57">    }</span>
+
+    @Override
+    public void endConfiguration() {
+<span class="nc" id="L61">    }</span>
+
+    @Override
+    public void setInstrument(String instrument) {
+<span class="nc" id="L65">        _instrumentValues = new PluginListValue(&quot;Instrument&quot;);</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if (getInstrumentAliases() != null) {</span>
+<span class="nc" id="L67">            _instrumentValues.setAliases(getInstrumentAliases());</span>
+        }
+<span class="nc" id="L69">        _instrumentValues.setString(instrument);</span>
+
+<span class="nc" id="L71">        Instrument[] instruments = (Instrument[])_instrumentValues.instantiate(Instrument.class, _config);</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        for (Instrument inst : instruments) {</span>
+<span class="nc" id="L73">            inst.setProvider(this);</span>
+<span class="nc" id="L74">            _instruments.put(inst.getName(), inst);</span>
+        }
+<span class="nc" id="L76">    }</span>
+
+    @Override
+    public String getInstrument() {
+<span class="nc" id="L80">        return _instrumentValues.getString();</span>
+    }
+
+    @Override
+    public void setOptions(String options) {
+<span class="nc" id="L85">        _options = options;</span>
+<span class="nc" id="L86">    }</span>
+
+    @Override
+    public String getOptions() {
+<span class="nc" id="L90">        return _options;</span>
+    }
+
+    @Override
+    public void addInstrument(Instrument instrument) {
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (instrument == null) {</span>
+<span class="nc" id="L96">            return;</span>
+        }
+<span class="nc" id="L98">        instrument.setProvider(this);</span>
+<span class="nc" id="L99">        _instruments.put(instrument.getName(), instrument);</span>
+<span class="nc" id="L100">    }</span>
+
+    @Override
+    public void initializeInstrument(Instrument instrument, Object context) {
+<span class="nc" id="L104">        initializeInstrument(instrument, _options, context);</span>
+<span class="nc" id="L105">    }</span>
+
+    @Override
+    public void initializeInstrument(Instrument instrument, String options, Object context) {
+<span class="nc" id="L109">        instrument.setProvider(this);</span>
+<span class="nc" id="L110">        instrument.setOptions(options);</span>
+<span class="nc" id="L111">        instrument.setContext(context);</span>
+<span class="nc" id="L112">        instrument.initialize();</span>
+<span class="nc" id="L113">    }</span>
+
+    @Override
+    public Instrument getInstrumentByName(String name) {
+<span class="nc" id="L117">        return _instruments.get(name);</span>
+    }
+
+    @Override
+    public Set&lt;Instrument&gt; getInstruments() {
+<span class="nc" id="L122">        return new HashSet&lt;&gt;(_instruments.values());</span>
+    }
+
+    @Override
+    public void stopInstruments(InstrumentationLevel level, Object context) {
+        try {
+<span class="nc" id="L128">            Set&lt;Instrument&gt; instruments = getInstruments();</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">            for (Instrument instrument : instruments) {</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">                if (instrument.getLevel() == level &amp;&amp;</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">                    contextEquals(instrument.getContext(),context)) {</span>
+<span class="nc" id="L132">                    stopInstrument(instrument);</span>
+                }
+<span class="nc" id="L134">            }</span>
+<span class="nc" id="L135">        } catch (Exception e) {</span>
+<span class="nc" id="L136">            throw new RuntimeException(e);</span>
+<span class="nc" id="L137">        }</span>
+<span class="nc" id="L138">    }</span>
+
+    @Override
+    public void startInstruments(InstrumentationLevel level, Object context) {
+<span class="nc" id="L142">        Set&lt;Instrument&gt; instruments = getInstruments();</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        for (Instrument instrument : instruments) {</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">            if (instrument.getLevel() == level) {</span>
+<span class="nc" id="L145">                initializeInstrument(instrument, context);</span>
+<span class="nc" id="L146">                startInstrument(instrument);</span>
+            }
+<span class="nc" id="L148">        }</span>
+<span class="nc" id="L149">    }</span>
+
+    @Override
+    public void stopInstrument(Instrument instrument) {
+<span class="nc" id="L153">        stopInstrument(instrument, true);</span>
+<span class="nc" id="L154">    }</span>
+
+    @Override
+    public void removeInstrumentByName(String name) {
+<span class="nc" id="L158">        Instrument ins = _instruments.remove(name);</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        if (ins != null) {</span>
+<span class="nc" id="L160">            ins.stop();</span>
+        }
+<span class="nc" id="L162">    }</span>
+
+    @Override
+    public boolean isStarted() {
+<span class="nc" id="L166">        return _started;</span>
+    }
+
+    protected void setStarted(boolean started) {
+<span class="nc" id="L170">        _started = started;</span>
+<span class="nc" id="L171">    }</span>
+
+    @Override
+    public String[] getInstrumentAliases() {
+<span class="nc" id="L175">        return null;</span>
+    }
+
+    @Override
+    public abstract void start();
+
+    @Override
+    public abstract void stop();
+
+    private static boolean contextEquals(Object ctx1, Object ctx2) {
+<span class="nc bnc" id="L185" title="All 2 branches missed.">        if (ctx1 == ctx2) {</span>
+<span class="nc" id="L186">            return true;</span>
+        }
+<span class="nc bnc" id="L188" title="All 2 branches missed.">        if (ctx1 == null) {</span>
+<span class="nc" id="L189">            return false;</span>
+        }
+<span class="nc" id="L191">        return ctx1.equals(ctx2);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

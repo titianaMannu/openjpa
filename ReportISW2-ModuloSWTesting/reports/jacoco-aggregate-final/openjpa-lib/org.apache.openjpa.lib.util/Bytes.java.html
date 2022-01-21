@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>Bytes.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">Bytes.java</span></div><h1>Bytes.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+/**
+ * This class came from the Apache Commons Id sandbox project in support
+ * of the UUIDGenerator implementation.
+ *
+ * &lt;p&gt;Static methods for managing byte arrays (all methods follow Big
+ * Endian order where most significant bits are in front).&lt;/p&gt;
+ */
+public final class Bytes {
+
+    /**
+     * &lt;p&gt;Hide constructor in utility class.&lt;/p&gt;
+     */
+    private Bytes() {
+    }
+
+    /**
+     * Appends two bytes array into one.
+     *
+     * @param a A byte[].
+     * @param b A byte[].
+     * @return A byte[].
+     */
+    public static byte[] append(byte[] a, byte[] b) {
+<span class="nc" id="L44">        byte[] z = new byte[a.length + b.length];</span>
+<span class="nc" id="L45">        System.arraycopy(a, 0, z, 0, a.length);</span>
+<span class="nc" id="L46">        System.arraycopy(b, 0, z, a.length, b.length);</span>
+<span class="nc" id="L47">        return z;</span>
+    }
+
+    /**
+     * Returns a 8-byte array built from a long.
+     *
+     * @param n The number to convert.
+     * @return A byte[].
+     */
+    public static byte[] toBytes(long n) {
+<span class="nc" id="L57">        return toBytes(n, new byte[8]);</span>
+    }
+
+    /**
+     * Build a 8-byte array from a long.  No check is performed on the
+     * array length.
+     *
+     * @param n The number to convert.
+     * @param b The array to fill.
+     * @return A byte[].
+     */
+    public static byte[] toBytes(long n, byte[] b) {
+<span class="nc" id="L69">        b[7] = (byte) (n);</span>
+<span class="nc" id="L70">        n &gt;&gt;&gt;= 8;</span>
+<span class="nc" id="L71">        b[6] = (byte) (n);</span>
+<span class="nc" id="L72">        n &gt;&gt;&gt;= 8;</span>
+<span class="nc" id="L73">        b[5] = (byte) (n);</span>
+<span class="nc" id="L74">        n &gt;&gt;&gt;= 8;</span>
+<span class="nc" id="L75">        b[4] = (byte) (n);</span>
+<span class="nc" id="L76">        n &gt;&gt;&gt;= 8;</span>
+<span class="nc" id="L77">        b[3] = (byte) (n);</span>
+<span class="nc" id="L78">        n &gt;&gt;&gt;= 8;</span>
+<span class="nc" id="L79">        b[2] = (byte) (n);</span>
+<span class="nc" id="L80">        n &gt;&gt;&gt;= 8;</span>
+<span class="nc" id="L81">        b[1] = (byte) (n);</span>
+<span class="nc" id="L82">        n &gt;&gt;&gt;= 8;</span>
+<span class="nc" id="L83">        b[0] = (byte) (n);</span>
+
+<span class="nc" id="L85">        return b;</span>
+    }
+
+    /**
+     * Build a long from first 8 bytes of the array.
+     *
+     * @param b The byte[] to convert.
+     * @return A long.
+     */
+    public static long toLong(byte[] b) {
+<span class="nc" id="L95">        return ((((long) b[7]) &amp; 0xFF)</span>
+                + ((((long) b[6]) &amp; 0xFF) &lt;&lt; 8)
+                + ((((long) b[5]) &amp; 0xFF) &lt;&lt; 16)
+                + ((((long) b[4]) &amp; 0xFF) &lt;&lt; 24)
+                + ((((long) b[3]) &amp; 0xFF) &lt;&lt; 32)
+                + ((((long) b[2]) &amp; 0xFF) &lt;&lt; 40)
+                + ((((long) b[1]) &amp; 0xFF) &lt;&lt; 48)
+                + ((((long) b[0]) &amp; 0xFF) &lt;&lt; 56));
+    }
+
+    /**
+    * Compares two byte arrays for equality.
+    *
+    * @param a A byte[].
+    * @param b A byte[].
+    * @return True if the arrays have identical contents.
+    */
+    public static boolean areEqual(byte[] a, byte[] b) {
+<span class="nc" id="L113">        int aLength = a.length;</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        if (aLength != b.length) {</span>
+<span class="nc" id="L115">            return false;</span>
+        }
+
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        for (int i = 0; i &lt; aLength; i++) {</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">            if (a[i] != b[i]) {</span>
+<span class="nc" id="L120">                return false;</span>
+            }
+        }
+<span class="nc" id="L123">        return true;</span>
+    }
+
+    /**
+     * &lt;p&gt;Compares two byte arrays as specified by &lt;code&gt;Comparable&lt;/code&gt;.
+     *
+     * @param lhs - left hand value in the comparison operation.
+     * @param rhs - right hand value in the comparison operation.
+     * @return  a negative integer, zero, or a positive integer as
+     * &lt;code&gt;lhs&lt;/code&gt; is less than, equal to, or greater than
+     * &lt;code&gt;rhs&lt;/code&gt;.
+     */
+    public static int compareTo(byte[] lhs, byte[] rhs) {
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        if (lhs == rhs) {</span>
+<span class="nc" id="L137">            return 0;</span>
+        }
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (lhs == null) {</span>
+<span class="nc" id="L140">            return -1;</span>
+        }
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        if (rhs == null) {</span>
+<span class="nc" id="L143">            return +1;</span>
+        }
+<span class="nc bnc" id="L145" title="All 2 branches missed.">        if (lhs.length != rhs.length) {</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">            return ((lhs.length &lt; rhs.length) ? -1 : +1);</span>
+        }
+<span class="nc bnc" id="L148" title="All 2 branches missed.">        for (int i = 0; i &lt; lhs.length; i++) {</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">            if (lhs[i] &lt; rhs[i]) {</span>
+<span class="nc" id="L150">                return -1;</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">            } else if (lhs[i] &gt; rhs[i]) {</span>
+<span class="nc" id="L152">                return 1;</span>
+            }
+        }
+<span class="nc" id="L155">        return 0;</span>
+    }
+
+    /**
+     * Build a short from first 2 bytes of the array.
+     *
+     * @param b The byte[] to convert.
+     * @return A short.
+     */
+    public static short toShort(byte[] b) {
+<span class="nc" id="L165">        return  (short) ((b[1] &amp; 0xFF) + ((b[0] &amp; 0xFF) &lt;&lt; 8));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

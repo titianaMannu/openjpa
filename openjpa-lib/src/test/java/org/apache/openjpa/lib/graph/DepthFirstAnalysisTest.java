@@ -160,6 +160,7 @@ public class DepthFirstAnalysisTest {
             assertEquals(0, dfs.getEdges(Edge.TYPE_BACK).size());
             return;
         }
+        Collection<Edge> forwardEdges = dfs.getEdges(Edge.TYPE_FORWARD);
         Collection<Edge> treeEdges = dfs.getEdges(Edge.TYPE_TREE);
         Collection<Edge> backEdges = dfs.getEdges(Edge.TYPE_BACK);
         List<Edge> cycle;
@@ -167,8 +168,8 @@ public class DepthFirstAnalysisTest {
             cycle = e.getCycle();
             for (Edge ec : cycle) {
                 if (ec != e) {
-                    //others are tree edges
-                    assertTrue(treeEdges.contains(ec));
+                    //others are tree edges or forward
+                    assertTrue(treeEdges.contains(ec) || forwardEdges.contains(ec));
                 }
             }
         }

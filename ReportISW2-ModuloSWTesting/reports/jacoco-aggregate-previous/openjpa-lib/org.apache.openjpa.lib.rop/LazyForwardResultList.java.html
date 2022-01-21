@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>LazyForwardResultList.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.rop</a> &gt; <span class="el_source">LazyForwardResultList.java</span></div><h1>LazyForwardResultList.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.rop;
+
+import java.io.ObjectStreamException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.NoSuchElementException;
+
+/**
+ * Lazy forward-only result list.
+ *
+ * @author Abe White
+ */
+public class LazyForwardResultList extends AbstractSequentialResultList
+    implements ResultList {
+
+    private static final int OPEN = 0;
+    private static final int CLOSED = 1;
+    private static final int FREED = 2;
+
+<span class="nc" id="L40">    private ResultObjectProvider _rop = null;</span>
+<span class="nc" id="L41">    private final List _list = new ArrayList();</span>
+<span class="nc" id="L42">    private int _state = OPEN;</span>
+<span class="nc" id="L43">    private int _size = -1;</span>
+
+<span class="nc" id="L45">    public LazyForwardResultList(ResultObjectProvider rop) {</span>
+<span class="nc" id="L46">        _rop = rop;</span>
+        try {
+<span class="nc" id="L48">            _rop.open();</span>
+<span class="nc" id="L49">        } catch (RuntimeException re) {</span>
+<span class="nc" id="L50">            close();</span>
+<span class="nc" id="L51">            throw re;</span>
+<span class="nc" id="L52">        } catch (Exception e) {</span>
+<span class="nc" id="L53">            close();</span>
+<span class="nc" id="L54">            _rop.handleCheckedException(e);</span>
+<span class="nc" id="L55">        }</span>
+<span class="nc" id="L56">    }</span>
+
+    @Override
+    public boolean isProviderOpen() {
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        return _state == OPEN;</span>
+    }
+
+    @Override
+    public boolean isClosed() {
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        return _state == CLOSED;</span>
+    }
+
+    @Override
+    public void close() {
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        if (_state != CLOSED) {</span>
+<span class="nc" id="L71">            free();</span>
+<span class="nc" id="L72">            _state = CLOSED;</span>
+        }
+<span class="nc" id="L74">    }</span>
+
+    @Override
+    public Object get(int index) {
+<span class="nc" id="L78">        assertOpen();</span>
+
+        // optimization for getting sequntially
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (index == _list.size())</span>
+<span class="nc" id="L82">            addNext();</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (index &lt; _list.size())</span>
+<span class="nc" id="L84">            return _list.get(index);</span>
+
+<span class="nc" id="L86">        return super.get(index);</span>
+    }
+
+    @Override
+    protected ListIterator itr(int index) {
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        return (_state != OPEN) ? _list.listIterator(index) : new Itr(index);</span>
+    }
+
+    @Override
+    public int size() {
+<span class="nc" id="L96">        assertOpen();</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        if (_size != -1)</span>
+<span class="nc" id="L98">            return _size;</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        if (_state != OPEN)</span>
+<span class="nc" id="L100">            return _list.size();</span>
+        try {
+<span class="nc" id="L102">            _size = _rop.size();</span>
+<span class="nc" id="L103">            return _size;</span>
+<span class="nc" id="L104">        } catch (RuntimeException re) {</span>
+<span class="nc" id="L105">            close();</span>
+<span class="nc" id="L106">            throw re;</span>
+<span class="nc" id="L107">        } catch (Exception e) {</span>
+<span class="nc" id="L108">            close();</span>
+<span class="nc" id="L109">            _rop.handleCheckedException(e);</span>
+<span class="nc" id="L110">            return -1;</span>
+        }
+    }
+
+    private boolean addNext() {
+        try {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">            if (!_rop.next()) {</span>
+<span class="nc" id="L117">                free();</span>
+<span class="nc" id="L118">                return false;</span>
+            }
+<span class="nc" id="L120">            _list.add(_rop.getResultObject());</span>
+<span class="nc" id="L121">            return true;</span>
+<span class="nc" id="L122">        } catch (RuntimeException re) {</span>
+<span class="nc" id="L123">            close();</span>
+<span class="nc" id="L124">            throw re;</span>
+<span class="nc" id="L125">        } catch (Exception e) {</span>
+<span class="nc" id="L126">            close();</span>
+<span class="nc" id="L127">            _rop.handleCheckedException(e);</span>
+<span class="nc" id="L128">            return false;</span>
+        }
+    }
+
+    private void free() {
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (_state == OPEN) {</span>
+            try {
+<span class="nc" id="L135">                _rop.close();</span>
+<span class="nc" id="L136">            } catch (Exception e) {</span>
+<span class="nc" id="L137">            }</span>
+<span class="nc" id="L138">            _state = FREED;</span>
+        }
+<span class="nc" id="L140">    }</span>
+
+    public Object writeReplace() throws ObjectStreamException {
+        // fully traverse results
+<span class="nc bnc" id="L144" title="All 2 branches missed.">        if (_state == OPEN)</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">            for (Iterator itr = itr(_list.size()); itr.hasNext();)</span>
+<span class="nc" id="L146">                itr.next();</span>
+<span class="nc" id="L147">        return _list;</span>
+    }
+
+    @Override
+    public int hashCode() {
+        // superclass tries to traverses entire list for hashcode
+<span class="nc" id="L153">        return System.identityHashCode(this);</span>
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        // superclass tries to traverse entire list for equality
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        return other == this;</span>
+    }
+
+    @Override
+    public List subList(int fromIndex, int toIndex) {
+<span class="nc" id="L164">        assertOpen();</span>
+<span class="nc" id="L165">        return _list.subList(fromIndex, toIndex);</span>
+    }
+
+    private class Itr extends AbstractListIterator {
+
+<span class="nc" id="L170">        private int _idx = 0;</span>
+
+<span class="nc" id="L172">        public Itr(int index) {</span>
+<span class="nc" id="L173">            _idx = Math.min(index, _list.size());</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">            while (_idx &lt; index)</span>
+<span class="nc" id="L175">                next();</span>
+<span class="nc" id="L176">        }</span>
+
+        @Override
+        public int nextIndex() {
+<span class="nc" id="L180">            return _idx;</span>
+        }
+
+        @Override
+        public int previousIndex() {
+<span class="nc" id="L185">            return _idx - 1;</span>
+        }
+
+        @Override
+        public boolean hasNext() {
+<span class="nc bnc" id="L190" title="All 2 branches missed.">            if (_list.size() &gt; _idx)</span>
+<span class="nc" id="L191">                return true;</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">            if (_state != OPEN)</span>
+<span class="nc" id="L193">                return false;</span>
+<span class="nc" id="L194">            return addNext();</span>
+        }
+
+        @Override
+        public boolean hasPrevious() {
+<span class="nc bnc" id="L199" title="All 2 branches missed.">            return _idx &gt; 0;</span>
+        }
+
+        @Override
+        public Object previous() {
+<span class="nc bnc" id="L204" title="All 2 branches missed.">            if (_idx == 0)</span>
+<span class="nc" id="L205">                throw new NoSuchElementException();</span>
+<span class="nc" id="L206">            return _list.get(--_idx);</span>
+        }
+
+        @Override
+        public Object next() {
+<span class="nc bnc" id="L211" title="All 2 branches missed.">            if (!hasNext())</span>
+<span class="nc" id="L212">                throw new NoSuchElementException();</span>
+<span class="nc" id="L213">            return _list.get(_idx++);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

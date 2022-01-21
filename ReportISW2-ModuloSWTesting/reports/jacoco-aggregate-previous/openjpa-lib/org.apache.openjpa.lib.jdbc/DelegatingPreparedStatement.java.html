@@ -1,0 +1,675 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>DelegatingPreparedStatement.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.jdbc</a> &gt; <span class="el_source">DelegatingPreparedStatement.java</span></div><h1>DelegatingPreparedStatement.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.jdbc;
+
+import java.io.InputStream;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.net.URL;
+import java.sql.Array;
+import java.sql.Blob;
+import java.sql.Clob;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.NClob;
+import java.sql.ParameterMetaData;
+import java.sql.PreparedStatement;
+import java.sql.Ref;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.RowId;
+import java.sql.SQLException;
+import java.sql.SQLWarning;
+import java.sql.SQLXML;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.Calendar;
+
+import org.apache.openjpa.lib.util.Closeable;
+
+/**
+ * Wrapper around an existing statement. Subclasses can override the
+ * methods whose behavior they mean to change. The &lt;code&gt;equals&lt;/code&gt; and
+ * &lt;code&gt;hashCode&lt;/code&gt; methods pass through to the base underlying data
+ * store statement.
+ *
+ * @author Abe White
+ */
+public class DelegatingPreparedStatement
+    implements PreparedStatement, Closeable {
+
+    private /*final*/ PreparedStatement _stmnt;
+    private /*final*/ DelegatingPreparedStatement _del;
+    private /*final*/ Connection _conn;
+
+<span class="nc" id="L61">    public DelegatingPreparedStatement(PreparedStatement stmnt, Connection conn) {</span>
+<span class="nc" id="L62">        initialize(stmnt, conn);</span>
+<span class="nc" id="L63">    }</span>
+
+    public void initialize(PreparedStatement stmnt, Connection conn) {
+<span class="nc" id="L66">        _conn = conn;</span>
+<span class="nc" id="L67">        _stmnt = stmnt;</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        if (_stmnt instanceof DelegatingPreparedStatement)</span>
+<span class="nc" id="L69">            _del = (DelegatingPreparedStatement) _stmnt;</span>
+        else
+<span class="nc" id="L71">            _del = null;</span>
+<span class="nc" id="L72">    }</span>
+
+    protected ResultSet wrapResult(ResultSet rs, boolean wrap) {
+<span class="nc bnc" id="L75" title="All 4 branches missed.">        if (!wrap || rs == null)</span>
+<span class="nc" id="L76">            return rs;</span>
+<span class="nc" id="L77">        return new DelegatingResultSet(rs, this);</span>
+    }
+
+    /**
+     * Return the wrapped statement.
+     */
+    public PreparedStatement getDelegate() {
+<span class="nc" id="L84">        return _stmnt;</span>
+    }
+
+    /**
+     * Return the base underlying data store statement.
+     */
+    public PreparedStatement getInnermostDelegate() {
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        return (_del == null) ? _stmnt : _del.getInnermostDelegate();</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L96">        return getInnermostDelegate().hashCode();</span>
+    }
+
+    @Override
+    public boolean equals(Object other) {
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        if (other == this)</span>
+<span class="nc" id="L102">            return true;</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        if (other instanceof DelegatingPreparedStatement)</span>
+<span class="nc" id="L104">            other = ((DelegatingPreparedStatement) other).</span>
+<span class="nc" id="L105">                getInnermostDelegate();</span>
+<span class="nc" id="L106">        return getInnermostDelegate().equals(other);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L111">        StringBuffer buf = new StringBuffer(&quot;prepstmnt &quot;).append(hashCode());</span>
+<span class="nc" id="L112">        appendInfo(buf);</span>
+<span class="nc" id="L113">        return buf.toString();</span>
+    }
+
+    protected void appendInfo(StringBuffer buf) {
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        if (_del != null)</span>
+<span class="nc" id="L118">            _del.appendInfo(buf);</span>
+<span class="nc" id="L119">    }</span>
+
+    @Override
+    public ResultSet executeQuery(String str) throws SQLException {
+<span class="nc" id="L123">        return executeQuery(str, true);</span>
+    }
+
+    /**
+     * Execute the query, with the option of not wrapping it in a
+     * {@link DelegatingResultSet}, which is the default.
+     */
+    protected ResultSet executeQuery(String sql, boolean wrap)
+        throws SQLException {
+        ResultSet rs;
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (_del != null)</span>
+<span class="nc" id="L134">            rs = _del.executeQuery(sql, false);</span>
+        else
+<span class="nc" id="L136">            rs = _stmnt.executeQuery(sql);</span>
+<span class="nc" id="L137">        return wrapResult(rs, wrap);</span>
+    }
+
+    @Override
+    public int executeUpdate(String str) throws SQLException {
+<span class="nc" id="L142">        return _stmnt.executeUpdate(str);</span>
+    }
+
+    @Override
+    public boolean execute(String str) throws SQLException {
+<span class="nc" id="L147">        return _stmnt.execute(str);</span>
+    }
+
+    @Override
+    public void close() throws SQLException {
+<span class="nc" id="L152">        _stmnt.close();</span>
+<span class="nc" id="L153">    }</span>
+
+    @Override
+    public int getMaxFieldSize() throws SQLException {
+<span class="nc" id="L157">        return _stmnt.getMaxFieldSize();</span>
+    }
+
+    @Override
+    public void setMaxFieldSize(int i) throws SQLException {
+<span class="nc" id="L162">        _stmnt.setMaxFieldSize(i);</span>
+<span class="nc" id="L163">    }</span>
+
+    @Override
+    public int getMaxRows() throws SQLException {
+<span class="nc" id="L167">        return _stmnt.getMaxRows();</span>
+    }
+
+    @Override
+    public void setMaxRows(int i) throws SQLException {
+<span class="nc" id="L172">        _stmnt.setMaxRows(i);</span>
+<span class="nc" id="L173">    }</span>
+
+    @Override
+    public void setEscapeProcessing(boolean bool) throws SQLException {
+<span class="nc" id="L177">        _stmnt.setEscapeProcessing(bool);</span>
+<span class="nc" id="L178">    }</span>
+
+    @Override
+    public int getQueryTimeout() throws SQLException {
+<span class="nc" id="L182">        return _stmnt.getQueryTimeout();</span>
+    }
+
+    @Override
+    public void setQueryTimeout(int i) throws SQLException {
+<span class="nc" id="L187">        _stmnt.setQueryTimeout(i);</span>
+<span class="nc" id="L188">    }</span>
+
+    @Override
+    public void cancel() throws SQLException {
+<span class="nc" id="L192">        _stmnt.cancel();</span>
+<span class="nc" id="L193">    }</span>
+
+    @Override
+    public SQLWarning getWarnings() throws SQLException {
+<span class="nc" id="L197">        return _stmnt.getWarnings();</span>
+    }
+
+    @Override
+    public void clearWarnings() throws SQLException {
+<span class="nc" id="L202">        _stmnt.clearWarnings();</span>
+<span class="nc" id="L203">    }</span>
+
+    @Override
+    public void setCursorName(String str) throws SQLException {
+<span class="nc" id="L207">        _stmnt.setCursorName(str);</span>
+<span class="nc" id="L208">    }</span>
+
+    @Override
+    public ResultSet getResultSet() throws SQLException {
+<span class="nc" id="L212">        return getResultSet(true);</span>
+    }
+
+    /**
+     * Get the last result set, with the option of not wrapping it in a
+     * {@link DelegatingResultSet}, which is the default.
+     */
+    protected ResultSet getResultSet(boolean wrap) throws SQLException {
+        ResultSet rs;
+<span class="nc bnc" id="L221" title="All 2 branches missed.">        if (_del != null)</span>
+<span class="nc" id="L222">            rs = _del.getResultSet(false);</span>
+        else
+<span class="nc" id="L224">            rs = _stmnt.getResultSet();</span>
+<span class="nc" id="L225">        return wrapResult(rs, wrap);</span>
+    }
+
+    @Override
+    public int getUpdateCount() throws SQLException {
+<span class="nc" id="L230">        return _stmnt.getUpdateCount();</span>
+    }
+
+    @Override
+    public boolean getMoreResults() throws SQLException {
+<span class="nc" id="L235">        return _stmnt.getMoreResults();</span>
+    }
+
+    @Override
+    public void setFetchDirection(int i) throws SQLException {
+<span class="nc" id="L240">        _stmnt.setFetchDirection(i);</span>
+<span class="nc" id="L241">    }</span>
+
+    @Override
+    public int getFetchDirection() throws SQLException {
+<span class="nc" id="L245">        return _stmnt.getFetchDirection();</span>
+    }
+
+    @Override
+    public void setFetchSize(int i) throws SQLException {
+<span class="nc" id="L250">        _stmnt.setFetchSize(i);</span>
+<span class="nc" id="L251">    }</span>
+
+    @Override
+    public int getFetchSize() throws SQLException {
+<span class="nc" id="L255">        return _stmnt.getFetchSize();</span>
+    }
+
+    @Override
+    public int getResultSetConcurrency() throws SQLException {
+<span class="nc" id="L260">        return _stmnt.getResultSetConcurrency();</span>
+    }
+
+    @Override
+    public int getResultSetType() throws SQLException {
+<span class="nc" id="L265">        return _stmnt.getResultSetType();</span>
+    }
+
+    @Override
+    public void addBatch(String str) throws SQLException {
+<span class="nc" id="L270">        _stmnt.addBatch(str);</span>
+<span class="nc" id="L271">    }</span>
+
+    @Override
+    public void clearBatch() throws SQLException {
+<span class="nc" id="L275">        _stmnt.clearBatch();</span>
+<span class="nc" id="L276">    }</span>
+
+    @Override
+    public int[] executeBatch() throws SQLException {
+<span class="nc" id="L280">        return _stmnt.executeBatch();</span>
+    }
+
+    @Override
+    public Connection getConnection() throws SQLException {
+<span class="nc" id="L285">        return _conn;</span>
+    }
+
+    @Override
+    public ResultSet executeQuery() throws SQLException {
+<span class="nc" id="L290">        return executeQuery(true);</span>
+    }
+
+    /**
+     * Execute the query, with the option of not wrapping it in a
+     * {@link DelegatingResultSet}, which is the default.
+     */
+    protected ResultSet executeQuery(boolean wrap) throws SQLException {
+        ResultSet rs;
+<span class="nc bnc" id="L299" title="All 2 branches missed.">        if (_del != null)</span>
+<span class="nc" id="L300">            rs = _del.executeQuery(false);</span>
+        else
+<span class="nc" id="L302">            rs = _stmnt.executeQuery();</span>
+<span class="nc" id="L303">        return wrapResult(rs, wrap);</span>
+    }
+
+    @Override
+    public int executeUpdate() throws SQLException {
+<span class="nc" id="L308">        return _stmnt.executeUpdate();</span>
+    }
+
+    @Override
+    public void setNull(int i1, int i2) throws SQLException {
+<span class="nc" id="L313">        _stmnt.setNull(i1, i2);</span>
+<span class="nc" id="L314">    }</span>
+
+    @Override
+    public void setBoolean(int i, boolean b) throws SQLException {
+<span class="nc" id="L318">        _stmnt.setBoolean(i, b);</span>
+<span class="nc" id="L319">    }</span>
+
+    @Override
+    public void setByte(int i, byte b) throws SQLException {
+<span class="nc" id="L323">        _stmnt.setByte(i, b);</span>
+<span class="nc" id="L324">    }</span>
+
+    @Override
+    public void setShort(int i, short s) throws SQLException {
+<span class="nc" id="L328">        _stmnt.setShort(i, s);</span>
+<span class="nc" id="L329">    }</span>
+
+    @Override
+    public void setInt(int i1, int i2) throws SQLException {
+<span class="nc" id="L333">        _stmnt.setInt(i1, i2);</span>
+<span class="nc" id="L334">    }</span>
+
+    @Override
+    public void setLong(int i, long l) throws SQLException {
+<span class="nc" id="L338">        _stmnt.setLong(i, l);</span>
+<span class="nc" id="L339">    }</span>
+
+    @Override
+    public void setFloat(int i, float f) throws SQLException {
+<span class="nc" id="L343">        _stmnt.setFloat(i, f);</span>
+<span class="nc" id="L344">    }</span>
+
+    @Override
+    public void setDouble(int i, double d) throws SQLException {
+<span class="nc" id="L348">        _stmnt.setDouble(i, d);</span>
+<span class="nc" id="L349">    }</span>
+
+    @Override
+    public void setBigDecimal(int i, BigDecimal bd) throws SQLException {
+<span class="nc" id="L353">        _stmnt.setBigDecimal(i, bd);</span>
+<span class="nc" id="L354">    }</span>
+
+    @Override
+    public void setString(int i, String s) throws SQLException {
+<span class="nc" id="L358">        _stmnt.setString(i, s);</span>
+<span class="nc" id="L359">    }</span>
+
+    @Override
+    public void setBytes(int i, byte[] b) throws SQLException {
+<span class="nc" id="L363">        _stmnt.setBytes(i, b);</span>
+<span class="nc" id="L364">    }</span>
+
+    @Override
+    public void setDate(int i, Date d) throws SQLException {
+<span class="nc" id="L368">        _stmnt.setDate(i, d);</span>
+<span class="nc" id="L369">    }</span>
+
+    @Override
+    public void setTime(int i, Time t) throws SQLException {
+<span class="nc" id="L373">        _stmnt.setTime(i, t);</span>
+<span class="nc" id="L374">    }</span>
+
+    @Override
+    public void setTimestamp(int i, Timestamp t) throws SQLException {
+<span class="nc" id="L378">        _stmnt.setTimestamp(i, t);</span>
+<span class="nc" id="L379">    }</span>
+
+    @Override
+    public void setAsciiStream(int i1, InputStream is, int i2)
+        throws SQLException {
+<span class="nc" id="L384">        _stmnt.setAsciiStream(i1, is, i2);</span>
+<span class="nc" id="L385">    }</span>
+
+    /**
+     * @deprecated
+     */
+    @Deprecated
+    @Override
+    public void setUnicodeStream(int i1, InputStream is, int i2)
+        throws SQLException {
+<span class="nc" id="L394">        _stmnt.setUnicodeStream(i1, is, i2);</span>
+<span class="nc" id="L395">    }</span>
+
+    @Override
+    public void setBinaryStream(int i1, InputStream is, int i2)
+        throws SQLException {
+<span class="nc" id="L400">        _stmnt.setBinaryStream(i1, is, i2);</span>
+<span class="nc" id="L401">    }</span>
+
+    @Override
+    public void clearParameters() throws SQLException {
+<span class="nc" id="L405">        _stmnt.clearParameters();</span>
+<span class="nc" id="L406">    }</span>
+
+    @Override
+    public void setObject(int i1, Object o, int i2, int i3)
+        throws SQLException {
+<span class="nc" id="L411">        _stmnt.setObject(i1, o, i2, i3);</span>
+<span class="nc" id="L412">    }</span>
+
+    @Override
+    public void setObject(int i1, Object o, int i2) throws SQLException {
+<span class="nc" id="L416">        _stmnt.setObject(i1, o, i2);</span>
+<span class="nc" id="L417">    }</span>
+
+    @Override
+    public void setObject(int i, Object o) throws SQLException {
+<span class="nc" id="L421">        _stmnt.setObject(i, o);</span>
+<span class="nc" id="L422">    }</span>
+
+    @Override
+    public boolean execute() throws SQLException {
+<span class="nc" id="L426">        return _stmnt.execute();</span>
+    }
+
+    @Override
+    public void addBatch() throws SQLException {
+<span class="nc" id="L431">        _stmnt.addBatch();</span>
+<span class="nc" id="L432">    }</span>
+
+    @Override
+    public void setCharacterStream(int i1, Reader r, int i2)
+        throws SQLException {
+<span class="nc" id="L437">        _stmnt.setCharacterStream(i1, r, i2);</span>
+<span class="nc" id="L438">    }</span>
+
+    @Override
+    public void setRef(int i, Ref r) throws SQLException {
+<span class="nc" id="L442">        _stmnt.setRef(i, r);</span>
+<span class="nc" id="L443">    }</span>
+
+    @Override
+    public void setBlob(int i, Blob b) throws SQLException {
+<span class="nc" id="L447">        _stmnt.setBlob(i, b);</span>
+<span class="nc" id="L448">    }</span>
+
+    @Override
+    public void setClob(int i, Clob c) throws SQLException {
+<span class="nc" id="L452">        _stmnt.setClob(i, c);</span>
+<span class="nc" id="L453">    }</span>
+
+    @Override
+    public void setArray(int i, Array a) throws SQLException {
+<span class="nc" id="L457">        _stmnt.setArray(i, a);</span>
+<span class="nc" id="L458">    }</span>
+
+    @Override
+    public ResultSetMetaData getMetaData() throws SQLException {
+<span class="nc" id="L462">        return _stmnt.getMetaData();</span>
+    }
+
+    @Override
+    public void setDate(int i, Date d, Calendar c) throws SQLException {
+<span class="nc" id="L467">        _stmnt.setDate(i, d, c);</span>
+<span class="nc" id="L468">    }</span>
+
+    @Override
+    public void setTime(int i, Time t, Calendar c) throws SQLException {
+<span class="nc" id="L472">        _stmnt.setTime(i, t, c);</span>
+<span class="nc" id="L473">    }</span>
+
+    @Override
+    public void setTimestamp(int i, Timestamp t, Calendar c)
+        throws SQLException {
+<span class="nc" id="L478">        _stmnt.setTimestamp(i, t, c);</span>
+<span class="nc" id="L479">    }</span>
+
+    @Override
+    public void setNull(int i1, int i2, String s) throws SQLException {
+<span class="nc" id="L483">        _stmnt.setNull(i1, i2, s);</span>
+<span class="nc" id="L484">    }</span>
+
+    // JDBC 3 methods follow.
+
+    @Override
+    public boolean getMoreResults(int i) throws SQLException {
+<span class="nc" id="L490">        return _stmnt.getMoreResults(i);</span>
+    }
+
+    @Override
+    public ResultSet getGeneratedKeys() throws SQLException {
+<span class="nc" id="L495">        return _stmnt.getGeneratedKeys();</span>
+    }
+
+    @Override
+    public int executeUpdate(String s, int i) throws SQLException {
+<span class="nc" id="L500">        return _stmnt.executeUpdate(s, i);</span>
+    }
+
+    @Override
+    public int executeUpdate(String s, int[] ia) throws SQLException {
+<span class="nc" id="L505">        return _stmnt.executeUpdate(s, ia);</span>
+    }
+
+    @Override
+    public int executeUpdate(String s, String[] sa) throws SQLException {
+<span class="nc" id="L510">        return _stmnt.executeUpdate(s, sa);</span>
+    }
+
+    @Override
+    public boolean execute(String s, int i) throws SQLException {
+<span class="nc" id="L515">        return _stmnt.execute(s, i);</span>
+    }
+
+    @Override
+    public boolean execute(String s, int[] ia) throws SQLException {
+<span class="nc" id="L520">        return _stmnt.execute(s, ia);</span>
+    }
+
+    @Override
+    public boolean execute(String s, String[] sa) throws SQLException {
+<span class="nc" id="L525">        return _stmnt.execute(s, sa);</span>
+    }
+
+    @Override
+    public int getResultSetHoldability() throws SQLException {
+<span class="nc" id="L530">        return _stmnt.getResultSetHoldability();</span>
+    }
+
+    @Override
+    public void setURL(int i, URL url) throws SQLException {
+<span class="nc" id="L535">        _stmnt.setURL(i, url);</span>
+<span class="nc" id="L536">    }</span>
+
+    @Override
+    public ParameterMetaData getParameterMetaData() throws SQLException {
+<span class="nc" id="L540">        return _stmnt.getParameterMetaData();</span>
+    }
+
+    // JDBC 4 methods follow.
+
+    @Override
+    public boolean isWrapperFor(Class&lt;?&gt; iface) throws SQLException {
+<span class="nc" id="L547">        return iface.isAssignableFrom(getDelegate().getClass());</span>
+    }
+
+    @Override
+    public &lt;T&gt; T unwrap(Class&lt;T&gt; iface) throws SQLException {
+<span class="nc bnc" id="L552" title="All 2 branches missed.">        if (isWrapperFor(iface))</span>
+<span class="nc" id="L553">            return (T) getDelegate();</span>
+        else
+<span class="nc" id="L555">            return null;</span>
+    }
+
+    @Override
+    public void setAsciiStream(int parameterIndex, InputStream x, long length) throws SQLException {
+<span class="nc" id="L560">        _stmnt.setAsciiStream(parameterIndex, x, length);</span>
+<span class="nc" id="L561">    }</span>
+
+    @Override
+    public void setAsciiStream(int parameterIndex, InputStream x) throws SQLException {
+<span class="nc" id="L565">        _stmnt.setAsciiStream(parameterIndex, x);</span>
+<span class="nc" id="L566">    }</span>
+
+    @Override
+    public void setBinaryStream(int parameterIndex, InputStream x, long length) throws SQLException {
+<span class="nc" id="L570">        _stmnt.setBinaryStream(parameterIndex, x, length);</span>
+<span class="nc" id="L571">    }</span>
+
+    @Override
+    public void setBinaryStream(int parameterIndex, InputStream x) throws SQLException {
+<span class="nc" id="L575">        _stmnt.setBinaryStream(parameterIndex, x);</span>
+<span class="nc" id="L576">    }</span>
+
+    @Override
+    public void setBlob(int parameterIndex, InputStream inputStream, long length) throws SQLException {
+<span class="nc" id="L580">        _stmnt.setBlob(parameterIndex, inputStream, length);</span>
+<span class="nc" id="L581">    }</span>
+
+    @Override
+    public void setBlob(int parameterIndex, InputStream inputStream) throws SQLException {
+<span class="nc" id="L585">        _stmnt.setBlob(parameterIndex, inputStream);</span>
+<span class="nc" id="L586">    }</span>
+
+    @Override
+    public void setCharacterStream(int parameterIndex, Reader reader, long length) throws SQLException {
+<span class="nc" id="L590">        _stmnt.setCharacterStream(parameterIndex, reader, length);</span>
+<span class="nc" id="L591">    }</span>
+
+    @Override
+    public void setCharacterStream(int parameterIndex, Reader reader) throws SQLException {
+<span class="nc" id="L595">        _stmnt.setCharacterStream(parameterIndex, reader);</span>
+<span class="nc" id="L596">    }</span>
+
+    @Override
+    public void setClob(int parameterIndex, Reader reader, long length) throws SQLException {
+<span class="nc" id="L600">        _stmnt.setClob(parameterIndex, reader, length);</span>
+<span class="nc" id="L601">    }</span>
+
+    @Override
+    public void setClob(int parameterIndex, Reader reader) throws SQLException {
+<span class="nc" id="L605">        _stmnt.setClob(parameterIndex, reader);</span>
+<span class="nc" id="L606">    }</span>
+
+    @Override
+    public void setNCharacterStream(int parameterIndex, Reader value, long length) throws SQLException {
+<span class="nc" id="L610">        _stmnt.setNCharacterStream(parameterIndex, value, length);</span>
+<span class="nc" id="L611">    }</span>
+
+    @Override
+    public void setNCharacterStream(int parameterIndex, Reader value) throws SQLException {
+<span class="nc" id="L615">        _stmnt.setNCharacterStream(parameterIndex, value);</span>
+<span class="nc" id="L616">    }</span>
+
+    @Override
+    public void setNClob(int parameterIndex, NClob value) throws SQLException {
+<span class="nc" id="L620">        _stmnt.setNClob(parameterIndex, value);</span>
+<span class="nc" id="L621">    }</span>
+
+    @Override
+    public void setNClob(int parameterIndex, Reader reader, long length) throws SQLException {
+<span class="nc" id="L625">        _stmnt.setNClob(parameterIndex, reader, length);</span>
+<span class="nc" id="L626">    }</span>
+
+    @Override
+    public void setNClob(int parameterIndex, Reader reader) throws SQLException {
+<span class="nc" id="L630">        _stmnt.setNClob(parameterIndex, reader);</span>
+<span class="nc" id="L631">    }</span>
+
+    @Override
+    public void setNString(int parameterIndex, String value) throws SQLException {
+<span class="nc" id="L635">        _stmnt.setNString(parameterIndex, value);</span>
+<span class="nc" id="L636">    }</span>
+
+    @Override
+    public void setRowId(int parameterIndex, RowId x) throws SQLException {
+<span class="nc" id="L640">        _stmnt.setRowId(parameterIndex, x);</span>
+<span class="nc" id="L641">    }</span>
+
+    @Override
+    public void setSQLXML(int parameterIndex, SQLXML xmlObject) throws SQLException {
+<span class="nc" id="L645">        _stmnt.setSQLXML(parameterIndex, xmlObject);</span>
+<span class="nc" id="L646">    }</span>
+
+    @Override
+    public boolean isClosed() throws SQLException {
+<span class="nc" id="L650">        return _stmnt.isClosed();</span>
+    }
+
+    @Override
+    public boolean isPoolable() throws SQLException {
+<span class="nc" id="L655">        return _stmnt.isPoolable();</span>
+    }
+
+    @Override
+    public void setPoolable(boolean poolable) throws SQLException {
+<span class="nc" id="L660">        _stmnt.setPoolable(poolable);</span>
+<span class="nc" id="L661">    }</span>
+
+    // Java 7 methods follow
+
+    @Override
+    public boolean isCloseOnCompletion() throws SQLException{
+<span class="nc" id="L667">        return _stmnt.isCloseOnCompletion();</span>
+    }
+
+    @Override
+    public void closeOnCompletion() throws SQLException{
+<span class="nc" id="L672">        _stmnt.closeOnCompletion();</span>
+<span class="nc" id="L673">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

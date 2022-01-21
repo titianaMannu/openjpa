@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>DepthFirstAnalysis.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.graph</a> &gt; <span class="el_source">DepthFirstAnalysis.java</span></div><h1>DepthFirstAnalysis.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.graph;
+
+import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.openjpa.lib.util.Localizer;
+
+/**
+ * &lt;p&gt;Performs a depth-first analysis of a given {@link Graph}, caching
+ * information about the graph's nodes and edges.  See the DFS algorithm
+ * in the book 'Introduction to Algorithms' by Cormen, Leiserson, and
+ * Rivest.  The algorithm has been modified to group sibling nodes without
+ * connections together during the topological sort.&lt;/p&gt;
+ *
+ * @author Abe White
+ * @since 1.0.0
+ */
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">public class DepthFirstAnalysis {</span>
+
+<span class="fc" id="L46">    private static final Localizer _loc = Localizer.forPackage</span>
+<span class="fc" id="L47">        (DepthFirstAnalysis.class);</span>
+
+    private final Graph _graph;
+<span class="fc" id="L50">    private final Map&lt;Object, NodeInfo&gt; _nodeInfo = new HashMap&lt;&gt;();</span>
+    private Comparator&lt;Object&gt; _comp;
+
+    /**
+     * Constructor.  Performs the analysis on the given graph and caches
+     * the resulting information.
+     */
+<span class="fc" id="L57">    public DepthFirstAnalysis(Graph graph) {</span>
+<span class="fc" id="L58">        _graph = graph;</span>
+
+        // initialize node infos
+<span class="fc" id="L61">        Collection&lt;Object&gt; nodes = graph.getNodes();</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        for (Object node : nodes)</span>
+<span class="fc" id="L63">            _nodeInfo.put(node, new NodeInfo());</span>
+
+        // visit all nodes -- see intro to algo's book
+        NodeInfo info;
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        for (Object node : nodes) {</span>
+<span class="fc" id="L68">            info = _nodeInfo.get(node);</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            if (info.color == NodeInfo.COLOR_WHITE)</span>
+<span class="fc" id="L70">                visit(graph, node, info, 0, new LinkedList&lt;&gt;());</span>
+<span class="fc" id="L71">        }</span>
+<span class="fc" id="L72">    }</span>
+
+    /**
+     * Visit a node.  See Introduction to Algorithms book for details.
+     */
+    private int visit(Graph graph, Object node, NodeInfo info, int time,
+        List&lt;Edge&gt; path) {
+        // discover node
+<span class="fc" id="L80">        info.color = NodeInfo.COLOR_GRAY;</span>
+
+        // explore all vertices from that node depth first
+<span class="fc" id="L83">        Collection&lt;Edge&gt; edges = graph.getEdgesFrom(node);</span>
+<span class="fc" id="L84">        int maxChildTime = time - 1;</span>
+        int childTime;
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        for (Edge edge : edges) {</span>
+<span class="fc" id="L87">        	Object other = edge.getOther(node);</span>
+<span class="fc" id="L88">        	NodeInfo otherInfo = _nodeInfo.get(other);</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">            if (otherInfo.color == NodeInfo.COLOR_WHITE) {</span>
+                // undiscovered node; recurse into it
+<span class="fc" id="L91">                path.add(edge);</span>
+<span class="fc" id="L92">                childTime = visit(graph, other, otherInfo, time, path);</span>
+<span class="fc" id="L93">                path.remove(edge);</span>
+<span class="fc" id="L94">                edge.setType(Edge.TYPE_TREE);</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">            } else if (otherInfo.color == NodeInfo.COLOR_GRAY) {</span>
+<span class="fc" id="L96">                childTime = -1;</span>
+<span class="fc" id="L97">                edge.setType(Edge.TYPE_BACK);</span>
+                // calculate the cycle including this edge
+<span class="fc" id="L99">                edge.setCycle(cycleForBackEdge(edge, path));</span>
+            } else {
+<span class="fc" id="L101">                childTime = otherInfo.finished;</span>
+<span class="fc" id="L102">                edge.setType(Edge.TYPE_FORWARD);</span>
+                // find the cycle including this edge
+<span class="fc" id="L104">                List&lt;Edge&gt; cycle = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L105">                cycle.add(edge);</span>
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">                if (cycleForForwardEdge(graph, other, node, cycle)) {</span>
+<span class="nc" id="L107">                    edge.setCycle(cycle);</span>
+                }
+            }
+<span class="fc" id="L110">            maxChildTime = Math.max(maxChildTime, childTime);</span>
+<span class="fc" id="L111">        }</span>
+
+        // finished with node
+<span class="fc" id="L114">        info.color = NodeInfo.COLOR_BLACK;</span>
+<span class="fc" id="L115">        info.finished = maxChildTime + 1;</span>
+<span class="fc" id="L116">        return info.finished;</span>
+    }
+
+    /**
+     * Set the comparator that should be used for ordering groups of nodes
+     * with the same dependencies.
+     */
+    public void setNodeComparator(Comparator&lt;Object&gt; comp) {
+<span class="fc" id="L124">        _comp = comp;</span>
+<span class="fc" id="L125">    }</span>
+
+    /**
+     * Return the nodes in topologically-sorted order.  This is often used
+     * to order dependencies.  If each graph edge (u, v) represents a
+     * dependency of v on u, then this method will return the nodes in the
+     * order that they should be evaluated to satisfy all dependencies.  Of
+     * course, if the graph is cyclic (has back edges), then no such ordering
+     * is possible, though this method will still return the correct order
+     * as if edges creating the cycles did not exist.
+     */
+    public List&lt;Object&gt; getSortedNodes() {
+<span class="fc" id="L137">        Map.Entry&lt;Object,NodeInfo&gt;[] entries =</span>
+<span class="fc" id="L138">        	_nodeInfo.entrySet().toArray(new Map.Entry[_nodeInfo.size()]);</span>
+<span class="fc" id="L139">        Arrays.sort(entries, new NodeInfoComparator(_comp));</span>
+<span class="fc" id="L140">        return new NodeList(entries);</span>
+    }
+
+    /**
+     * Return all edges of the given type.  This method can be used to
+     * discover all edges that cause cycles in the graph by passing it
+     * the {@link Edge#TYPE_BACK} or {@link Edge#TYPE_FORWARD} edge type.
+     */
+    public Collection&lt;Edge&gt; getEdges(int type) {
+<span class="fc" id="L149">        Collection&lt;Edge&gt; typed = null;</span>
+<span class="fc bfc" id="L150" title="All 2 branches covered.">        for (Object node : _graph.getNodes()) {</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">            for (Edge edge : _graph.getEdgesFrom(node)) {</span>
+<span class="fc bfc" id="L152" title="All 2 branches covered.">                if (edge.getType() == type) {</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">                    if (typed == null)</span>
+<span class="fc" id="L154">                        typed = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L155">                    typed.add(edge);</span>
+                }
+<span class="fc" id="L157">            }</span>
+<span class="fc" id="L158">        }</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        if(typed == null ) {</span>
+<span class="fc" id="L160">            typed = Collections.emptyList();</span>
+        }
+<span class="fc" id="L162">        return typed;</span>
+    }
+
+    /**
+     * Return the logical time that the given node was finished in
+     * the graph walk, or -1 if the node is not part of the graph.
+     */
+    public int getFinishedTime(Object node) {
+<span class="fc" id="L170">        NodeInfo info = _nodeInfo.get(node);</span>
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">        if (info == null)</span>
+<span class="nc" id="L172">            return -1;</span>
+<span class="fc" id="L173">        return info.finished;</span>
+    }
+
+    /**
+     * Returns a list of graph edges forming a cycle. The cycle begins
+     * with a type {@link Edge#TYPE_BACK} edge.
+     * @param backEdge &quot;Starting&quot; edge of the cycle
+     * @param path Continuous list of graph edges, may be null
+     * @param pos Index of the first edge in path continuing the cycle
+     * @return Cycle starting with a type {@link Edge#TYPE_BACK} edge
+     */
+    private List&lt;Edge&gt; buildCycle(Edge backEdge, List&lt;Edge&gt; path, int pos) {
+<span class="fc bfc" id="L185" title="All 2 branches covered.">        int length = path != null ? path.size() - pos : 0;</span>
+<span class="fc" id="L186">        List&lt;Edge&gt; cycle = new ArrayList&lt;&gt;(length + 1);</span>
+<span class="fc" id="L187">        cycle.add(0, backEdge);</span>
+<span class="fc bfc" id="L188" title="All 2 branches covered.">        for (int i = 0; i &lt; length; i++) {</span>
+<span class="fc" id="L189">            cycle.add(i + 1, path.get(pos + i));</span>
+        }
+<span class="fc" id="L191">        return cycle;</span>
+    }
+
+    /**
+     * Computes the list of edges forming a cycle. The cycle always exists for
+     * a type {@link Edge#TYPE_BACK} edge. This method should only be called
+     * for type {@link Edge#TYPE_BACK} edges.
+     * @param edge Edge where the cycle was detected
+     * @param path Path consisting of edges to the edge's starting node
+     * @return Cycle starting with a type {@link Edge#TYPE_BACK} edge
+     */
+    private List&lt;Edge&gt; cycleForBackEdge(Edge edge, List&lt;Edge&gt; path) {
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">        if (edge.getType() != Edge.TYPE_BACK) {</span>
+<span class="nc" id="L204">            return null;</span>
+        }
+
+<span class="fc" id="L207">        int pos = 0;</span>
+<span class="pc bpc" id="L208" title="1 of 4 branches missed.">        if (path != null &amp;&amp; !edge.getFrom().equals(edge.getTo())) {</span>
+            // Not a single edge loop
+<span class="fc" id="L210">            pos = findNodeInPath(edge.getTo(), path);</span>
+<span class="pc bpc" id="L211" title="2 of 4 branches missed.">            assert (pos &gt;= 0): _loc.get(&quot;node-not-on-path&quot;, edge, edge.getTo());</span>
+        } else {
+<span class="pc bpc" id="L213" title="2 of 4 branches missed.">            assert (edge.getFrom().equals(edge.getTo())):</span>
+<span class="nc" id="L214">                _loc.get(&quot;edge-no-loop&quot;, edge).getMessage();</span>
+<span class="fc" id="L215">            path = null;</span>
+        }
+<span class="fc" id="L217">        List&lt;Edge&gt; cycle = buildCycle(edge, path, pos);</span>
+<span class="pc bpc" id="L218" title="2 of 4 branches missed.">        assert (cycle != null): _loc.get(&quot;cycle-null&quot;, edge).getMessage();</span>
+<span class="fc" id="L219">        return cycle;</span>
+    }
+
+    /**
+     * Computes the cycle of edges including node cycleTo. The cycle must not
+     * necessarily exist. This method should only be called for type
+     * {@link Edge#TYPE_FORWARD} edges.
+     * @param graph Graph
+     * @param node Current node
+     * @param cycleTo End node for loop
+     * @param path Path from loop end node to current node
+     * @return True if a cycle has been found. The cycle will be contained in
+     * the &lt;code&gt;path&lt;/code&gt; parameter.
+     */
+    private boolean cycleForForwardEdge(Graph graph, Object node,
+        Object cycleTo, List&lt;Edge&gt; path) {
+<span class="fc" id="L235">        boolean found = false;</span>
+<span class="fc" id="L236">        Collection&lt;Edge&gt; edges = graph.getEdgesFrom(node);</span>
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">        for (Edge edge : edges) {</span>
+<span class="nc" id="L238">            Object other = edge.getOther(node);</span>
+            // Single edge loops are ignored
+<span class="nc bnc" id="L240" title="All 2 branches missed.">            if (!node.equals(other)) {</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">                if (other.equals(cycleTo)) {</span>
+                    // Cycle complete
+<span class="nc" id="L243">                    path.add(edge);</span>
+<span class="nc" id="L244">                    found = true;</span>
+<span class="nc bnc" id="L245" title="All 2 branches missed.">                } else if (!path.contains(edge)){</span>
+                    // Walk this edge
+<span class="nc" id="L247">                    path.add(edge);</span>
+<span class="nc" id="L248">                    found = cycleForForwardEdge(graph, other, cycleTo, path);</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">                    if (!found) {</span>
+                        // Remove edge again
+<span class="nc" id="L251">                        path.remove(edge);</span>
+                    }
+                }
+            }
+<span class="nc" id="L255">        }</span>
+<span class="fc" id="L256">        return found;</span>
+    }
+
+    /**
+     * Finds the position of the edge starting from a particular node in the
+     * continuous list of edges.
+     * @param node Node on the cycle.
+     * @param path Continuous list of graph edges.
+     * @return Edge index if found, -1 otherwise.
+     */
+    private int findNodeInPath(Object node, List&lt;Edge&gt; path) {
+<span class="fc" id="L267">        int pos = -1;</span>
+<span class="pc bpc" id="L268" title="1 of 2 branches missed.">        if (path != null) {</span>
+<span class="fc bfc" id="L269" title="All 2 branches covered.">            for (int i = 0; i &lt; path.size(); i++) {</span>
+<span class="fc bfc" id="L270" title="All 2 branches covered.">                if ( path.get(i).getFrom().equals(node)) {</span>
+<span class="fc" id="L271">                    pos = i;</span>
+                }
+            }
+        }
+<span class="fc" id="L275">        return pos;</span>
+    }
+
+    /**
+     * Test, if the analysis didn't find cycles.
+     */
+    public boolean hasNoCycles() {
+        // a) there must not be any back edges
+<span class="fc bfc" id="L283" title="All 2 branches covered.">        if (!getEdges(Edge.TYPE_BACK).isEmpty()) {</span>
+<span class="fc" id="L284">            return false;</span>
+        }
+        // b) there might be forward edges
+        // make sure these don't indicate cycles
+<span class="fc" id="L288">        Collection&lt;Edge&gt; edges = getEdges(Edge.TYPE_FORWARD);</span>
+<span class="pc bpc" id="L289" title="1 of 2 branches missed.">        if (!edges.isEmpty()) {</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">            for (Edge edge : edges) {</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">                if (edge.getCycle() != null)  {</span>
+<span class="nc" id="L292">                    return false;</span>
+                }
+<span class="nc" id="L294">            }</span>
+        }
+<span class="fc" id="L296">        return true;</span>
+    }
+
+    /**
+     * Comparator for topologically sorting entries in the node info map.
+     */
+    private static class NodeInfoComparator
+        implements Comparator&lt;Map.Entry&lt;Object,NodeInfo&gt;&gt; {
+
+        private final Comparator&lt;Object&gt; _subComp;
+
+<span class="fc" id="L307">        public NodeInfoComparator(Comparator&lt;Object&gt; subComp) {</span>
+<span class="fc" id="L308">            _subComp = subComp;</span>
+<span class="fc" id="L309">        }</span>
+
+        @Override
+        public int compare(Map.Entry&lt;Object,NodeInfo&gt; e1, Map.Entry&lt;Object,NodeInfo&gt; e2) {
+<span class="fc" id="L313">            NodeInfo n1 = e1.getValue();</span>
+<span class="fc" id="L314">            NodeInfo n2 = e2.getValue();</span>
+
+            // sort by finished order
+<span class="fc" id="L317">            int ret = n1.finished - n2.finished;</span>
+<span class="fc bfc" id="L318" title="All 4 branches covered.">            if (ret == 0 &amp;&amp; _subComp != null)</span>
+<span class="fc" id="L319">                ret = _subComp.compare(e1.getKey(), e2.getKey());</span>
+<span class="fc" id="L320">            return ret;</span>
+        }
+    }
+
+    /**
+     *	List of node-to-nodeinfo entries that exposes just the nodes.
+     */
+    private static class NodeList
+        extends AbstractList&lt;Object&gt; {
+
+        private final Map.Entry&lt;Object, NodeInfo&gt;[] _entries;
+
+<span class="fc" id="L332">        public NodeList(Map.Entry&lt;Object, NodeInfo&gt;[] entries) {</span>
+<span class="fc" id="L333">            _entries = entries;</span>
+<span class="fc" id="L334">        }</span>
+
+        @Override
+        public Object get(int idx) {
+<span class="fc" id="L338">            return _entries[idx].getKey();</span>
+        }
+
+        @Override
+        public int size() {
+<span class="fc" id="L343">            return _entries.length;</span>
+		}
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

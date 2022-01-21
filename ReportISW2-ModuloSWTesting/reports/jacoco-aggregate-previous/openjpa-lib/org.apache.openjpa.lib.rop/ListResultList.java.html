@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ListResultList.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.rop</a> &gt; <span class="el_source">ListResultList.java</span></div><h1>ListResultList.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.rop;
+
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+
+/**
+ * A basic {@link ResultList} implementation that wraps a normal list.
+ *
+ * @author Abe White
+ */
+public class ListResultList extends AbstractResultList {
+
+    
+    private static final long serialVersionUID = 1L;
+    private final List _list;
+<span class="nc" id="L36">    private boolean _closed = false;</span>
+
+    /**
+     * Constructor. Supply delegate.
+     */
+<span class="nc" id="L41">    public ListResultList(List list) {</span>
+<span class="nc" id="L42">        _list = list;</span>
+<span class="nc" id="L43">    }</span>
+
+    /**
+     * Return the wrapped list.
+     */
+    public List getDelegate() {
+<span class="nc" id="L49">        return _list;</span>
+    }
+
+    @Override
+    public boolean isProviderOpen() {
+<span class="nc" id="L54">        return false;</span>
+    }
+
+    @Override
+    public boolean isClosed() {
+<span class="nc" id="L59">        return _closed;</span>
+    }
+
+    @Override
+    public void close() {
+<span class="nc" id="L64">        _closed = true;</span>
+<span class="nc" id="L65">    }</span>
+
+    @Override
+    public boolean contains(Object o) {
+<span class="nc" id="L69">        assertOpen();</span>
+<span class="nc" id="L70">        return _list.contains(o);</span>
+    }
+
+    @Override
+    public boolean containsAll(Collection c) {
+<span class="nc" id="L75">        assertOpen();</span>
+<span class="nc" id="L76">        return _list.containsAll(c);</span>
+    }
+
+    @Override
+    public Object get(int index) {
+<span class="nc" id="L81">        assertOpen();</span>
+<span class="nc" id="L82">        return _list.get(index);</span>
+    }
+
+    @Override
+    public int indexOf(Object o) {
+<span class="nc" id="L87">        assertOpen();</span>
+<span class="nc" id="L88">        return _list.indexOf(o);</span>
+    }
+
+    @Override
+    public int lastIndexOf(Object o) {
+<span class="nc" id="L93">        assertOpen();</span>
+<span class="nc" id="L94">        return _list.lastIndexOf(o);</span>
+    }
+
+    @Override
+    public int size() {
+<span class="nc" id="L99">        assertOpen();</span>
+<span class="nc" id="L100">        return _list.size();</span>
+    }
+
+    @Override
+    public boolean isEmpty() {
+<span class="nc" id="L105">        assertOpen();</span>
+<span class="nc" id="L106">        return _list.isEmpty();</span>
+    }
+
+    @Override
+    public Iterator iterator() {
+<span class="nc" id="L111">        return listIterator();</span>
+    }
+
+    @Override
+    public ListIterator listIterator() {
+<span class="nc" id="L116">        return new ResultListIterator(_list.listIterator(), this);</span>
+    }
+
+    @Override
+    public ListIterator listIterator(int index) {
+<span class="nc" id="L121">        return new ResultListIterator(_list.listIterator(index), this);</span>
+    }
+
+    @Override
+    public Object[] toArray() {
+<span class="nc" id="L126">        assertOpen();</span>
+<span class="nc" id="L127">        return _list.toArray();</span>
+    }
+
+    @Override
+    public Object[] toArray(Object[] a) {
+<span class="nc" id="L132">        assertOpen();</span>
+<span class="nc" id="L133">        return _list.toArray(a);</span>
+    }
+
+    public Object writeReplace() {
+<span class="nc" id="L137">        return _list;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L142">    	return _list.toString();</span>
+    }
+
+    @Override
+    public List subList(int fromIndex, int toIndex) {
+<span class="nc" id="L147">        assertOpen();</span>
+<span class="nc" id="L148">        return _list.subList(fromIndex, toIndex);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

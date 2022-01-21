@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ZipStreamMetaDataIterator.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.meta</a> &gt; <span class="el_source">ZipStreamMetaDataIterator.java</span></div><h1>ZipStreamMetaDataIterator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.meta;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.NoSuchElementException;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
+/**
+ * Iterator over all metadata resources in a given zip input stream.
+ *
+ * @author Abe White
+ */
+public class ZipStreamMetaDataIterator
+    implements MetaDataIterator, MetaDataFilter.Resource {
+
+    private final ZipInputStream _stream;
+    private final MetaDataFilter _filter;
+<span class="nc" id="L40">    private ZipEntry _entry = null;</span>
+<span class="nc" id="L41">    private ZipEntry _last = null;</span>
+<span class="nc" id="L42">    private byte[] _buf = null;</span>
+
+    /**
+     * Constructor; supply zip stream and optional metadata filter.
+     */
+    public ZipStreamMetaDataIterator(ZipInputStream stream,
+<span class="nc" id="L48">        MetaDataFilter filter) {</span>
+<span class="nc" id="L49">        _stream = stream;</span>
+<span class="nc" id="L50">        _filter = filter;</span>
+<span class="nc" id="L51">    }</span>
+
+    @Override
+    public boolean hasNext() throws IOException {
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        if (_stream == null)</span>
+<span class="nc" id="L56">            return false;</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        if (_entry != null)</span>
+<span class="nc" id="L58">            return true;</span>
+
+        // close last rsrc
+<span class="nc bnc" id="L61" title="All 4 branches missed.">        if (_buf == null &amp;&amp; _last != null)</span>
+<span class="nc" id="L62">            _stream.closeEntry();</span>
+<span class="nc" id="L63">        _last = null;</span>
+<span class="nc" id="L64">        _buf = null;</span>
+
+        // search for next file
+        ZipEntry entry;
+<span class="nc bnc" id="L68" title="All 4 branches missed.">        while (_entry == null &amp;&amp; (entry = _stream.getNextEntry()) != null) {</span>
+<span class="nc" id="L69">            _entry = entry;</span>
+<span class="nc bnc" id="L70" title="All 4 branches missed.">            if (_filter != null &amp;&amp; !_filter.matches(this)) {</span>
+<span class="nc" id="L71">                _entry = null;</span>
+<span class="nc" id="L72">                _stream.closeEntry();</span>
+            }
+        }
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        return _entry != null;</span>
+    }
+
+    @Override
+    public String next() throws IOException {
+<span class="nc bnc" id="L80" title="All 2 branches missed.">        if (!hasNext())</span>
+<span class="nc" id="L81">            throw new NoSuchElementException();</span>
+<span class="nc" id="L82">        String ret = _entry.getName();</span>
+<span class="nc" id="L83">        _last = _entry;</span>
+<span class="nc" id="L84">        _entry = null;</span>
+<span class="nc" id="L85">        return ret;</span>
+    }
+
+    @Override
+    public InputStream getInputStream() {
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        if (_last == null)</span>
+<span class="nc" id="L91">            throw new IllegalStateException();</span>
+
+<span class="nc bnc" id="L93" title="All 2 branches missed.">        if (_buf != null)</span>
+<span class="nc" id="L94">            return new ByteArrayInputStream(_buf);</span>
+<span class="nc" id="L95">        return new NoCloseInputStream();</span>
+    }
+
+    @Override
+    public File getFile() {
+<span class="nc" id="L100">        return null;</span>
+    }
+
+    @Override
+    public void close() {
+        try {
+<span class="nc" id="L106">            _stream.close();</span>
+<span class="nc" id="L107">        } catch (IOException ioe) {</span>
+<span class="nc" id="L108">        }</span>
+<span class="nc" id="L109">    }</span>
+
+    //////////////////////////////////////////
+    // MetaDataFilter.Resource implementation
+    //////////////////////////////////////////
+
+    @Override
+    public String getName() {
+<span class="nc" id="L117">        return _entry.getName();</span>
+    }
+
+    @Override
+    public byte[] getContent() throws IOException {
+        // buffer content so that future calls to getInputStream can read
+        // the same data
+<span class="nc" id="L124">        ByteArrayOutputStream bout = new ByteArrayOutputStream();</span>
+<span class="nc" id="L125">        byte[] buf = new byte[1024];</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        for (int r; (r = _stream.read(buf)) != -1; bout.write(buf, 0, r)) ;</span>
+<span class="nc" id="L127">        _buf = bout.toByteArray();</span>
+<span class="nc" id="L128">        _stream.closeEntry();</span>
+<span class="nc" id="L129">        return _buf;</span>
+    }
+
+    /**
+     * Non-closing input stream used to make sure the underlying zip
+     * stream is not closed.
+     */
+<span class="nc" id="L136">    private class NoCloseInputStream extends InputStream {</span>
+
+        @Override
+        public int available() throws IOException {
+<span class="nc" id="L140">            return _stream.available();</span>
+        }
+
+        @Override
+        public int read() throws IOException {
+<span class="nc" id="L145">            return _stream.read();</span>
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+<span class="nc" id="L150">            return _stream.read(b, off, len);</span>
+        }
+
+        @Override
+        public void close() {
+<span class="nc" id="L155">        }</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

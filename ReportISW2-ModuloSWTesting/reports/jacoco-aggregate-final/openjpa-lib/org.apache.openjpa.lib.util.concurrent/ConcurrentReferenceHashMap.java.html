@@ -1,0 +1,1153 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ConcurrentReferenceHashMap.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util.concurrent</a> &gt; <span class="el_source">ConcurrentReferenceHashMap.java</span></div><h1>ConcurrentReferenceHashMap.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util.concurrent;
+
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.SoftReference;
+import java.lang.ref.WeakReference;
+import java.util.AbstractMap;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Random;
+import java.util.Set;
+
+import org.apache.openjpa.lib.util.ReferenceMap;
+import org.apache.openjpa.lib.util.SizedMap;
+import org.apache.openjpa.lib.util.collections.AbstractReferenceMap;
+
+/**
+ * This class implements a HashMap which has limited synchronization
+ * and reference keys or values(but not both). In particular mutators are
+ * generally synchronized while accessors are generally not. Additionally the
+ * Iterators returned by this class are not &quot;fail-fast&quot;, but instead try to
+ * continue to iterate over the data structure after changes have been
+ * made. Finally purging of the reference queue is only done inside mutators.
+ * Null keys are not supported if keys use references. Null values are not
+ * supported if values use references.
+ * This class is based heavily on the WeakHashMap class in the Java
+ * collections package.
+ */
+public class ConcurrentReferenceHashMap extends AbstractMap
+    implements ConcurrentMap, ReferenceMap, SizedMap, Cloneable {
+
+    /**
+     * Cache of random numbers used in &quot;random&quot; methods, since generating them
+     * is expensive. We hope each map changes enough between cycling through
+     * this list that the overall effect is random enough.
+     */
+<span class="nc" id="L56">    static final double[] RANDOMS = new double[1000];</span>
+
+    static {
+<span class="nc" id="L59">        Random random = new Random();</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        for (int i = 0; i &lt; RANDOMS.length; i++)</span>
+<span class="nc" id="L61">            RANDOMS[i] = random.nextDouble();</span>
+<span class="nc" id="L62">    }</span>
+
+    /**
+     * The hash table data.
+     */
+    private transient Entry[] table;
+
+    /**
+     * The total number of entries in the hash table.
+     */
+    private transient int count;
+
+    /**
+     * Rehashes the table when count exceeds this threshold.
+     */
+    private int threshold;
+
+    /**
+     * The load factor for the HashMap.
+     */
+    private float loadFactor;
+
+    /**
+     * The key reference type.
+     */
+    private AbstractReferenceMap.ReferenceStrength keyType;
+
+    /**
+     * The value reference type.
+     */
+    private AbstractReferenceMap.ReferenceStrength valueType;
+
+    /**
+     * Reference queue for cleared Entries
+     */
+<span class="nc" id="L97">    private final ReferenceQueue queue = new ReferenceQueue();</span>
+
+    /**
+     * Spread &quot;random&quot; removes and iteration.
+     */
+<span class="nc" id="L102">    private int randomEntry = 0;</span>
+
+    /**
+     * Maximum entries.
+     */
+<span class="nc" id="L107">    private int maxSize = Integer.MAX_VALUE;</span>
+
+    /**
+     * Compare two objects. These might be keys, values, or Entry instances.
+     * This implementation uses a normal null-safe object equality algorithm.
+     *
+     * @since 1.0.0
+     */
+    protected boolean eq(Object x, Object y) {
+<span class="nc bnc" id="L116" title="All 6 branches missed.">        return x == y || (x != null &amp;&amp; x.equals(y));</span>
+    }
+
+    /**
+     * Obtain the hashcode of an object. The object might be a key, a value,
+     * or an Entry. This implementation just delegates to
+     * {@link Object#hashCode}
+     *
+     * @since 1.0.0
+     */
+    protected int hc(Object o) {
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        return o == null ? 0 : o.hashCode();</span>
+    }
+
+    /**
+     * Constructs a new, empty HashMap with the specified initial
+     * capacity and the specified load factor.
+     *
+     * @param keyType the reference type of map keys
+     * @param valueType the reference type of map values
+     * @param initialCapacity the initial capacity of the HashMap.
+     * @param loadFactor a number between 0.0 and 1.0.
+     * @throws IllegalArgumentException if neither keys nor values use hard
+     * references, if the initial capacity is less than or equal to zero, or if
+     * the load factor is less than or equal to zero
+     */
+    public ConcurrentReferenceHashMap(AbstractReferenceMap.ReferenceStrength keyType,
+                                      AbstractReferenceMap.ReferenceStrength valueType,
+<span class="nc" id="L144">                                      int initialCapacity, float loadFactor) {</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">        if (initialCapacity &lt; 0) {</span>
+<span class="nc" id="L146">            throw new IllegalArgumentException(&quot;Illegal Initial Capacity: &quot; +</span>
+                initialCapacity);
+        }
+<span class="nc bnc" id="L149" title="All 4 branches missed.">        if ((loadFactor &gt; 1) || (loadFactor &lt;= 0)) {</span>
+<span class="nc" id="L150">            throw new IllegalArgumentException(&quot;Illegal Load factor: &quot; +</span>
+                loadFactor);
+        }
+<span class="nc bnc" id="L153" title="All 4 branches missed.">        if (keyType != AbstractReferenceMap.ReferenceStrength.HARD &amp;&amp;</span>
+                valueType != AbstractReferenceMap.ReferenceStrength.HARD) {
+<span class="nc" id="L155">            throw new IllegalArgumentException(&quot;Either keys or values must &quot; +</span>
+                &quot;use hard references.&quot;);
+        }
+<span class="nc" id="L158">        this.keyType = keyType;</span>
+<span class="nc" id="L159">        this.valueType = valueType;</span>
+<span class="nc" id="L160">        this.loadFactor = loadFactor;</span>
+<span class="nc" id="L161">        table = new Entry[initialCapacity];</span>
+<span class="nc" id="L162">        threshold = (int) (initialCapacity * loadFactor);</span>
+<span class="nc" id="L163">    }</span>
+
+    /**
+     * Constructs a new, empty HashMap with the specified initial capacity
+     * and default load factor.
+     *
+     * @param keyType the reference type of map keys
+     * @param valueType the reference type of map values
+     * @param initialCapacity the initial capacity of the HashMap.
+     */
+    public ConcurrentReferenceHashMap(AbstractReferenceMap.ReferenceStrength keyType,
+                                      AbstractReferenceMap.ReferenceStrength valueType,
+        int initialCapacity) {
+<span class="nc" id="L176">        this(keyType, valueType, initialCapacity, 0.75f);</span>
+<span class="nc" id="L177">    }</span>
+
+    /**
+     * Constructs a new, empty HashMap with a default capacity and load factor.
+     *
+     * @param keyType the reference type of map keys
+     * @param valueType the reference type of map values
+     */
+    public ConcurrentReferenceHashMap(AbstractReferenceMap.ReferenceStrength keyType,
+                                      AbstractReferenceMap.ReferenceStrength valueType) {
+<span class="nc" id="L187">        this(keyType, valueType, 11, 0.75f);</span>
+<span class="nc" id="L188">    }</span>
+
+    /**
+     * Constructs a new HashMap with the same mappings as the given
+     * Map. The HashMap is created with a capacity of thrice the number
+     * of entries in the given Map or 11 (whichever is greater), and a
+     * default load factor.
+     *
+     * @param keyType the reference type of map keys
+     * @param valueType the reference type of map values
+     */
+    public ConcurrentReferenceHashMap(AbstractReferenceMap.ReferenceStrength keyType,
+                                      AbstractReferenceMap.ReferenceStrength valueType, Map t) {
+<span class="nc" id="L201">        this(keyType, valueType, Math.max(3 * t.size(), 11), 0.75f);</span>
+<span class="nc" id="L202">        putAll(t);</span>
+<span class="nc" id="L203">    }</span>
+
+    @Override
+    public int getMaxSize() {
+<span class="nc" id="L207">        return maxSize;</span>
+    }
+
+    @Override
+    public void setMaxSize(int maxSize) {
+<span class="nc bnc" id="L212" title="All 2 branches missed.">        this.maxSize = (maxSize &lt; 0) ? Integer.MAX_VALUE : maxSize;</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">        if (this.maxSize != Integer.MAX_VALUE)</span>
+<span class="nc" id="L214">            removeOverflow(this.maxSize);</span>
+<span class="nc" id="L215">    }</span>
+
+    @Override
+    public boolean isFull() {
+<span class="nc bnc" id="L219" title="All 4 branches missed.">        return maxSize != Integer.MAX_VALUE &amp;&amp; size() &gt;= maxSize;</span>
+    }
+
+    @Override
+    public void overflowRemoved(Object key, Object value) {
+<span class="nc" id="L224">    }</span>
+
+    /**
+     * Returns the number of key-value mappings in this Map. This
+     * result is a snapshot, and may not reflect unprocessed entries
+     * that will be removed before next attempted access because they
+     * are no longer referenced.
+     */
+    @Override
+    public int size() {
+<span class="nc" id="L234">        return count;</span>
+    }
+
+    /**
+     * Returns true if this Map contains no key-value mappings. This
+     * result is a snapshot, and may not reflect unprocessed entries
+     * that will be removed before next attempted access because they
+     * are no longer referenced.
+     */
+    @Override
+    public boolean isEmpty() {
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        return count == 0;</span>
+    }
+
+    /**
+     * Returns true if this HashMap maps one or more keys to the specified
+     * value.
+     *
+     * @param value value whose presence in this Map is to be tested.
+     */
+    @Override
+    public boolean containsValue(Object value) {
+<span class="nc" id="L256">        Entry[] tab = table;</span>
+
+<span class="nc bnc" id="L258" title="All 2 branches missed.">        if (value == null) {</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">            if (valueType != AbstractReferenceMap.ReferenceStrength.HARD)</span>
+<span class="nc" id="L260">                return false;</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">            for (int i = tab.length; i-- &gt; 0;)</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">                for (Entry e = tab[i]; e != null; e = e.getNext())</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">                    if (e.getValue() == null)</span>
+<span class="nc" id="L264">                        return true;</span>
+        } else {
+<span class="nc bnc" id="L266" title="All 2 branches missed.">            for (int i = tab.length; i-- &gt; 0;)</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">                for (Entry e = tab[i]; e != null; e = e.getNext())</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">                    if (eq(value, e.getValue()))</span>
+<span class="nc" id="L269">                        return true;</span>
+        }
+<span class="nc" id="L271">        return false;</span>
+    }
+
+    /**
+     * Returns true if this HashMap contains a mapping for the specified key.
+     *
+     * @param key key whose presence in this Map is to be tested.
+     */
+    @Override
+    public boolean containsKey(Object key) {
+<span class="nc bnc" id="L281" title="All 4 branches missed.">        if (key == null &amp;&amp; keyType != AbstractReferenceMap.ReferenceStrength.HARD)</span>
+<span class="nc" id="L282">            return false;</span>
+
+<span class="nc" id="L284">        Entry[] tab = table;</span>
+<span class="nc" id="L285">        int hash = hc(key);</span>
+<span class="nc" id="L286">        int index = (hash &amp; 0x7FFFFFFF) % tab.length;</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">        for (Entry e = tab[index]; e != null; e = e.getNext())</span>
+<span class="nc bnc" id="L288" title="All 4 branches missed.">            if (e.getHash() == hash &amp;&amp; eq(key, e.getKey()))</span>
+<span class="nc" id="L289">                return true;</span>
+<span class="nc" id="L290">        return false;</span>
+    }
+
+    /**
+     * Returns the value to which this HashMap maps the specified key.
+     * Returns null if the HashMap contains no mapping for this key.
+     *
+     * @param key key whose associated value is to be returned.
+     */
+    @Override
+    public Object get(Object key) {
+<span class="nc bnc" id="L301" title="All 4 branches missed.">        if (key == null &amp;&amp; keyType != AbstractReferenceMap.ReferenceStrength.HARD)</span>
+<span class="nc" id="L302">            return null;</span>
+
+<span class="nc" id="L304">        Entry[] tab = table;</span>
+<span class="nc" id="L305">        int hash = hc(key);</span>
+<span class="nc" id="L306">        int index = (hash &amp; 0x7FFFFFFF) % tab.length;</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">        for (Entry e = tab[index]; e != null; e = e.getNext())</span>
+<span class="nc bnc" id="L308" title="All 4 branches missed.">            if ((e.getHash() == hash) &amp;&amp; eq(key, e.getKey()))</span>
+<span class="nc" id="L309">                return e.getValue();</span>
+
+<span class="nc" id="L311">        return null;</span>
+    }
+
+    /**
+     * Rehashes the contents of the HashMap into a HashMap with a
+     * larger capacity. This method is called automatically when the
+     * number of keys in the HashMap exceeds this HashMap's capacity
+     * and load factor.
+     */
+    private void rehash() {
+<span class="nc" id="L321">        int oldCapacity = table.length;</span>
+<span class="nc" id="L322">        Entry oldMap[] = table;</span>
+
+<span class="nc" id="L324">        int newCapacity = oldCapacity * 2 + 1;</span>
+<span class="nc" id="L325">        Entry newMap[] = new Entry[newCapacity];</span>
+
+<span class="nc bnc" id="L327" title="All 2 branches missed.">        for (int i = oldCapacity; i-- &gt; 0;) {</span>
+<span class="nc bnc" id="L328" title="All 2 branches missed.">            for (Entry old = oldMap[i]; old != null;) {</span>
+<span class="nc bnc" id="L329" title="All 6 branches missed.">                if ((keyType != AbstractReferenceMap.ReferenceStrength.HARD &amp;&amp; old.getKey() == null)</span>
+<span class="nc bnc" id="L330" title="All 2 branches missed.">                    || valueType != AbstractReferenceMap.ReferenceStrength.HARD &amp;&amp; old.getValue() == null) {</span>
+<span class="nc" id="L331">                    Entry e = old;</span>
+<span class="nc" id="L332">                    old = old.getNext();</span>
+<span class="nc" id="L333">                    e.setNext(null);</span>
+<span class="nc" id="L334">                    count--;</span>
+<span class="nc" id="L335">                } else {</span>
+<span class="nc" id="L336">                    Entry e = (Entry) old.clone(queue);</span>
+<span class="nc" id="L337">                    old = old.getNext();</span>
+
+<span class="nc" id="L339">                    int index = (e.getHash() &amp; 0x7FFFFFFF) % newCapacity;</span>
+<span class="nc" id="L340">                    e.setNext(newMap[index]);</span>
+<span class="nc" id="L341">                    newMap[index] = e;</span>
+<span class="nc" id="L342">                }</span>
+            }
+        }
+
+<span class="nc" id="L346">        threshold = (int) (newCapacity * loadFactor);</span>
+<span class="nc" id="L347">        table = newMap;</span>
+<span class="nc" id="L348">    }</span>
+
+    /**
+     * Associates the specified value with the specified key in this HashMap.
+     * If the HashMap previously contained a mapping for this key, the old
+     * value is replaced.
+     *
+     * @param key key with which the specified value is to be associated.
+     * @param value value to be associated with the specified key.
+     * @return previous value associated with specified key, or null if there
+     * was no mapping for key. A null return can also indicate that
+     * the HashMap previously associated null with the specified key.
+     */
+    @Override
+    public Object put(Object key, Object value) {
+<span class="nc bnc" id="L363" title="All 8 branches missed.">        if ((key == null &amp;&amp; keyType != AbstractReferenceMap.ReferenceStrength.HARD)</span>
+            || (value == null &amp;&amp; valueType != AbstractReferenceMap.ReferenceStrength.HARD))
+<span class="nc" id="L365">            throw new IllegalArgumentException(&quot;Null references not supported&quot;);</span>
+
+<span class="nc" id="L367">        int hash = hc(key);</span>
+<span class="nc" id="L368">        synchronized (this) {</span>
+<span class="nc" id="L369">            expungeStaleEntries();</span>
+
+<span class="nc" id="L371">            Entry[] tab = table;</span>
+<span class="nc" id="L372">            int index = 0;</span>
+
+<span class="nc" id="L374">            index = (hash &amp; 0x7FFFFFFF) % tab.length;</span>
+<span class="nc bnc" id="L375" title="All 2 branches missed.">            for (Entry e = tab[index], prev = null; e != null; prev = e,</span>
+<span class="nc" id="L376">                e = e.getNext()) {</span>
+<span class="nc bnc" id="L377" title="All 4 branches missed.">                if ((e.getHash() == hash) &amp;&amp; eq(key, e.getKey())) {</span>
+<span class="nc" id="L378">                    Object old = e.getValue();</span>
+<span class="nc bnc" id="L379" title="All 2 branches missed.">                    if (valueType == AbstractReferenceMap.ReferenceStrength.HARD)</span>
+<span class="nc" id="L380">                        e.setValue(value);</span>
+                    else {
+<span class="nc" id="L382">                        e = newEntry(hash, e.getKey(), value, e.getNext());</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">                        if (prev == null)</span>
+<span class="nc" id="L384">                            tab[index] = e;</span>
+                        else
+<span class="nc" id="L386">                            prev.setNext(e);</span>
+                    }
+<span class="nc" id="L388">                    return old;</span>
+                }
+            }
+
+<span class="nc bnc" id="L392" title="All 2 branches missed.">            if (count &gt;= threshold) {</span>
+                // Rehash the table if the threshold is exceeded
+<span class="nc" id="L394">                rehash();</span>
+
+<span class="nc" id="L396">                tab = table;</span>
+<span class="nc" id="L397">                index = (hash &amp; 0x7FFFFFFF) % tab.length;</span>
+            }
+
+<span class="nc bnc" id="L400" title="All 2 branches missed.">            if (maxSize != Integer.MAX_VALUE)</span>
+<span class="nc" id="L401">                removeOverflow(maxSize - 1);</span>
+<span class="nc" id="L402">            tab[index] = newEntry(hash, key, value, tab[index]);</span>
+<span class="nc" id="L403">            count++;</span>
+<span class="nc" id="L404">        }</span>
+<span class="nc" id="L405">        return null;</span>
+    }
+
+    /**
+     * Creates a new entry.
+     */
+    private Entry newEntry(int hash, Object key, Object value, Entry next) {
+<span class="nc bnc" id="L412" title="All 2 branches missed.">        AbstractReferenceMap.ReferenceStrength refType = (keyType != AbstractReferenceMap.ReferenceStrength.HARD) ? keyType : valueType;</span>
+<span class="nc bnc" id="L413" title="All 3 branches missed.">        switch (refType) {</span>
+            case WEAK:
+<span class="nc bnc" id="L415" title="All 2 branches missed.">                return new WeakEntry(hash, key, value, refType == keyType, next,</span>
+                    queue);
+            case SOFT:
+<span class="nc bnc" id="L418" title="All 2 branches missed.">                return new SoftEntry(hash, key, value, refType == keyType, next,</span>
+                    queue);
+            default:
+<span class="nc" id="L421">                return new HardEntry(hash, key, value, next);</span>
+        }
+    }
+
+    /**
+     * Remove any entries equal to or over the max size.
+     */
+    private void removeOverflow(int maxSize) {
+<span class="nc bnc" id="L429" title="All 2 branches missed.">        while (count &gt; maxSize) {</span>
+<span class="nc" id="L430">            Map.Entry entry = removeRandom();</span>
+<span class="nc bnc" id="L431" title="All 2 branches missed.">            if (entry == null)</span>
+<span class="nc" id="L432">                break;</span>
+<span class="nc" id="L433">            overflowRemoved(entry.getKey(), entry.getValue());</span>
+<span class="nc" id="L434">        }</span>
+<span class="nc" id="L435">    }</span>
+
+    /**
+     * Removes the mapping for this key from this HashMap if present.
+     *
+     * @param key key whose mapping is to be removed from the Map.
+     * @return previous value associated with specified key, or null if there
+     * was no mapping for key. A null return can also indicate that
+     * the HashMap previously associated null with the specified key.
+     */
+    @Override
+    public Object remove(Object key) {
+<span class="nc bnc" id="L447" title="All 4 branches missed.">        if (key == null &amp;&amp; keyType != AbstractReferenceMap.ReferenceStrength.HARD)</span>
+<span class="nc" id="L448">            return null;</span>
+
+<span class="nc" id="L450">        int hash = hc(key);</span>
+<span class="nc" id="L451">        synchronized (this) {</span>
+<span class="nc" id="L452">            expungeStaleEntries();</span>
+
+<span class="nc" id="L454">            Entry[] tab = table;</span>
+
+<span class="nc" id="L456">            int index = (hash &amp; 0x7FFFFFFF) % tab.length;</span>
+<span class="nc bnc" id="L457" title="All 2 branches missed.">            for (Entry e = tab[index], prev = null; e != null;</span>
+<span class="nc" id="L458">                prev = e, e = e.getNext()) {</span>
+<span class="nc bnc" id="L459" title="All 4 branches missed.">                if ((e.getHash() == hash) &amp;&amp; eq(key, e.getKey())) {</span>
+<span class="nc bnc" id="L460" title="All 2 branches missed.">                    if (prev != null)</span>
+<span class="nc" id="L461">                        prev.setNext(e.getNext());</span>
+                        // otherwise put the bucket after us
+                    else
+<span class="nc" id="L464">                        tab[index] = e.getNext();</span>
+
+<span class="nc" id="L466">                    count--;</span>
+<span class="nc" id="L467">                    return e.getValue();</span>
+                }
+            }
+<span class="nc" id="L470">        }</span>
+<span class="nc" id="L471">        return null;</span>
+    }
+
+    @Override
+    public void removeExpired() {
+<span class="nc" id="L476">        synchronized (this) {</span>
+<span class="nc" id="L477">            expungeStaleEntries();</span>
+<span class="nc" id="L478">        }</span>
+<span class="nc" id="L479">    }</span>
+
+    @Override
+    public void keyExpired(Object value) {
+<span class="nc" id="L483">    }</span>
+
+    @Override
+    public void valueExpired(Object key) {
+<span class="nc" id="L487">    }</span>
+
+    /**
+     * Return an arbitrary entry index.
+     */
+    private int randomEntryIndex() {
+<span class="nc bnc" id="L493" title="All 2 branches missed.">        if (randomEntry == RANDOMS.length)</span>
+<span class="nc" id="L494">            randomEntry = 0;</span>
+<span class="nc" id="L495">        return (int) (RANDOMS[randomEntry++] * table.length);</span>
+    }
+
+    @Override
+    public Map.Entry removeRandom() {
+<span class="nc" id="L500">        synchronized (this) {</span>
+<span class="nc" id="L501">            expungeStaleEntries();</span>
+<span class="nc bnc" id="L502" title="All 2 branches missed.">            if (count == 0)</span>
+<span class="nc" id="L503">                return null;</span>
+
+<span class="nc" id="L505">            int random = randomEntryIndex();</span>
+<span class="nc bnc" id="L506" title="All 2 branches missed.">            int index = findEntry(random, random % 2 == 0, false);</span>
+<span class="nc bnc" id="L507" title="All 2 branches missed.">            if (index == -1)</span>
+<span class="nc" id="L508">                return null;</span>
+<span class="nc" id="L509">            Entry rem = table[index];</span>
+<span class="nc" id="L510">            table[index] = rem.getNext();</span>
+<span class="nc" id="L511">            count--;</span>
+<span class="nc" id="L512">            return rem;</span>
+        }
+    }
+
+    /**
+     * Find the index of the entry nearest the given index, starting in the
+     * given direction.
+     */
+    private int findEntry(int start, boolean forward, boolean searchedOther) {
+<span class="nc bnc" id="L521" title="All 2 branches missed.">        if (forward) {</span>
+<span class="nc bnc" id="L522" title="All 2 branches missed.">            for (int i = start; i &lt; table.length; i++)</span>
+<span class="nc bnc" id="L523" title="All 2 branches missed.">                if (table[i] != null)</span>
+<span class="nc" id="L524">                    return i;</span>
+<span class="nc bnc" id="L525" title="All 4 branches missed.">            return (searchedOther || start == 0) ? -1</span>
+<span class="nc" id="L526">                : findEntry(start - 1, false, true);</span>
+        } else {
+<span class="nc bnc" id="L528" title="All 2 branches missed.">            for (int i = start; i &gt;= 0; i--)</span>
+<span class="nc bnc" id="L529" title="All 2 branches missed.">                if (table[i] != null)</span>
+<span class="nc" id="L530">                    return i;</span>
+<span class="nc bnc" id="L531" title="All 4 branches missed.">            return (searchedOther || start == table.length - 1) ? -1</span>
+<span class="nc" id="L532">                : findEntry(start + 1, true, true);</span>
+        }
+    }
+
+    @Override
+    public Iterator randomEntryIterator() {
+        // pass index so calculated before iterator refs table, in case table
+        // gets replace with a larger one
+<span class="nc" id="L540">        return new HashIterator(ENTRIES, randomEntryIndex());</span>
+    }
+
+    /**
+     * Copies all of the mappings from the specified Map to this HashMap
+     * These mappings will replace any mappings that this HashMap had for any
+     * of the keys currently in the specified Map.
+     *
+     * @param t Mappings to be stored in this Map.
+     */
+    @Override
+    public void putAll(Map t) {
+<span class="nc" id="L552">        Iterator i = t.entrySet().iterator();</span>
+<span class="nc bnc" id="L553" title="All 2 branches missed.">        while (i.hasNext()) {</span>
+<span class="nc" id="L554">            Map.Entry e = (Map.Entry) i.next();</span>
+<span class="nc" id="L555">            put(e.getKey(), e.getValue());</span>
+<span class="nc" id="L556">        }</span>
+<span class="nc" id="L557">    }</span>
+
+    /**
+     * Removes all mappings from this HashMap.
+     */
+    @Override
+    public synchronized void clear() {
+        // clear out ref queue. We don't need to expunge entries
+        // since table is getting cleared.
+<span class="nc bnc" id="L566" title="All 2 branches missed.">        while (queue.poll() != null)</span>
+<span class="nc" id="L567">            ;</span>
+<span class="nc" id="L568">        table = new Entry[table.length];</span>
+<span class="nc" id="L569">        count = 0;</span>
+        // Allocation of array may have caused GC, which may have caused
+        // additional entries to go stale.    Removing these entries from
+        // the reference queue will make them eligible for reclamation.
+<span class="nc bnc" id="L573" title="All 2 branches missed.">        while (queue.poll() != null)</span>
+<span class="nc" id="L574">            ;</span>
+<span class="nc" id="L575">    }</span>
+
+    /**
+     * Returns a shallow copy of this HashMap. The keys and values
+     * themselves are not cloned.
+     */
+    @Override
+    public synchronized Object clone() {
+        try {
+<span class="nc" id="L584">            expungeStaleEntries();</span>
+
+<span class="nc" id="L586">            ConcurrentReferenceHashMap t = (ConcurrentReferenceHashMap)</span>
+<span class="nc" id="L587">                super.clone();</span>
+<span class="nc" id="L588">            t.table = new Entry[table.length];</span>
+<span class="nc bnc" id="L589" title="All 2 branches missed.">            for (int i = table.length; i-- &gt; 0;) {</span>
+<span class="nc" id="L590">                Entry e = table[i];</span>
+<span class="nc bnc" id="L591" title="All 2 branches missed.">                if (e != null) {</span>
+<span class="nc" id="L592">                    t.table[i] = (Entry) e.clone(t.queue);</span>
+<span class="nc" id="L593">                    e = e.getNext();</span>
+<span class="nc bnc" id="L594" title="All 2 branches missed.">                    for (Entry k = t.table[i]; e != null; e = e.getNext()) {</span>
+<span class="nc" id="L595">                        k.setNext((Entry) e.clone(t.queue));</span>
+<span class="nc" id="L596">                        k = k.getNext();</span>
+                    }
+                }
+<span class="nc" id="L599">            }</span>
+<span class="nc" id="L600">            t.keySet = null;</span>
+<span class="nc" id="L601">            t.entrySet = null;</span>
+<span class="nc" id="L602">            t.values = null;</span>
+<span class="nc" id="L603">            return t;</span>
+<span class="nc" id="L604">        } catch (CloneNotSupportedException e) {</span>
+            // this shouldn't happen, since we are Cloneable
+<span class="nc" id="L606">            throw new InternalError();</span>
+        }
+    }
+
+    // Views
+
+<span class="nc" id="L612">    private transient Set keySet = null;</span>
+<span class="nc" id="L613">    private transient Set entrySet = null;</span>
+<span class="nc" id="L614">    private transient Collection values = null;</span>
+
+    /**
+     * Returns a Set view of the keys contained in this HashMap. The Set is
+     * backed by the HashMap, so changes to the HashMap are reflected in the
+     * Set, and vice-versa. The Set supports element removal, which removes
+     * the corresponding mapping from the HashMap, via the Iterator.remove,
+     * Set.remove, removeAll retainAll, and clear operations. It does not
+     * support the add or addAll operations.
+     */
+    @Override
+    public Set keySet() {
+<span class="nc bnc" id="L626" title="All 2 branches missed.">        if (keySet == null) {</span>
+<span class="nc" id="L627">            keySet = new java.util.AbstractSet() {</span>
+                @Override
+                public Iterator iterator() {
+<span class="nc" id="L630">                    return new HashIterator(KEYS, table.length - 1);</span>
+                }
+
+                @Override
+                public int size() {
+<span class="nc" id="L635">                    return count;</span>
+                }
+
+                @Override
+                public boolean contains(Object o) {
+<span class="nc" id="L640">                    return containsKey(o);</span>
+                }
+
+                @Override
+                public boolean remove(Object o) {
+<span class="nc bnc" id="L645" title="All 2 branches missed.">                    return ConcurrentReferenceHashMap.this.remove(o) != null;</span>
+                }
+
+                @Override
+                public void clear() {
+<span class="nc" id="L650">                    ConcurrentReferenceHashMap.this.clear();</span>
+<span class="nc" id="L651">                }</span>
+            };
+        }
+<span class="nc" id="L654">        return keySet;</span>
+    }
+
+    /**
+     * Returns a Collection view of the values contained in this HashMap.
+     * The Collection is backed by the HashMap, so changes to the HashMap are
+     * reflected in the Collection, and vice-versa. The Collection supports
+     * element removal, which removes the corresponding mapping from the
+     * HashMap, via the Iterator.remove, Collection.remove, removeAll,
+     * retainAll and clear operations. It does not support the add or addAll
+     * operations.
+     */
+    @Override
+    public Collection values() {
+<span class="nc bnc" id="L668" title="All 2 branches missed.">        if (values == null) {</span>
+<span class="nc" id="L669">            values = new java.util.AbstractCollection() {</span>
+                @Override
+                public Iterator iterator() {
+<span class="nc" id="L672">                    return new HashIterator(VALUES, table.length - 1);</span>
+                }
+
+                @Override
+                public int size() {
+<span class="nc" id="L677">                    return count;</span>
+                }
+
+                @Override
+                public boolean contains(Object o) {
+<span class="nc" id="L682">                    return containsValue(o);</span>
+                }
+
+                @Override
+                public void clear() {
+<span class="nc" id="L687">                    ConcurrentReferenceHashMap.this.clear();</span>
+<span class="nc" id="L688">                }</span>
+            };
+        }
+<span class="nc" id="L691">        return values;</span>
+    }
+
+    /**
+     * Returns a Collection view of the mappings contained in this HashMap.
+     * Each element in the returned collection is a Map.Entry. The Collection
+     * is backed by the HashMap, so changes to the HashMap are reflected in the
+     * Collection, and vice-versa. The Collection supports element removal,
+     * which removes the corresponding mapping from the HashMap, via the
+     * Iterator.remove, Collection.remove, removeAll, retainAll and clear
+     * operations. It does not support the add or addAll operations.
+     *
+     * @see Map.Entry
+     */
+    @Override
+    public Set entrySet() {
+<span class="nc bnc" id="L707" title="All 2 branches missed.">        if (entrySet == null) {</span>
+<span class="nc" id="L708">            entrySet = new java.util.AbstractSet() {</span>
+                @Override
+                public Iterator iterator() {
+<span class="nc" id="L711">                    return new HashIterator(ENTRIES, table.length - 1);</span>
+                }
+
+                @Override
+                public boolean contains(Object o) {
+<span class="nc bnc" id="L716" title="All 2 branches missed.">                    if (!(o instanceof Map.Entry))</span>
+<span class="nc" id="L717">                        return false;</span>
+<span class="nc" id="L718">                    Map.Entry entry = (Map.Entry) o;</span>
+<span class="nc" id="L719">                    Object key = entry.getKey();</span>
+<span class="nc" id="L720">                    Entry[] tab = table;</span>
+<span class="nc" id="L721">                    int hash = hc(key);</span>
+<span class="nc" id="L722">                    int index = (hash &amp; 0x7FFFFFFF) % tab.length;</span>
+
+<span class="nc bnc" id="L724" title="All 2 branches missed.">                    for (Entry e = tab[index]; e != null; e = e.getNext())</span>
+<span class="nc bnc" id="L725" title="All 4 branches missed.">                        if (e.getHash() == hash &amp;&amp; eq(e, entry))</span>
+<span class="nc" id="L726">                            return true;</span>
+<span class="nc" id="L727">                    return false;</span>
+                }
+
+                @Override
+                public boolean remove(Object o) {
+<span class="nc bnc" id="L732" title="All 2 branches missed.">                    if (!(o instanceof Map.Entry))</span>
+<span class="nc" id="L733">                        return false;</span>
+<span class="nc" id="L734">                    Map.Entry entry = (Map.Entry) o;</span>
+<span class="nc" id="L735">                    Object key = entry.getKey();</span>
+<span class="nc" id="L736">                    synchronized (ConcurrentReferenceHashMap.this) {</span>
+<span class="nc" id="L737">                        Entry[] tab = table;</span>
+<span class="nc" id="L738">                        int hash = hc(key);</span>
+<span class="nc" id="L739">                        int index = (hash &amp; 0x7FFFFFFF) % tab.length;</span>
+
+<span class="nc bnc" id="L741" title="All 2 branches missed.">                        for (Entry e = tab[index], prev = null; e != null;</span>
+<span class="nc" id="L742">                            prev = e, e = e.getNext()) {</span>
+<span class="nc bnc" id="L743" title="All 4 branches missed.">                            if (e.getHash() == hash &amp;&amp; eq(e, entry)) {</span>
+<span class="nc bnc" id="L744" title="All 2 branches missed.">                                if (prev != null)</span>
+<span class="nc" id="L745">                                    prev.setNext(e.getNext());</span>
+                                else
+<span class="nc" id="L747">                                    tab[index] = e.getNext();</span>
+
+<span class="nc" id="L749">                                count--;</span>
+<span class="nc" id="L750">                                return true;</span>
+                            }
+                        }
+<span class="nc" id="L753">                        return false;</span>
+                    }
+                }
+
+                @Override
+                public int size() {
+<span class="nc" id="L759">                    return count;</span>
+                }
+
+                @Override
+                public void clear() {
+<span class="nc" id="L764">                    ConcurrentReferenceHashMap.this.clear();</span>
+<span class="nc" id="L765">                }</span>
+            };
+        }
+
+<span class="nc" id="L769">        return entrySet;</span>
+    }
+
+    /**
+     * Expunge stale entries from the table.
+     */
+    private void expungeStaleEntries() {
+        Object r;
+<span class="nc bnc" id="L777" title="All 2 branches missed.">        while ((r = queue.poll()) != null) {</span>
+<span class="nc" id="L778">            Entry entry = (Entry) r;</span>
+<span class="nc" id="L779">            int hash = entry.getHash();</span>
+<span class="nc" id="L780">            Entry[] tab = table;</span>
+<span class="nc" id="L781">            int index = (hash &amp; 0x7FFFFFFF) % tab.length;</span>
+
+<span class="nc bnc" id="L783" title="All 2 branches missed.">            for (Entry e = tab[index], prev = null; e != null;</span>
+<span class="nc" id="L784">                prev = e, e = e.getNext()) {</span>
+<span class="nc bnc" id="L785" title="All 2 branches missed.">                if (e == entry) {</span>
+<span class="nc bnc" id="L786" title="All 2 branches missed.">                    if (prev != null)</span>
+<span class="nc" id="L787">                        prev.setNext(e.getNext());</span>
+                        // otherwise put the bucket after us
+                    else
+<span class="nc" id="L790">                        tab[index] = e.getNext();</span>
+
+<span class="nc" id="L792">                    count--;</span>
+<span class="nc bnc" id="L793" title="All 2 branches missed.">                    if (keyType == AbstractReferenceMap.ReferenceStrength.HARD)</span>
+<span class="nc" id="L794">                        valueExpired(e.getKey());</span>
+                    else
+<span class="nc" id="L796">                        keyExpired(e.getValue());</span>
+                }
+            }
+<span class="nc" id="L799">        }</span>
+<span class="nc" id="L800">    }</span>
+
+    /**
+     * HashMap collision list entry.
+     */
+    private interface Entry extends Map.Entry {
+
+        int getHash();
+
+        Entry getNext();
+
+        void setNext(Entry next);
+
+        Object clone(ReferenceQueue queue);
+    }
+
+    /**
+     * Hard entry.
+     */
+    private class HardEntry implements Entry {
+
+        private int hash;
+        private Object key;
+        private Object value;
+        private Entry next;
+
+<span class="nc" id="L826">        HardEntry(int hash, Object key, Object value, Entry next) {</span>
+<span class="nc" id="L827">            this.hash = hash;</span>
+<span class="nc" id="L828">            this.key = key;</span>
+<span class="nc" id="L829">            this.value = value;</span>
+<span class="nc" id="L830">            this.next = next;</span>
+<span class="nc" id="L831">        }</span>
+
+        @Override
+        public int getHash() {
+<span class="nc" id="L835">            return hash;</span>
+        }
+
+        @Override
+        public Entry getNext() {
+<span class="nc" id="L840">            return next;</span>
+        }
+
+        @Override
+        public void setNext(Entry next) {
+<span class="nc" id="L845">            this.next = next;</span>
+<span class="nc" id="L846">        }</span>
+
+        @Override
+        public Object clone(ReferenceQueue queue) {
+            // It is the callers responsibility to set the next field
+            // correctly.
+<span class="nc" id="L852">            return new HardEntry(hash, key, value, null);</span>
+        }
+
+        // Map.Entry Ops
+
+        @Override
+        public Object getKey() {
+<span class="nc" id="L859">            return key;</span>
+        }
+
+        @Override
+        public Object getValue() {
+<span class="nc" id="L864">            return value;</span>
+        }
+
+        @Override
+        public Object setValue(Object value) {
+<span class="nc" id="L869">            Object oldValue = this.value;</span>
+<span class="nc" id="L870">            this.value = value;</span>
+<span class="nc" id="L871">            return oldValue;</span>
+        }
+
+        @Override
+        public boolean equals(Object o) {
+<span class="nc bnc" id="L876" title="All 2 branches missed.">            if (!(o instanceof Map.Entry)) return false;</span>
+<span class="nc" id="L877">            Map.Entry e = (Map.Entry) o;</span>
+
+<span class="nc" id="L879">            Object k1 = key;</span>
+<span class="nc" id="L880">            Object k2 = e.getKey();</span>
+
+<span class="nc bnc" id="L882" title="All 8 branches missed.">            return (k1 == null ? k2 == null : eq(k1, k2)) &amp;&amp;</span>
+<span class="nc bnc" id="L883" title="All 2 branches missed.">                (value == null ? e.getValue() == null</span>
+<span class="nc bnc" id="L884" title="All 2 branches missed.">                    : eq(value, e.getValue()));</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc bnc" id="L889" title="All 2 branches missed.">            return hash ^ (value == null ? 0 : value.hashCode());</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L894">            return key + &quot;=&quot; + value.toString();</span>
+        }
+    }
+
+    /**
+     * Weak entry.
+     */
+    private class WeakEntry extends WeakReference implements Entry {
+
+        private int hash;
+        private Object hard;
+        private boolean keyRef;
+        private Entry next;
+
+        WeakEntry(int hash, Object key, Object value, boolean keyRef,
+<span class="nc" id="L909">            Entry next, ReferenceQueue queue) {</span>
+<span class="nc bnc" id="L910" title="All 2 branches missed.">            super((keyRef) ? key : value, queue);</span>
+<span class="nc" id="L911">            this.hash = hash;</span>
+<span class="nc bnc" id="L912" title="All 2 branches missed.">            this.hard = (keyRef) ? value : key;</span>
+<span class="nc" id="L913">            this.keyRef = keyRef;</span>
+<span class="nc" id="L914">            this.next = next;</span>
+<span class="nc" id="L915">        }</span>
+
+        @Override
+        public int getHash() {
+<span class="nc" id="L919">            return hash;</span>
+        }
+
+        @Override
+        public Entry getNext() {
+<span class="nc" id="L924">            return next;</span>
+        }
+
+        @Override
+        public void setNext(Entry next) {
+<span class="nc" id="L929">            this.next = next;</span>
+<span class="nc" id="L930">        }</span>
+
+        @Override
+        public Object clone(ReferenceQueue queue) {
+            // It is the callers responsibility to set the next field
+            // correctly.
+<span class="nc" id="L936">            return new WeakEntry(hash, getKey(), getValue(), keyRef, null,</span>
+                queue);
+        }
+
+        // Map.Entry Ops
+
+        @Override
+        public Object getKey() {
+<span class="nc bnc" id="L944" title="All 2 branches missed.">            return (keyRef) ? super.get() : hard;</span>
+        }
+
+        @Override
+        public Object getValue() {
+<span class="nc bnc" id="L949" title="All 2 branches missed.">            return (keyRef) ? hard : super.get();</span>
+        }
+
+        @Override
+        public Object setValue(Object value) {
+<span class="nc bnc" id="L954" title="All 2 branches missed.">            if (!keyRef)</span>
+<span class="nc" id="L955">                throw new Error(&quot;Attempt to reset reference value.&quot;);</span>
+
+<span class="nc" id="L957">            Object oldValue = hard;</span>
+<span class="nc" id="L958">            hard = value;</span>
+<span class="nc" id="L959">            return oldValue;</span>
+        }
+
+        @Override
+        public boolean equals(Object o) {
+<span class="nc bnc" id="L964" title="All 2 branches missed.">            if (!(o instanceof Map.Entry)) return false;</span>
+<span class="nc" id="L965">            Map.Entry e = (Map.Entry) o;</span>
+<span class="nc bnc" id="L966" title="All 4 branches missed.">            return eq(getKey(), e.getKey()) &amp;&amp; eq(getValue(), e.getValue());</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L971">            Object val = getValue();</span>
+<span class="nc bnc" id="L972" title="All 2 branches missed.">            return hash ^ (val == null ? 0 : val.hashCode());</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L977">            return getKey() + &quot;=&quot; + getValue();</span>
+        }
+    }
+
+    /**
+     * Soft entry.
+     */
+    private class SoftEntry extends SoftReference implements Entry {
+
+        private int hash;
+        private Object hard;
+        private boolean keyRef;
+        private Entry next;
+
+        SoftEntry(int hash, Object key, Object value, boolean keyRef,
+<span class="nc" id="L992">            Entry next, ReferenceQueue queue) {</span>
+<span class="nc bnc" id="L993" title="All 2 branches missed.">            super((keyRef) ? key : value, queue);</span>
+<span class="nc" id="L994">            this.hash = hash;</span>
+<span class="nc bnc" id="L995" title="All 2 branches missed.">            this.hard = (keyRef) ? value : key;</span>
+<span class="nc" id="L996">            this.keyRef = keyRef;</span>
+<span class="nc" id="L997">            this.next = next;</span>
+<span class="nc" id="L998">        }</span>
+
+        @Override
+        public int getHash() {
+<span class="nc" id="L1002">            return hash;</span>
+        }
+
+        @Override
+        public Entry getNext() {
+<span class="nc" id="L1007">            return next;</span>
+        }
+
+        @Override
+        public void setNext(Entry next) {
+<span class="nc" id="L1012">            this.next = next;</span>
+<span class="nc" id="L1013">        }</span>
+
+        @Override
+        public Object clone(ReferenceQueue queue) {
+            // It is the callers responsibility to set the next field
+            // correctly.
+<span class="nc" id="L1019">            return new SoftEntry(hash, getKey(), getValue(), keyRef, null,</span>
+                queue);
+        }
+
+        // Map.Entry Ops
+
+        @Override
+        public Object getKey() {
+<span class="nc bnc" id="L1027" title="All 2 branches missed.">            return (keyRef) ? super.get() : hard;</span>
+        }
+
+        @Override
+        public Object getValue() {
+<span class="nc bnc" id="L1032" title="All 2 branches missed.">            return (keyRef) ? hard : super.get();</span>
+        }
+
+        @Override
+        public Object setValue(Object value) {
+<span class="nc bnc" id="L1037" title="All 2 branches missed.">            if (!keyRef)</span>
+<span class="nc" id="L1038">                throw new Error(&quot;Attempt to reset reference value.&quot;);</span>
+
+<span class="nc" id="L1040">            Object oldValue = hard;</span>
+<span class="nc" id="L1041">            hard = value;</span>
+<span class="nc" id="L1042">            return oldValue;</span>
+        }
+
+        @Override
+        public boolean equals(Object o) {
+<span class="nc bnc" id="L1047" title="All 2 branches missed.">            if (!(o instanceof Map.Entry)) return false;</span>
+<span class="nc" id="L1048">            Map.Entry e = (Map.Entry) o;</span>
+<span class="nc bnc" id="L1049" title="All 4 branches missed.">            return eq(getKey(), e.getKey()) &amp;&amp; eq(getValue(), e.getValue());</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L1054">            Object val = getValue();</span>
+<span class="nc bnc" id="L1055" title="All 2 branches missed.">            return hash ^ (val == null ? 0 : val.hashCode());</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L1060">            return getKey() + &quot;=&quot; + getValue();</span>
+        }
+    }
+
+    // Types of Enumerations/Iterations
+    private static final int KEYS = 0;
+    private static final int VALUES = 1;
+    private static final int ENTRIES = 2;
+
+    /**
+     * Map iterator.
+     */
+    private class HashIterator implements Iterator {
+
+<span class="nc" id="L1074">        final Entry[] table = ConcurrentReferenceHashMap.this.table;</span>
+        final int type;
+        int startIndex;
+<span class="nc" id="L1077">        int stopIndex = 0;</span>
+        int index;
+<span class="nc" id="L1079">        Entry entry = null;</span>
+<span class="nc" id="L1080">        Entry lastReturned = null;</span>
+
+<span class="nc" id="L1082">        HashIterator(int type, int startIndex) {</span>
+<span class="nc" id="L1083">            this.type = type;</span>
+<span class="nc" id="L1084">            this.startIndex = startIndex;</span>
+<span class="nc" id="L1085">            index = startIndex;</span>
+<span class="nc" id="L1086">        }</span>
+
+        @Override
+        public boolean hasNext() {
+<span class="nc bnc" id="L1090" title="All 2 branches missed.">            if (entry != null) {</span>
+<span class="nc" id="L1091">                return true;</span>
+            }
+<span class="nc bnc" id="L1093" title="All 2 branches missed.">            while (index &gt;= stopIndex) {</span>
+<span class="nc bnc" id="L1094" title="All 2 branches missed.">                if ((entry = table[index--]) != null) {</span>
+<span class="nc" id="L1095">                    return true;</span>
+                }
+            }
+<span class="nc bnc" id="L1098" title="All 2 branches missed.">            if (stopIndex == 0) {</span>
+<span class="nc" id="L1099">                index = table.length - 1;</span>
+<span class="nc" id="L1100">                stopIndex = startIndex + 1;</span>
+<span class="nc bnc" id="L1101" title="All 2 branches missed.">                while (index &gt;= stopIndex) {</span>
+<span class="nc bnc" id="L1102" title="All 2 branches missed.">                    if ((entry = table[index--]) != null) {</span>
+<span class="nc" id="L1103">                        return true;</span>
+                    }
+                }
+            }
+<span class="nc" id="L1107">            return false;</span>
+        }
+
+        @Override
+        public Object next() {
+<span class="nc bnc" id="L1112" title="All 2 branches missed.">            if (!hasNext())</span>
+<span class="nc" id="L1113">                throw new NoSuchElementException();</span>
+<span class="nc" id="L1114">            Entry e = lastReturned = entry;</span>
+<span class="nc" id="L1115">            entry = e.getNext();</span>
+<span class="nc bnc" id="L1116" title="All 4 branches missed.">            return type == KEYS ? e.getKey()</span>
+<span class="nc" id="L1117">                : (type == VALUES ? e.getValue() : e);</span>
+        }
+
+        @Override
+        public void remove() {
+<span class="nc bnc" id="L1122" title="All 2 branches missed.">            if (lastReturned == null)</span>
+<span class="nc" id="L1123">                throw new IllegalStateException();</span>
+<span class="nc" id="L1124">            synchronized (ConcurrentReferenceHashMap.this) {</span>
+<span class="nc" id="L1125">                Entry[] tab = ConcurrentReferenceHashMap.this.table;</span>
+<span class="nc" id="L1126">                int index = (lastReturned.getHash() &amp; 0x7FFFFFFF) % tab.length;</span>
+
+<span class="nc bnc" id="L1128" title="All 2 branches missed.">                for (Entry e = tab[index], prev = null; e != null;</span>
+<span class="nc" id="L1129">                    prev = e, e = e.getNext()) {</span>
+<span class="nc bnc" id="L1130" title="All 2 branches missed.">                    if (e == lastReturned) {</span>
+<span class="nc bnc" id="L1131" title="All 2 branches missed.">                        if (prev == null)</span>
+<span class="nc" id="L1132">                            tab[index] = e.getNext();</span>
+                        else
+<span class="nc" id="L1134">                            prev.setNext(e.getNext());</span>
+<span class="nc" id="L1135">                        count--;</span>
+<span class="nc" id="L1136">                        lastReturned = null;</span>
+<span class="nc" id="L1137">                        return;</span>
+                    }
+                }
+<span class="nc" id="L1140">                throw new Error(&quot;Iterated off table when doing remove&quot;);</span>
+            }
+        }
+    }
+
+    int capacity() {
+<span class="nc" id="L1146">        return table.length;</span>
+    }
+
+    float loadFactor() {
+<span class="nc" id="L1150">        return loadFactor;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,343 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+tests/openjpa-lib,org.apache.openjpa.lib.instrumentation,InstrumentationLevel,44,0,0,0,5,0,1,0,1,0
+tests/openjpa-lib,org.apache.openjpa.lib.instrumentation,AbstractInstrument,41,0,0,0,18,0,11,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.instrumentation,AbstractInstrumentationProvider,229,0,22,0,67,0,33,0,22,0
+tests/openjpa-lib,org.apache.openjpa.lib.ant,AbstractTask,310,0,28,0,79,0,29,0,15,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.git,GitUtils,33,0,6,0,9,0,6,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,BooleanValue,49,0,4,0,18,0,9,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,ProductDerivations,952,0,108,0,222,0,75,0,21,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,ClassListValue,101,0,6,0,25,0,13,0,10,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,PluginValue,267,0,40,0,69,0,37,0,17,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,BootstrapException,36,0,0,0,12,0,6,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,DoubleValue,53,0,6,0,19,0,10,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,IntValue,52,0,6,0,19,0,10,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,Value,800,0,144,0,178,0,120,0,48,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,AbstractProductDerivation,29,0,0,0,15,0,15,0,15,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,ObjectValue,122,0,12,0,39,0,21,0,15,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,MapConfigurationProvider,86,0,16,0,25,0,16,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,Configurations,1421,0,240,0,339,0,154,0,34,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,StringListValue,201,0,28,0,50,0,24,0,10,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,ProductDerivations.ProductDerivationComparator,21,0,2,0,6,0,2,0,1,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,FileValue,47,0,4,0,16,0,9,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,PluginListValue,361,0,44,0,91,0,36,0,13,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,StringValue,48,0,6,0,17,0,10,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.conf,ConfigurationImpl,2100,0,266,0,489,0,202,0,69,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,NoneLogFactory.NoneLog,30,0,0,0,18,0,18,0,18,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,Log4JLogFactory.LogAdapter,89,0,0,0,29,0,17,0,17,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,Log4J2LogFactory.LogAdapter,84,0,0,0,29,0,17,0,17,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,CommonsLogFactory,15,0,0,0,4,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,LogFactoryImpl,352,0,40,0,92,0,41,0,19,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,LogFactoryAdapter,28,0,2,0,7,0,3,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,JULLogFactory.JULLog,96,0,0,0,28,0,16,0,16,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,CommonsLogFactory.LogAdapter,84,0,0,0,29,0,17,0,17,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,MultiLogFactory,103,0,6,0,21,0,10,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,JULLogFactory,54,0,10,0,19,0,10,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,NoneLogFactory,5,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,Log4J2LogFactory,10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,LogFactoryImpl.LogImpl,139,0,10,0,34,0,14,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,SLF4JLogFactory.LogAdapter,131,0,2,0,37,0,22,0,21,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,AbstractLog,155,0,16,0,42,0,27,0,19,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,Log4JLogFactory,10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,LogOutputStream,78,0,12,0,29,0,12,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,MultiLogFactory.MultiLog,344,0,40,0,54,0,37,0,17,0
+tests/openjpa-lib,org.apache.openjpa.lib.log,SLF4JLogFactory,10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.identifier,IdentifierRule,222,0,28,0,73,0,42,0,28,0
+tests/openjpa-lib,org.apache.openjpa.lib.identifier,IdentifierImpl,86,0,16,0,26,0,18,0,10,0
+tests/openjpa-lib,org.apache.openjpa.lib.identifier,IdentifierUtilImpl,1205,0,152,0,239,0,144,0,68,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.InverseViewMapEntryIterator,26,0,0,0,6,0,4,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractOrderedMapDecorator,33,0,0,0,10,0,8,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractHashedMap.EntrySetIterator,7,0,0,0,3,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractKeyValue,44,0,0,0,17,0,6,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractEmptyIterator,37,0,0,0,12,0,11,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,ComparatorChain,284,0,42,0,77,0,39,0,18,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.Inverse,233,0,18,0,46,0,33,0,24,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractLinkedMap.KeySetIterator,12,0,0,0,4,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,ReferenceMap,52,0,0,0,16,0,7,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractLinkedMap.ValuesIterator,12,0,0,0,4,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,MapBackedSet,162,0,10,0,33,0,24,0,19,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractSortedMapDecorator,74,0,4,0,17,0,14,0,12,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.KeyView,37,0,4,0,7,0,6,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.ReferenceMapIterator,48,0,6,0,15,0,8,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,UnmodifiableOrderedMapIterator,59,0,4,0,17,0,12,0,10,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.ReferenceEntrySetIterator,7,0,0,0,3,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractMapEntryDecorator,47,0,4,0,14,0,10,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.DataElement,37,0,0,0,6,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractHashedMap.EntrySet,64,0,10,0,19,0,11,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,UnmodifiableEntrySet.UnmodifiableEntrySetIterator,21,0,0,0,5,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractSortedMapDecorator.SortedMapIterator,29,0,0,0,8,0,4,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractEmptyMapIterator,18,0,0,0,5,0,4,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractIteratorDecorator,8,0,0,0,3,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.ReferenceKeySetIterator,8,0,0,0,3,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractDualBidiMap.EntrySetIterator,56,0,2,0,16,0,4,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,FilterIterator,115,0,14,0,37,0,18,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.ReferenceEntrySet,38,0,2,0,8,0,4,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractHashedMap.KeySet,35,0,0,0,11,0,6,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,LinkedMap.LinkedMapList,92,0,0,0,21,0,19,0,19,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractSerializableListDecorator,19,0,0,0,8,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,UnmodifiableOrderedMap,72,0,2,0,24,0,13,0,12,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,DualHashBidiMap,61,0,0,0,17,0,6,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractDualBidiMap.View,119,0,26,0,37,0,20,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,UnmodifiableIterator,38,0,4,0,12,0,7,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractLinkedMap.LinkMapIterator,52,0,6,0,16,0,9,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,UnmodifiableCollection,49,0,2,0,14,0,11,0,10,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractCollectionDecorator,92,0,2,0,26,0,20,0,19,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap,406,0,50,0,114,0,55,0,30,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,EmptyIterator,14,0,0,0,6,0,4,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.ReferenceKeySet,34,0,2,0,8,0,4,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractMapDecorator,92,0,4,0,27,0,20,0,18,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.InverseEntryView,74,0,12,0,19,0,10,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractHashedMap,1104,0,136,0,282,0,120,0,52,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,EmptyOrderedIterator,10,0,0,0,4,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractLinkedMap.LinkIterator,173,0,18,0,37,0,18,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,UnmodifiableSet,49,0,2,0,14,0,11,0,10,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.ReferenceBaseIterator,173,0,24,0,49,0,19,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractDualBidiMap.KeySetIterator,53,0,2,0,16,0,4,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractDualBidiMap.Values,41,0,2,0,9,0,5,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,DualTreeBidiMap.BidiOrderedMapIterator,161,0,12,0,35,0,17,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractHashedMap.HashEntry,109,0,22,0,24,0,18,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,ListIteratorWrapper,294,0,40,0,72,0,31,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,DualTreeBidiMap,243,0,12,0,60,0,26,0,20,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractDualBidiMap.ValuesIterator,47,0,2,0,15,0,4,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractIterableMap,9,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,IteratorChain,237,0,20,0,56,0,24,0,14,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractDualBidiMap.EntrySet,62,0,10,0,14,0,8,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,ComparableComparator,33,0,6,0,8,0,9,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.View,17,0,0,0,7,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractDualBidiMap,280,0,18,0,64,0,34,0,25,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.InverseViewMapIterator,44,0,4,0,12,0,8,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractHashedMap.HashMapIterator,48,0,6,0,15,0,8,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,DualTreeBidiMap.ViewMap,73,0,2,0,13,0,10,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,LinkedMap,85,0,4,0,25,0,14,0,12,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.ReferenceEntry,226,0,42,0,45,0,32,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,DefaultMapEntry,19,0,0,0,6,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractHashedMap.HashIterator,153,0,20,0,38,0,16,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractLinkedMap,341,0,40,0,76,0,43,0,23,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,EmptyOrderedMapIterator,10,0,0,0,4,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractUntypedIteratorDecorator,24,0,2,0,9,0,5,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,UnmodifiableEntrySet.UnmodifiableEntry,11,0,0,0,4,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractSerializableSetDecorator,19,0,0,0,8,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.ViewMapIterator,44,0,4,0,12,0,8,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,UnmodifiableListIterator,64,0,4,0,18,0,13,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractDualBidiMap.MapEntry,38,0,4,0,9,0,4,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractHashedMap.ValuesIterator,8,0,0,0,3,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,LRUMap,499,0,40,0,104,0,45,0,25,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,UnmodifiableEntrySet,139,0,12,0,29,0,18,0,12,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.SoftRef,11,0,0,0,4,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractSetDecorator,27,0,4,0,7,0,7,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.ReferenceValues,34,0,2,0,8,0,4,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.Node,271,0,23,0,51,0,33,0,21,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractListDecorator,80,0,4,0,18,0,17,0,15,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.ReferenceValuesIterator,8,0,0,0,3,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.ReferenceStrength,57,0,4,0,10,0,6,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.ValueView,37,0,4,0,7,0,6,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,UnmodifiableMapEntry,24,0,0,0,7,0,4,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractLinkedMap.LinkEntry,7,0,0,0,2,0,1,0,1,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,UnmodifiableList,87,0,2,0,22,0,18,0,17,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractLinkedMap.EntrySetIterator,10,0,0,0,4,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap,2000,0,255,0,463,0,193,0,65,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,ReferenceIdentityMap,85,0,6,0,22,0,14,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractDualBidiMap.KeySet,41,0,2,0,9,0,5,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractHashedMap.Values,23,0,0,0,8,0,5,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractHashedMap.KeySetIterator,8,0,0,0,3,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,EntrySetToMapIteratorAdapter,57,0,2,0,18,0,10,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractMapEntry,70,0,20,0,13,0,14,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.EntryView,74,0,12,0,19,0,10,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.ViewMapEntryIterator,14,0,0,0,5,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,EmptyMapIterator,10,0,0,0,4,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractDualBidiMap.BidiMapIterator,159,0,14,0,37,0,16,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,TreeBidiMap.ViewIterator,188,0,20,0,39,0,16,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.collections,AbstractReferenceMap.WeakRef,11,0,0,0,4,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.xml,Commentable,4,0,0,0,1,0,1,0,1,0
+tests/openjpa-lib,org.apache.openjpa.lib.xml,ValidatingErrorHandler,9,0,0,0,4,0,4,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.xml,DocTypeReader,430,0,68,0,108,0,50,0,16,0
+tests/openjpa-lib,org.apache.openjpa.lib.xml,XMLWriter,238,0,54,0,52,0,33,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.xml,Location,85,0,4,0,23,0,11,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.xml,XMLFactory,155,0,24,0,44,0,18,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,CFMetaDataParser,514,0,100,0,132,0,77,0,27,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,ResourceMetaDataIterator,167,0,22,0,37,0,18,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,ZipStreamMetaDataIterator,162,0,26,0,44,0,21,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,CFMetaDataSerializer,111,0,14,0,23,0,14,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,XMLMetaDataSerializer,485,0,60,0,132,0,54,0,24,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,ZipStreamMetaDataIterator.NoCloseInputStream,25,0,0,0,5,0,5,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,SuffixMetaDataFilter,20,0,4,0,5,0,4,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,FileMetaDataIterator,194,0,24,0,51,0,21,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,ZipFileMetaDataIterator,238,0,36,0,62,0,27,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,XMLVersionParser,44,0,2,0,14,0,6,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,XMLMetaDataParser,1100,0,182,0,288,0,160,0,69,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,ClasspathMetaDataIterator,121,0,18,0,30,0,12,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,URLMetaDataIterator,86,0,16,0,25,0,14,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,JarFileURLMetaDataIterator,297,0,40,0,70,0,28,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,MetaDataIteratorChain,159,0,22,0,41,0,19,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,ClassMetaDataIterator,433,0,48,0,85,0,31,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,SourceTrackers,79,0,6,0,17,0,6,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,ClassArgParser,1202,0,206,0,298,0,128,0,23,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,ClassAnnotationMetaDataFilter,364,0,39,0,87,0,31,0,10,0
+tests/openjpa-lib,org.apache.openjpa.lib.meta,FileMetaDataIterator.FileResource,102,0,10,0,25,0,9,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,UUIDGenerator,274,0,20,0,72,0,22,0,12,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,ReferenceHashSet.new Serializable() {...},13,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},19,0,2,0,2,0,3,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,FormatPreservingProperties.DuplicateKeyException,10,0,0,0,2,0,1,0,1,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},14,0,2,0,2,0,3,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},11,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},14,0,2,0,2,0,3,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},14,0,2,0,2,0,3,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},14,0,2,0,2,0,3,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},5,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},15,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},15,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},11,0,0,0,3,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},17,0,2,0,4,0,3,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},33,0,2,0,7,0,3,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},15,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},12,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},7,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},22,0,0,0,4,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},12,0,0,0,3,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},6,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},12,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,Localizer,148,118,11,5,20,25,20,4,12,4
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},15,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},5,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},12,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},12,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},12,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},17,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},17,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},12,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},5,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},20,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},19,0,2,0,2,0,3,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,ReferenceHashMap.AccessibleEntry,48,0,4,0,13,0,8,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},15,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},12,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},17,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},7,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},15,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},15,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},15,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,JavaVersions,143,0,26,0,43,0,19,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,FormatPreservingProperties.LineEndingStream,60,0,10,0,10,0,8,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,Services,274,0,34,0,74,0,28,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,FormatPreservingProperties.PropertyLine,139,0,24,0,33,0,19,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,ClassUtil,481,0,60,0,75,0,38,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,ZipResourceBundleProvider,59,3,8,0,19,1,5,1,1,1
+tests/openjpa-lib,org.apache.openjpa.lib.util,SimpleRegex,166,0,32,0,48,0,19,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,TemporaryClassLoader,167,0,26,0,38,0,18,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,JavaVendors,91,0,8,0,19,0,10,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,Files,510,0,82,0,150,0,53,0,12,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,ReferenceHashSet,107,0,6,0,26,0,20,0,17,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,Options.EmptyOptions,8,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,TimestampHelper,45,0,0,0,11,0,3,0,3,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,StringUtil,715,0,184,0,155,0,110,0,18,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,ParameterTemplate,272,0,20,0,71,0,33,0,23,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,StreamResourceBundleProvider,38,3,4,0,12,1,3,1,1,1
+tests/openjpa-lib,org.apache.openjpa.lib.util,MultiClassLoader,368,0,52,0,107,0,47,0,21,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,Base16Encoder,187,0,22,0,21,0,15,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,OrderedMap,100,0,4,0,27,0,17,0,15,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,SimpleResourceBundleProvider,21,3,4,0,10,1,3,1,1,1
+tests/openjpa-lib,org.apache.openjpa.lib.util,Localizer.Message,112,0,16,0,29,0,14,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,Options,1241,0,192,0,238,0,121,0,25,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,ReferenceHashMap,111,0,10,0,31,0,19,0,14,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper,339,10,4,0,69,3,65,2,63,2
+tests/openjpa-lib,org.apache.openjpa.lib.util,FormatPreservingProperties.PropertyLineReader,31,0,2,0,8,0,3,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,FormatPreservingProperties,878,0,160,0,218,0,111,0,29,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,TypedProperties,273,0,42,0,64,0,51,0,30,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,CodeFormat,710,0,58,0,163,0,90,0,61,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,LRUMap,111,0,10,0,28,0,17,0,12,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,StringDistance,236,0,36,0,56,0,27,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,ParseException,27,0,0,0,12,0,6,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,Bytes,274,0,22,0,44,0,18,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},10,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},20,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},0,10,0,0,0,2,0,2,0,2
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},15,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,FormatPreservingProperties.PropertySource,6,0,0,0,2,0,1,0,1,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},16,0,0,0,3,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedExceptionAction() {...},20,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},6,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.util,J2DoPrivHelper.new PrivilegedAction() {...},6,0,0,0,2,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,LoggingConnectionDecorator.LoggingConnection.LoggingResultSet,157,0,0,0,60,0,10,0,10,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,JDBCEventConnectionDecorator,91,0,17,0,36,0,18,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,DelegatingResultSet,1123,0,14,0,311,0,205,0,198,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,LoggingConnectionDecorator.LoggingConnection,701,0,55,0,211,0,60,0,30,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,AbstractJDBCListener,60,0,0,0,30,0,16,0,16,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,DelegatingCallableStatement,1331,0,22,0,367,0,234,0,223,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,JDBCEventConnectionDecorator.EventConnection,219,0,0,0,38,0,8,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,DecoratingDataSource,72,0,6,0,21,0,12,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,JDBCEventConnectionDecorator.EventPreparedStatement,385,0,0,0,65,0,13,0,13,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,JDBCEventConnectionDecorator.EventStatement,288,0,0,0,49,0,10,0,10,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,ReportingSQLException,119,0,4,0,27,0,10,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,DelegatingConnection,700,0,64,0,168,0,106,0,74,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,DelegatingDataSource,186,0,22,0,48,0,29,0,18,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,ConfiguringConnectionDecorator,62,0,10,0,18,0,13,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,DataSourceLogs,158,0,22,0,39,0,25,0,14,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,LoggingConnectionDecorator.LoggingConnection.LoggingPreparedStatement,1304,0,82,0,334,0,104,0,63,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,LoggingConnectionDecorator.LoggingConnection.LoggingStatement,430,0,10,0,109,0,19,0,14,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,LoggingConnectionDecorator.LoggingConnection.LoggingCallableStatement,1279,0,80,0,329,0,102,0,62,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,SQLFormatter,543,0,46,0,117,0,41,0,18,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,JDBCEvent,38,0,0,0,13,0,7,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,DelegatingPreparedStatement,692,0,22,0,204,0,122,0,111,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,ConfiguringConnectionDecorator.ConfiguringConnection,157,0,26,0,40,0,21,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,LoggingConnectionDecorator.LoggingConnection.LoggingDatabaseMetaData,568,0,36,0,57,0,37,0,19,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,DelegatingDatabaseMetaData,869,0,8,0,196,0,186,0,182,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,LoggingConnectionDecorator,189,0,12,0,53,0,26,0,20,0
+tests/openjpa-lib,org.apache.openjpa.lib.jdbc,DelegatingStatement,338,0,20,0,93,0,65,0,55,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentHashMap,1175,0,160,0,225,0,122,0,42,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentReferenceHashMap.HashIterator,196,0,26,0,42,0,17,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentReferenceHashMap.SoftEntry,142,0,18,0,25,0,20,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentHashMap.Entry,115,0,18,0,25,0,17,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentReferenceHashMap.new AbstractSet() {...},158,0,18,0,33,0,15,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentReferenceHashMap.new AbstractCollection() {...},32,0,0,0,6,0,5,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentReferenceHashMap.new AbstractSet() {...},41,0,2,0,7,0,7,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentReferenceHashMap.WeakEntry,142,0,18,0,25,0,20,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentHashMap.Values,32,0,0,0,6,0,5,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentReferenceHashSet,109,0,6,0,26,0,20,0,17,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentHashMap.HashIterator,196,0,26,0,41,0,17,0,4,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentHashMap.EntrySet,60,0,8,0,10,0,10,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentReferenceHashMap,1150,0,179,0,246,0,127,0,37,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentReferenceHashMap.HardEntry,125,0,16,0,25,0,19,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,ConcurrentHashMap.KeySet,41,0,2,0,7,0,7,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.util.concurrent,AbstractConcurrentEventManager,110,0,14,0,32,0,18,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.graph,Graph,76,223,17,27,16,51,14,23,2,13
+tests/openjpa-lib,org.apache.openjpa.lib.graph,DepthFirstAnalysis,98,401,26,48,19,92,20,29,0,12
+tests/openjpa-lib,org.apache.openjpa.lib.graph,Edge,96,87,9,11,21,26,16,14,10,10
+tests/openjpa-lib,org.apache.openjpa.lib.graph,BreadthFirstWalk,203,0,18,0,48,0,17,0,8,0
+tests/openjpa-lib,org.apache.openjpa.lib.graph,DepthFirstAnalysis.NodeInfoComparator,0,35,0,4,0,9,0,4,0,2
+tests/openjpa-lib,org.apache.openjpa.lib.graph,DepthFirstAnalysis.NodeList,0,16,0,0,0,5,0,3,0,3
+tests/openjpa-lib,org.apache.openjpa.lib.graph,NodeInfo,0,9,0,0,0,3,0,1,0,1
+tests/openjpa-lib,org.apache.openjpa.lib.rop,AbstractListIterator,31,0,0,0,9,0,5,0,5,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,MergedResultObjectProvider,409,0,60,0,95,0,44,0,13,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,AbstractResultList,64,0,2,0,21,0,17,0,16,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,ListResultList,116,0,0,0,34,0,20,0,20,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,AbstractSequentialResultList,165,0,22,0,41,0,23,0,12,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,AbstractNonSequentialResultList.Itr,79,0,8,0,17,0,11,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,WindowResultList,295,0,56,0,84,0,37,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,SimpleResultList,131,0,12,0,50,0,13,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,ResultObjectProviderIterator,116,0,14,0,45,0,13,0,6,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,SoftRandomAccessResultList,8,0,0,0,3,0,2,0,2,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,RangeResultObjectProvider,195,0,26,0,48,0,25,0,12,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,RandomAccessResultList,331,0,40,0,97,0,34,0,14,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,LazyForwardResultList.Itr,96,0,12,0,20,0,13,0,7,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,ListResultObjectProvider,66,0,6,0,22,0,14,0,11,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,ResultListIterator,58,0,4,0,16,0,11,0,9,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,EagerResultList,29,0,2,0,12,0,2,0,1,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,AbstractNonSequentialResultList,194,0,24,0,59,0,26,0,14,0
+tests/openjpa-lib,org.apache.openjpa.lib.rop,LazyForwardResultList,217,0,26,0,68,0,26,0,13,0

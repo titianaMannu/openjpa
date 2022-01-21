@@ -1959,7 +1959,7 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.8.0</version>
                     <configuration>
-                        <release>8</release>
+                      <!--  <release>8</release> -->
                         <source>${compile.class.source}</source>
                         <target>${compile.class.target}</target>
                         <encoding>${project.build.sourceEncoding}</encoding>

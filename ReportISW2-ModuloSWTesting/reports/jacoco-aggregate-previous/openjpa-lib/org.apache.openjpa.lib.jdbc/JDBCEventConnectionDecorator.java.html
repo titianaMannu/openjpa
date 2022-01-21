@@ -1,0 +1,520 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>JDBCEventConnectionDecorator.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.jdbc</a> &gt; <span class="el_source">JDBCEventConnectionDecorator.java</span></div><h1>JDBCEventConnectionDecorator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.jdbc;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+import org.apache.openjpa.lib.util.concurrent.AbstractConcurrentEventManager;
+
+/**
+ * Manages the firing of {@link JDBCEvent}s.
+ *
+ * @author Abe White
+ */
+<span class="nc" id="L34">public class JDBCEventConnectionDecorator extends AbstractConcurrentEventManager</span>
+    implements ConnectionDecorator {
+
+    private static final long serialVersionUID = 1L;
+
+    @Override
+    public Connection decorate(Connection conn) {
+<span class="nc bnc" id="L41" title="All 2 branches missed.">        if (!hasListeners())</span>
+<span class="nc" id="L42">            return conn;</span>
+<span class="nc" id="L43">        return new EventConnection(conn);</span>
+    }
+
+    /**
+     * Fire the given event to all listeners. Prevents creation of an
+     * event object when there are no listeners.
+     */
+    private JDBCEvent fireEvent(Connection source, short type,
+        JDBCEvent associatedEvent, Statement stmnt, String sql) {
+<span class="nc bnc" id="L52" title="All 2 branches missed.">        if (!hasListeners())</span>
+<span class="nc" id="L53">            return null;</span>
+
+<span class="nc" id="L55">        JDBCEvent event = new JDBCEvent(source, type, associatedEvent,</span>
+            stmnt, sql);
+<span class="nc" id="L57">        fireEvent(event);</span>
+<span class="nc" id="L58">        return event;</span>
+    }
+
+    /**
+     * Fire the given event to all listeners.
+     */
+    @Override
+    protected void fireEvent(Object event, Object listener) {
+<span class="nc" id="L66">        JDBCListener listen = (JDBCListener) listener;</span>
+<span class="nc" id="L67">        JDBCEvent ev = (JDBCEvent) event;</span>
+<span class="nc bnc" id="L68" title="All 13 branches missed.">        switch (ev.getType()) {</span>
+            case JDBCEvent.BEFORE_PREPARE_STATEMENT:
+<span class="nc" id="L70">                listen.beforePrepareStatement(ev);</span>
+<span class="nc" id="L71">                break;</span>
+            case JDBCEvent.AFTER_PREPARE_STATEMENT:
+<span class="nc" id="L73">                listen.afterPrepareStatement(ev);</span>
+<span class="nc" id="L74">                break;</span>
+            case JDBCEvent.BEFORE_CREATE_STATEMENT:
+<span class="nc" id="L76">                listen.beforeCreateStatement(ev);</span>
+<span class="nc" id="L77">                break;</span>
+            case JDBCEvent.AFTER_CREATE_STATEMENT:
+<span class="nc" id="L79">                listen.afterCreateStatement(ev);</span>
+<span class="nc" id="L80">                break;</span>
+            case JDBCEvent.BEFORE_EXECUTE_STATEMENT:
+<span class="nc" id="L82">                listen.beforeExecuteStatement(ev);</span>
+<span class="nc" id="L83">                break;</span>
+            case JDBCEvent.AFTER_EXECUTE_STATEMENT:
+<span class="nc" id="L85">                listen.afterExecuteStatement(ev);</span>
+<span class="nc" id="L86">                break;</span>
+            case JDBCEvent.BEFORE_COMMIT:
+<span class="nc" id="L88">                listen.beforeCommit(ev);</span>
+<span class="nc" id="L89">                break;</span>
+            case JDBCEvent.AFTER_COMMIT:
+<span class="nc" id="L91">                listen.afterCommit(ev);</span>
+<span class="nc" id="L92">                break;</span>
+            case JDBCEvent.BEFORE_ROLLBACK:
+<span class="nc" id="L94">                listen.beforeRollback(ev);</span>
+<span class="nc" id="L95">                break;</span>
+            case JDBCEvent.AFTER_ROLLBACK:
+<span class="nc" id="L97">                listen.afterRollback(ev);</span>
+<span class="nc" id="L98">                break;</span>
+            case JDBCEvent.AFTER_CONNECT:
+<span class="nc" id="L100">                listen.afterConnect(ev);</span>
+<span class="nc" id="L101">                break;</span>
+            case JDBCEvent.BEFORE_CLOSE:
+<span class="nc" id="L103">                listen.beforeClose(ev);</span>
+                break;
+        }
+<span class="nc" id="L106">    }</span>
+
+    /**
+     * Fires events as appropriate.
+     */
+    private class EventConnection extends DelegatingConnection {
+
+<span class="nc" id="L113">        public EventConnection(Connection conn) {</span>
+<span class="nc" id="L114">            super(conn);</span>
+<span class="nc" id="L115">            fireEvent(getDelegate(), JDBCEvent.AFTER_CONNECT, null, null, null);</span>
+<span class="nc" id="L116">        }</span>
+
+        @Override
+        public void commit() throws SQLException {
+<span class="nc" id="L120">            JDBCEvent before = fireEvent(getDelegate(),</span>
+                JDBCEvent.BEFORE_COMMIT, null, null, null);
+            try {
+<span class="nc" id="L123">                super.commit();</span>
+            } finally {
+<span class="nc" id="L125">                fireEvent(getDelegate(), JDBCEvent.AFTER_COMMIT, before,</span>
+                    null, null);
+            }
+<span class="nc" id="L128">        }</span>
+
+        @Override
+        public void rollback() throws SQLException {
+<span class="nc" id="L132">            JDBCEvent before = fireEvent(getDelegate(),</span>
+                JDBCEvent.BEFORE_ROLLBACK, null, null, null);
+            try {
+<span class="nc" id="L135">                super.rollback();</span>
+            } finally {
+<span class="nc" id="L137">                fireEvent(getDelegate(), JDBCEvent.AFTER_ROLLBACK, before,</span>
+                    null, null);
+            }
+<span class="nc" id="L140">        }</span>
+
+        @Override
+        protected Statement createStatement(boolean wrap) throws SQLException {
+<span class="nc" id="L144">            JDBCEvent before = fireEvent(getDelegate(),</span>
+                JDBCEvent.BEFORE_CREATE_STATEMENT, null, null, null);
+<span class="nc" id="L146">            Statement stmnt = null;</span>
+            try {
+<span class="nc" id="L148">                stmnt = new EventStatement(super.createStatement(false),</span>
+                    EventConnection.this);
+            } finally {
+<span class="nc" id="L151">                fireEvent(getDelegate(), JDBCEvent.AFTER_CREATE_STATEMENT,</span>
+                    before, stmnt, null);
+            }
+<span class="nc" id="L154">            return stmnt;</span>
+        }
+
+        @Override
+        protected Statement createStatement(int rsType, int rsConcur,
+            boolean wrap) throws SQLException {
+<span class="nc" id="L160">            JDBCEvent before = fireEvent(getDelegate(),</span>
+                JDBCEvent.BEFORE_CREATE_STATEMENT, null, null, null);
+<span class="nc" id="L162">            Statement stmnt = null;</span>
+            try {
+<span class="nc" id="L164">                stmnt = new EventStatement(super.createStatement</span>
+<span class="nc" id="L165">                    (rsType, rsConcur, false), EventConnection.this);</span>
+            } finally {
+<span class="nc" id="L167">                fireEvent(getDelegate(), JDBCEvent.AFTER_CREATE_STATEMENT,</span>
+                    before, stmnt, null);
+            }
+<span class="nc" id="L170">            return stmnt;</span>
+        }
+
+        @Override
+        protected PreparedStatement prepareStatement(String sql, boolean wrap)
+            throws SQLException {
+<span class="nc" id="L176">            JDBCEvent before = fireEvent(getDelegate(),</span>
+                JDBCEvent.BEFORE_PREPARE_STATEMENT, null, null, sql);
+<span class="nc" id="L178">            PreparedStatement stmnt = null;</span>
+            try {
+<span class="nc" id="L180">                stmnt = new EventPreparedStatement(super.prepareStatement</span>
+<span class="nc" id="L181">                    (sql, false), EventConnection.this, sql);</span>
+            } finally {
+<span class="nc" id="L183">                fireEvent(getDelegate(), JDBCEvent.AFTER_PREPARE_STATEMENT,</span>
+                    before, stmnt, sql);
+            }
+<span class="nc" id="L186">            return stmnt;</span>
+        }
+
+        @Override
+        protected PreparedStatement prepareStatement(String sql, int rsType,
+            int rsConcur, boolean wrap) throws SQLException {
+<span class="nc" id="L192">            JDBCEvent before = fireEvent(getDelegate(),</span>
+                JDBCEvent.BEFORE_PREPARE_STATEMENT, null, null, sql);
+<span class="nc" id="L194">            PreparedStatement stmnt = null;</span>
+            try {
+<span class="nc" id="L196">                stmnt = new EventPreparedStatement(super.prepareStatement</span>
+<span class="nc" id="L197">                    (sql, rsType, rsConcur, false), EventConnection.this, sql);</span>
+            } finally {
+<span class="nc" id="L199">                fireEvent(getDelegate(), JDBCEvent.AFTER_PREPARE_STATEMENT,</span>
+                    before, stmnt, sql);
+            }
+<span class="nc" id="L202">            return stmnt;</span>
+        }
+
+        @Override
+        public void close() throws SQLException {
+            try {
+<span class="nc" id="L208">                fireEvent(getDelegate(), JDBCEvent.BEFORE_CLOSE,</span>
+                    null, null, null);
+            } finally {
+<span class="nc" id="L211">                super.close();</span>
+            }
+<span class="nc" id="L213">        }</span>
+    }
+
+    /**
+     * Fires events as appropriate.
+     */
+    private class EventPreparedStatement extends
+            DelegatingPreparedStatement {
+
+        private final EventConnection _conn;
+        private final String _sql;
+
+        public EventPreparedStatement(PreparedStatement ps,
+<span class="nc" id="L226">            EventConnection conn, String sql) {</span>
+<span class="nc" id="L227">            super(ps, conn);</span>
+<span class="nc" id="L228">            _conn = conn;</span>
+<span class="nc" id="L229">            _sql = sql;</span>
+<span class="nc" id="L230">        }</span>
+
+        @Override
+        public int executeUpdate() throws SQLException {
+<span class="nc" id="L234">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L235">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), _sql);</span>
+            try {
+<span class="nc" id="L237">                return super.executeUpdate();</span>
+            } finally {
+<span class="nc" id="L239">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L241">                    getDelegate(), _sql);</span>
+            }
+        }
+
+        @Override
+        protected ResultSet executeQuery(boolean wrap) throws SQLException {
+<span class="nc" id="L247">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L248">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), _sql);</span>
+            try {
+<span class="nc" id="L250">                return super.executeQuery(wrap);</span>
+            } finally {
+<span class="nc" id="L252">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L254">                    getDelegate(), _sql);</span>
+            }
+        }
+
+        @Override
+        public int[] executeBatch() throws SQLException {
+<span class="nc" id="L260">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L261">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), _sql);</span>
+            try {
+<span class="nc" id="L263">                return super.executeBatch();</span>
+            } finally {
+<span class="nc" id="L265">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L267">                    getDelegate(), _sql);</span>
+            }
+        }
+
+        @Override
+        public boolean execute() throws SQLException {
+<span class="nc" id="L273">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L274">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), _sql);</span>
+            try {
+<span class="nc" id="L276">                return super.execute();</span>
+            } finally {
+<span class="nc" id="L278">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L280">                    getDelegate(), _sql);</span>
+            }
+        }
+
+        @Override
+        public int executeUpdate(String sql) throws SQLException {
+<span class="nc" id="L286">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L287">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L289">                return super.executeUpdate(sql);</span>
+            } finally {
+<span class="nc" id="L291">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L293">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public int executeUpdate(String sql, int i) throws SQLException {
+<span class="nc" id="L299">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L300">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L302">                return super.executeUpdate(sql, i);</span>
+            } finally {
+<span class="nc" id="L304">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L306">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public int executeUpdate(String sql, int[] ia) throws SQLException {
+<span class="nc" id="L312">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L313">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L315">                return super.executeUpdate(sql, ia);</span>
+            } finally {
+<span class="nc" id="L317">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L319">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public int executeUpdate(String sql, String[] sa) throws SQLException {
+<span class="nc" id="L325">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L326">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L328">                return super.executeUpdate(sql, sa);</span>
+            } finally {
+<span class="nc" id="L330">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L332">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public boolean execute(String sql) throws SQLException {
+<span class="nc" id="L338">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L339">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L341">                return super.execute(sql);</span>
+            } finally {
+<span class="nc" id="L343">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L345">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public boolean execute(String sql, int i) throws SQLException {
+<span class="nc" id="L351">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L352">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L354">                return super.execute(sql, i);</span>
+            } finally {
+<span class="nc" id="L356">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L358">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public boolean execute(String sql, int[] ia) throws SQLException {
+<span class="nc" id="L364">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L365">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L367">                return super.execute(sql, ia);</span>
+            } finally {
+<span class="nc" id="L369">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L371">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public boolean execute(String sql, String[] sa) throws SQLException {
+<span class="nc" id="L377">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L378">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L380">                return super.execute(sql, sa);</span>
+            } finally {
+<span class="nc" id="L382">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L384">                    getDelegate(), sql);</span>
+            }
+        }
+    }
+
+    /**
+     * Fires events as appropriate.
+     */
+    private class EventStatement extends DelegatingStatement {
+
+        private final EventConnection _conn;
+
+<span class="nc" id="L396">        public EventStatement(Statement stmnt, EventConnection conn) {</span>
+<span class="nc" id="L397">            super(stmnt, conn);</span>
+<span class="nc" id="L398">            _conn = conn;</span>
+<span class="nc" id="L399">        }</span>
+
+        @Override
+        public int executeUpdate(String sql) throws SQLException {
+<span class="nc" id="L403">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L404">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L406">                return super.executeUpdate(sql);</span>
+            } finally {
+<span class="nc" id="L408">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L410">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        protected ResultSet executeQuery(String sql, boolean wrap)
+            throws SQLException {
+<span class="nc" id="L417">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L418">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L420">                return super.executeQuery(sql, wrap);</span>
+            } finally {
+<span class="nc" id="L422">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L424">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public boolean execute(String sql) throws SQLException {
+<span class="nc" id="L430">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L431">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L433">                return super.execute(sql);</span>
+            } finally {
+<span class="nc" id="L435">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L437">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public int executeUpdate(String sql, int i) throws SQLException {
+<span class="nc" id="L443">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L444">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L446">                return super.executeUpdate(sql, i);</span>
+            } finally {
+<span class="nc" id="L448">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L450">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public int executeUpdate(String sql, int[] ia) throws SQLException {
+<span class="nc" id="L456">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L457">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L459">                return super.executeUpdate(sql, ia);</span>
+            } finally {
+<span class="nc" id="L461">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L463">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public int executeUpdate(String sql, String[] sa) throws SQLException {
+<span class="nc" id="L469">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L470">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L472">                return super.executeUpdate(sql, sa);</span>
+            } finally {
+<span class="nc" id="L474">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L476">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public boolean execute(String sql, int i) throws SQLException {
+<span class="nc" id="L482">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L483">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L485">                return super.execute(sql, i);</span>
+            } finally {
+<span class="nc" id="L487">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L489">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public boolean execute(String sql, int[] ia) throws SQLException {
+<span class="nc" id="L495">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L496">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L498">                return super.execute(sql, ia);</span>
+            } finally {
+<span class="nc" id="L500">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L502">                    getDelegate(), sql);</span>
+            }
+        }
+
+        @Override
+        public boolean execute(String sql, String[] sa) throws SQLException {
+<span class="nc" id="L508">            JDBCEvent before = fireEvent(_conn.getDelegate(),</span>
+<span class="nc" id="L509">                JDBCEvent.BEFORE_EXECUTE_STATEMENT, null, getDelegate(), sql);</span>
+            try {
+<span class="nc" id="L511">                return super.execute(sql, sa);</span>
+            } finally {
+<span class="nc" id="L513">                fireEvent(_conn.getDelegate(),</span>
+                    JDBCEvent.AFTER_EXECUTE_STATEMENT, before,
+<span class="nc" id="L515">                    getDelegate(), sql);</span>
+            }
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

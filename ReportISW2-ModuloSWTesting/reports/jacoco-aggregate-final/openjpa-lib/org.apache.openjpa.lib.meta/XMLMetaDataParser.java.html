@@ -1,0 +1,781 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>XMLMetaDataParser.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.meta</a> &gt; <span class="el_source">XMLMetaDataParser.java</span></div><h1>XMLMetaDataParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.meta;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.net.URL;
+import java.security.AccessController;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.xml.parsers.SAXParser;
+
+import org.apache.openjpa.lib.log.Log;
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.lib.util.Localizer.Message;
+import org.apache.openjpa.lib.xml.Commentable;
+import org.apache.openjpa.lib.xml.DocTypeReader;
+import org.apache.openjpa.lib.xml.Location;
+import org.apache.openjpa.lib.xml.XMLFactory;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.Locator;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.ext.LexicalHandler;
+import org.xml.sax.helpers.DefaultHandler;
+
+/**
+ * Custom SAX parser used by the system to quickly parse metadata files.
+ * Subclasses should handle the processing of the content.
+ *
+ * @author Abe White
+ */
+<span class="nc" id="L61">public abstract class XMLMetaDataParser extends DefaultHandler</span>
+    implements LexicalHandler, MetaDataParser {
+
+<span class="nc" id="L64">    private static final Localizer _loc = Localizer.forPackage</span>
+<span class="nc" id="L65">        (XMLMetaDataParser.class);</span>
+    private static boolean _schemaBug;
+
+    private static final String OPENJPA_NAMESPACE = &quot;http://openjpa.apache.org/ns/orm&quot;;
+<span class="nc" id="L69">    protected int _extendedNamespace = 0;</span>
+<span class="nc" id="L70">    protected int _openjpaNamespace = 0;</span>
+
+    static {
+        try {
+            // check for Xerces version 2.0.2 to see if we need to disable
+            // schema validation, which works around the bug reported at:
+            // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4708859
+<span class="nc" id="L77">            _schemaBug = &quot;Xerces-J 2.0.2&quot;.equals(Class.forName</span>
+<span class="nc" id="L78">                (&quot;org.apache.xerces.impl.Version&quot;).getField(&quot;fVersion&quot;).</span>
+<span class="nc" id="L79">                get(null));</span>
+<span class="nc" id="L80">        } catch (Throwable t) {</span>
+            // Xerces might not be available
+<span class="nc" id="L82">            _schemaBug = false;</span>
+<span class="nc" id="L83">        }</span>
+<span class="nc" id="L84">    }</span>
+
+    // map of classloaders to sets of parsed locations, so that we don't parse
+    // the same resource multiple times for the same class
+<span class="nc" id="L88">    private Map&lt;ClassLoader, Set&lt;String&gt;&gt; _parsed = null;</span>
+
+<span class="nc" id="L90">    private Log _log = null;</span>
+<span class="nc" id="L91">    private boolean _validating = true;</span>
+<span class="nc" id="L92">    private boolean _systemId = true;</span>
+<span class="nc" id="L93">    private boolean _caching = true;</span>
+<span class="nc" id="L94">    private boolean _parseText = true;</span>
+<span class="nc" id="L95">    private boolean _parseComments = true;</span>
+<span class="nc" id="L96">    private String _suffix = null;</span>
+<span class="nc" id="L97">    private ClassLoader _loader = null;</span>
+<span class="nc" id="L98">    private ClassLoader _curLoader = null;</span>
+
+    // state for current parse
+<span class="nc" id="L101">    private final Collection _curResults = new LinkedList();</span>
+<span class="nc" id="L102">    private List _results = null;</span>
+<span class="nc" id="L103">    private String _sourceName = null;</span>
+<span class="nc" id="L104">    private File _sourceFile = null;</span>
+<span class="nc" id="L105">    private StringBuffer _text = null;</span>
+<span class="nc" id="L106">    private List&lt;String&gt; _comments = null;</span>
+<span class="nc" id="L107">    private Location _location = new Location();</span>
+<span class="nc" id="L108">    private LexicalHandler _lh = null;</span>
+<span class="nc" id="L109">    private int _depth = -1;</span>
+<span class="nc" id="L110">    private int _ignore = Integer.MAX_VALUE;</span>
+
+<span class="nc" id="L112">    private boolean _parsing = false;</span>
+
+<span class="nc" id="L114">    private boolean _overrideContextClassloader = true;</span>
+
+    public boolean getOverrideContextClassloader() {
+<span class="nc" id="L117">        return _overrideContextClassloader;</span>
+    }
+
+    public void setOverrideContextClassloader(boolean overrideCCL) {
+<span class="nc" id="L121">        _overrideContextClassloader = overrideCCL;</span>
+<span class="nc" id="L122">    }</span>
+
+    /*
+     * Whether the parser is currently parsing.
+     */
+    public boolean isParsing() {
+<span class="nc" id="L128">        return _parsing;</span>
+    }
+
+    /*
+     * Whether the parser is currently parsing.
+     */
+    public void setParsing(boolean parsing) {
+<span class="nc" id="L135">        this._parsing = parsing;</span>
+<span class="nc" id="L136">    }</span>
+
+    /**
+     * Whether to parse element text.
+     */
+    public boolean getParseText() {
+<span class="nc" id="L142">        return _parseText;</span>
+    }
+
+    /**
+     * Whether to parse element text.
+     */
+    public void setParseText(boolean text) {
+<span class="nc" id="L149">        _parseText = text;</span>
+<span class="nc" id="L150">    }</span>
+
+    /**
+     * Whether to parse element comments.
+     */
+    public boolean getParseComments() {
+<span class="nc" id="L156">        return _parseComments;</span>
+    }
+
+    /**
+     * Whether to parse element comments.
+     */
+    public void setParseComments(boolean comments) {
+<span class="nc" id="L163">        _parseComments = comments;</span>
+<span class="nc" id="L164">    }</span>
+
+    /**
+     * The XML document location.
+     */
+    public Location getLocation() {
+<span class="nc" id="L170">        return _location;</span>
+    }
+
+    /**
+     * The lexical handler that should be registered with the SAX parser used
+     * by this class. Since the &lt;code&gt;org.xml.sax.ext&lt;/code&gt; package is not
+     * a required part of SAX2, this handler might not be used by the parser.
+     */
+    public LexicalHandler getLexicalHandler() {
+<span class="nc" id="L179">        return _lh;</span>
+    }
+
+    /**
+     * The lexical handler that should be registered with the SAX parser used
+     * by this class. Since the &lt;code&gt;org.xml.sax.ext&lt;/code&gt; package is not
+     * a required part of SAX2, this handler might not be used by the parser.
+     */
+    public void setLexicalHandler(LexicalHandler lh) {
+<span class="nc" id="L188">        _lh = lh;</span>
+<span class="nc" id="L189">    }</span>
+
+    /**
+     * The XML document location.
+     */
+    public void setLocation(Location location) {
+<span class="nc" id="L195">        _location = location;</span>
+<span class="nc" id="L196">    }</span>
+
+    /**
+     * Whether to use the source name as the XML system id.
+     */
+    public boolean getSourceIsSystemId() {
+<span class="nc" id="L202">        return _systemId;</span>
+    }
+
+    /**
+     * Whether to use the source name as the XML system id.
+     */
+    public void setSourceIsSystemId(boolean systemId) {
+<span class="nc" id="L209">        _systemId = systemId;</span>
+<span class="nc" id="L210">    }</span>
+
+    /**
+     * Whether this is a validating parser.
+     */
+    public boolean isValidating() {
+<span class="nc" id="L216">        return _validating;</span>
+    }
+
+    /**
+     * Whether this is a validating parser.
+     */
+    public void setValidating(boolean validating) {
+<span class="nc" id="L223">        _validating = validating;</span>
+<span class="nc" id="L224">    }</span>
+
+    /**
+     * Expected suffix for metadata resources, or null if unknown.
+     */
+    public String getSuffix() {
+<span class="nc" id="L230">        return _suffix;</span>
+    }
+
+    /**
+     * Expected suffix for metadata resources, or null if unknown.
+     */
+    public void setSuffix(String suffix) {
+<span class="nc" id="L237">        _suffix = suffix;</span>
+<span class="nc" id="L238">    }</span>
+
+    /**
+     * Whether parsed resource names are cached to avoid duplicate parsing.
+     */
+    public boolean isCaching() {
+<span class="nc" id="L244">        return _caching;</span>
+    }
+
+    /**
+     * Whether parsed resource names are cached to avoid duplicate parsing.
+     */
+    public void setCaching(boolean caching) {
+<span class="nc" id="L251">        _caching = caching;</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">        if (!caching)</span>
+<span class="nc" id="L253">            clear();</span>
+<span class="nc" id="L254">    }</span>
+
+    /**
+     * The log to write to.
+     */
+    public Log getLog() {
+<span class="nc" id="L260">        return _log;</span>
+    }
+
+    /**
+     * The log to write to.
+     */
+    public void setLog(Log log) {
+<span class="nc" id="L267">        _log = log;</span>
+<span class="nc" id="L268">    }</span>
+
+    /**
+     * Classloader to use for class name resolution.
+     */
+    public ClassLoader getClassLoader() {
+<span class="nc" id="L274">        return _loader;</span>
+    }
+
+    /**
+     * Classloader to use for class name resolution.
+     */
+    @Override
+    public void setClassLoader(ClassLoader loader) {
+<span class="nc" id="L282">        _loader = loader;</span>
+<span class="nc" id="L283">    }</span>
+
+    @Override
+    public List getResults() {
+<span class="nc bnc" id="L287" title="All 2 branches missed.">        if (_results == null)</span>
+<span class="nc" id="L288">            return Collections.emptyList();</span>
+<span class="nc" id="L289">        return _results;</span>
+    }
+
+    @Override
+    public void parse(String rsrc) throws IOException {
+<span class="nc bnc" id="L294" title="All 2 branches missed.">        if (rsrc != null)</span>
+<span class="nc" id="L295">            parse(new ResourceMetaDataIterator(rsrc, _loader));</span>
+<span class="nc" id="L296">    }</span>
+
+    @Override
+    public void parse(URL url) throws IOException {
+<span class="nc bnc" id="L300" title="All 2 branches missed.">        if (url != null)</span>
+<span class="nc" id="L301">            parse(new URLMetaDataIterator(url));</span>
+<span class="nc" id="L302">    }</span>
+
+    @Override
+    public void parse(File file) throws IOException {
+<span class="nc bnc" id="L306" title="All 2 branches missed.">        if (file == null)</span>
+<span class="nc" id="L307">            return;</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">        if (!AccessController.doPrivileged(J2DoPrivHelper</span>
+<span class="nc" id="L309">                .isDirectoryAction(file)))</span>
+<span class="nc" id="L310">            parse(new FileMetaDataIterator(file));</span>
+        else {
+<span class="nc bnc" id="L312" title="All 2 branches missed.">            String suff = (_suffix == null) ? &quot;&quot; : _suffix;</span>
+<span class="nc" id="L313">            parse(new FileMetaDataIterator(file,</span>
+                new SuffixMetaDataFilter(suff)));
+        }
+<span class="nc" id="L316">    }</span>
+
+    @Override
+    public void parse(Class cls, boolean topDown) throws IOException {
+<span class="nc bnc" id="L320" title="All 2 branches missed.">        String suff = (_suffix == null) ? &quot;&quot; : _suffix;</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">        parse(new ClassMetaDataIterator(cls, suff, topDown), !topDown);</span>
+<span class="nc" id="L322">    }</span>
+
+    @Override
+    public void parse(Reader xml, String sourceName) throws IOException {
+<span class="nc bnc" id="L326" title="All 6 branches missed.">        if (xml != null &amp;&amp; (sourceName == null || !parsed(sourceName)))</span>
+<span class="nc" id="L327">            parseNewResource(xml, sourceName);</span>
+<span class="nc" id="L328">    }</span>
+
+    @Override
+    public void parse(MetaDataIterator itr) throws IOException {
+<span class="nc" id="L332">        parse(itr, false);</span>
+<span class="nc" id="L333">    }</span>
+
+    /**
+     * Parse the resources returned by the given iterator, optionally stopping
+     * when the first valid resource is found.
+     */
+    private void parse(MetaDataIterator itr, boolean stopFirst)
+        throws IOException {
+<span class="nc bnc" id="L341" title="All 2 branches missed.">        if (itr == null)</span>
+<span class="nc" id="L342">            return;</span>
+        try {
+            String sourceName;
+<span class="nc bnc" id="L345" title="All 2 branches missed.">            while (itr.hasNext()) {</span>
+<span class="nc" id="L346">                sourceName = itr.next().toString();</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">                if (parsed(sourceName)) {</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">                    if (stopFirst)</span>
+<span class="nc" id="L349">                        break;</span>
+                    continue;
+                }
+
+                // individual files of the resource might already be parsed
+<span class="nc" id="L354">                _sourceFile = itr.getFile();</span>
+<span class="nc" id="L355">                parseNewResource(new InputStreamReader(itr.getInputStream()),</span>
+                    sourceName);
+<span class="nc bnc" id="L357" title="All 2 branches missed.">                if (stopFirst)</span>
+<span class="nc" id="L358">                    break;</span>
+            }
+        }
+        finally {
+<span class="nc" id="L362">            itr.close();</span>
+        }
+<span class="nc" id="L364">    }</span>
+
+    /**
+     * Parse a previously-unseen source. All parsing methods delegate
+     * to this one.
+     */
+    protected void parseNewResource(Reader xml, String sourceName)
+        throws IOException {
+<span class="nc bnc" id="L372" title="All 4 branches missed.">        if (_log != null &amp;&amp; _log.isTraceEnabled())</span>
+<span class="nc" id="L373">            _log.trace(_loc.get(&quot;start-parse&quot;, sourceName));</span>
+
+        // even if we want to validate, specify that it won't happen
+        // if we have neither a DocType not a Schema
+<span class="nc" id="L377">        Object schemaSource = getSchemaSource();</span>
+<span class="nc bnc" id="L378" title="All 4 branches missed.">        if (schemaSource != null &amp;&amp; _schemaBug) {</span>
+<span class="nc bnc" id="L379" title="All 4 branches missed.">            if (_log != null &amp;&amp; _log.isTraceEnabled())</span>
+<span class="nc" id="L380">                _log.trace(_loc.get(&quot;parser-schema-bug&quot;));</span>
+<span class="nc" id="L381">            schemaSource = null;</span>
+        }
+<span class="nc bnc" id="L383" title="All 6 branches missed.">        boolean validating = _validating &amp;&amp; (getDocType() != null</span>
+            || schemaSource != null);
+
+        // parse the metadata with a SAX parser
+        try {
+<span class="nc" id="L388">            setParsing(true);</span>
+<span class="nc" id="L389">            _sourceName = sourceName;</span>
+
+<span class="nc" id="L391">            SAXParser parser = null;</span>
+<span class="nc" id="L392">            boolean overrideCL = _overrideContextClassloader;</span>
+<span class="nc" id="L393">            ClassLoader oldLoader = null;</span>
+<span class="nc" id="L394">            ClassLoader newLoader = null;</span>
+
+            try {
+<span class="nc bnc" id="L397" title="All 2 branches missed.">                if (overrideCL) {</span>
+                    oldLoader =
+<span class="nc" id="L399">                        (ClassLoader) AccessController.doPrivileged(J2DoPrivHelper.getContextClassLoaderAction());</span>
+<span class="nc" id="L400">                    newLoader = XMLMetaDataParser.class.getClassLoader();</span>
+<span class="nc" id="L401">                    AccessController.doPrivileged(J2DoPrivHelper.setContextClassLoaderAction(newLoader));</span>
+
+<span class="nc bnc" id="L403" title="All 4 branches missed.">                    if (_log != null &amp;&amp; _log.isTraceEnabled()) {</span>
+<span class="nc" id="L404">                        _log.trace(_loc.get(&quot;override-contextclassloader-begin&quot;, oldLoader, newLoader));</span>
+                    }
+                }
+
+<span class="nc" id="L408">                parser = XMLFactory.getSAXParser(validating, true);</span>
+<span class="nc" id="L409">                Object schema = null;</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">                if (validating) {</span>
+<span class="nc" id="L411">                    schema = schemaSource;</span>
+<span class="nc bnc" id="L412" title="All 4 branches missed.">                    if (schema == null &amp;&amp; getDocType() != null)</span>
+<span class="nc" id="L413">                        xml = new DocTypeReader(xml, getDocType());</span>
+                }
+
+<span class="nc bnc" id="L416" title="All 4 branches missed.">                if (_parseComments || _lh != null)</span>
+<span class="nc" id="L417">                    parser.setProperty</span>
+<span class="nc" id="L418">                        (&quot;http://xml.org/sax/properties/lexical-handler&quot;, this);</span>
+
+<span class="nc bnc" id="L420" title="All 2 branches missed.">                if (schema != null) {</span>
+<span class="nc" id="L421">                    parser.setProperty</span>
+<span class="nc" id="L422">                        (&quot;http://java.sun.com/xml/jaxp/properties/schemaLanguage&quot;,</span>
+                            &quot;http://www.w3.org/2001/XMLSchema&quot;);
+<span class="nc" id="L424">                    parser.setProperty</span>
+<span class="nc" id="L425">                        (&quot;http://java.sun.com/xml/jaxp/properties/schemaSource&quot;,</span>
+                            schema);
+                }
+
+<span class="nc" id="L429">                InputSource is = new InputSource(xml);</span>
+<span class="nc bnc" id="L430" title="All 4 branches missed.">                if (_systemId &amp;&amp; sourceName != null)</span>
+<span class="nc" id="L431">                    is.setSystemId(sourceName);</span>
+<span class="nc" id="L432">                parser.parse(is, this);</span>
+<span class="nc" id="L433">                finish();</span>
+<span class="nc" id="L434">            } catch (SAXException se) {</span>
+<span class="nc" id="L435">                IOException ioe = new IOException(se.toString(), se);</span>
+<span class="nc" id="L436">                throw ioe;</span>
+            } finally {
+<span class="nc bnc" id="L438" title="All 2 branches missed.">                if (overrideCL) {</span>
+                    // Restore the old ContextClassloader
+                    try {
+<span class="nc bnc" id="L441" title="All 4 branches missed.">                        if (_log != null &amp;&amp; _log.isTraceEnabled()) {</span>
+<span class="nc" id="L442">                            _log.trace(_loc.get(&quot;override-contextclassloader-end&quot;, newLoader, oldLoader));</span>
+                        }
+<span class="nc" id="L444">                        AccessController.doPrivileged(J2DoPrivHelper.setContextClassLoaderAction(oldLoader));</span>
+<span class="nc" id="L445">                    } catch (Throwable t) {</span>
+<span class="nc bnc" id="L446" title="All 4 branches missed.">                        if (_log != null &amp;&amp; _log.isWarnEnabled()) {</span>
+<span class="nc" id="L447">                            _log.warn(_loc.get(&quot;restore-contextclassloader-failed&quot;));</span>
+                        }
+<span class="nc" id="L449">                    }</span>
+                }
+            }
+        } finally {
+<span class="nc" id="L453">            reset();</span>
+        }
+<span class="nc" id="L455">    }</span>
+
+    /**
+     * Return true if the given source is parsed. Otherwise, record that
+     * it will be parsed.
+     */
+    protected boolean parsed(String src) {
+<span class="nc bnc" id="L462" title="All 2 branches missed.">        if (!_caching)</span>
+<span class="nc" id="L463">            return false;</span>
+<span class="nc bnc" id="L464" title="All 2 branches missed.">        if (_parsed == null)</span>
+<span class="nc" id="L465">            _parsed = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L467">        ClassLoader loader = currentClassLoader();</span>
+<span class="nc" id="L468">        Set&lt;String&gt; set = _parsed.computeIfAbsent(loader, k -&gt; new HashSet&lt;&gt;());</span>
+<span class="nc" id="L469">        boolean added = set.add(src);</span>
+<span class="nc bnc" id="L470" title="All 6 branches missed.">        if (!added &amp;&amp; _log != null &amp;&amp; _log.isTraceEnabled())</span>
+<span class="nc" id="L471">            _log.trace(_loc.get(&quot;already-parsed&quot;, src));</span>
+<span class="nc bnc" id="L472" title="All 2 branches missed.">        return !added;</span>
+    }
+
+    @Override
+    public void clear() {
+<span class="nc bnc" id="L477" title="All 4 branches missed.">        if (_log != null &amp;&amp; _log.isTraceEnabled())</span>
+<span class="nc" id="L478">            _log.trace(_loc.get(&quot;clear-parser&quot;, this));</span>
+<span class="nc bnc" id="L479" title="All 2 branches missed.">        if (_parsed != null)</span>
+<span class="nc" id="L480">            _parsed.clear();</span>
+<span class="nc" id="L481">    }</span>
+
+    @Override
+    public void error(SAXParseException se) throws SAXException {
+<span class="nc" id="L485">        throw getException(se.toString());</span>
+    }
+
+    @Override
+    public void fatalError(SAXParseException se) throws SAXException {
+<span class="nc" id="L490">        throw getException(se.toString());</span>
+    }
+
+    @Override
+    public void setDocumentLocator(Locator locator) {
+<span class="nc" id="L495">        _location.setLocator(locator);</span>
+<span class="nc" id="L496">    }</span>
+
+    @Override
+    public void startElement(String uri, String name, String qName,
+        Attributes attrs) throws SAXException {
+<span class="nc" id="L501">        _depth++;</span>
+<span class="nc bnc" id="L502" title="All 2 branches missed.">        if (_depth &lt;= _ignore){</span>
+<span class="nc bnc" id="L503" title="All 2 branches missed.">            if (uri.equals(OPENJPA_NAMESPACE)) {</span>
+<span class="nc" id="L504">                _extendedNamespace++;</span>
+<span class="nc" id="L505">                _openjpaNamespace++;</span>
+            }
+<span class="nc bnc" id="L507" title="All 2 branches missed.">            if (!startElement(qName, attrs))</span>
+<span class="nc" id="L508">                ignoreContent(true);</span>
+        }
+<span class="nc" id="L510">    }</span>
+
+    @Override
+    public void endElement(String uri, String name, String qName)
+        throws SAXException {
+<span class="nc bnc" id="L515" title="All 2 branches missed.">        if (_depth &lt; _ignore) {</span>
+<span class="nc" id="L516">            endElement(qName);</span>
+<span class="nc bnc" id="L517" title="All 2 branches missed.">            _extendedNamespace = (_extendedNamespace &gt; 0) ? _extendedNamespace - 1 : 0;</span>
+<span class="nc bnc" id="L518" title="All 2 branches missed.">            _openjpaNamespace = (_openjpaNamespace &gt; 0) ? _openjpaNamespace - 1 : 0;</span>
+        }
+<span class="nc bnc" id="L520" title="All 2 branches missed.">        else if (_depth ==_ignore) {</span>
+<span class="nc bnc" id="L521" title="All 2 branches missed.">            _extendedNamespace = (_extendedNamespace &gt; 0) ? _extendedNamespace - 1 : 0;</span>
+<span class="nc bnc" id="L522" title="All 2 branches missed.">            _openjpaNamespace = (_openjpaNamespace &gt; 0) ? _openjpaNamespace - 1 : 0;</span>
+        }
+
+<span class="nc" id="L525">        _text = null;</span>
+<span class="nc bnc" id="L526" title="All 2 branches missed.">        if (_comments != null)</span>
+<span class="nc" id="L527">            _comments.clear();</span>
+<span class="nc bnc" id="L528" title="All 2 branches missed.">        if (_depth == _ignore)</span>
+<span class="nc" id="L529">            _ignore = Integer.MAX_VALUE;</span>
+<span class="nc" id="L530">        _depth--;</span>
+<span class="nc" id="L531">    }</span>
+
+    @Override
+    public void characters(char[] ch, int start, int length) {
+<span class="nc bnc" id="L535" title="All 4 branches missed.">        if (_parseText &amp;&amp; _depth &lt;= _ignore) {</span>
+<span class="nc bnc" id="L536" title="All 2 branches missed.">            if (_text == null)</span>
+<span class="nc" id="L537">                _text = new StringBuffer();</span>
+<span class="nc" id="L538">            _text.append(ch, start, length);</span>
+        }
+<span class="nc" id="L540">    }</span>
+
+    @Override
+    public void comment(char[] ch, int start, int length) throws SAXException {
+<span class="nc bnc" id="L544" title="All 4 branches missed.">        if (_parseComments &amp;&amp; _depth &lt;= _ignore) {</span>
+<span class="nc bnc" id="L545" title="All 2 branches missed.">            if (_comments == null)</span>
+<span class="nc" id="L546">                _comments = new ArrayList&lt;&gt;(3);</span>
+<span class="nc" id="L547">            _comments.add(String.valueOf(ch, start, length));</span>
+        }
+<span class="nc bnc" id="L549" title="All 2 branches missed.">        if (_lh != null)</span>
+<span class="nc" id="L550">            _lh.comment(ch, start, length);</span>
+<span class="nc" id="L551">    }</span>
+
+    @Override
+    public void startCDATA() throws SAXException {
+<span class="nc bnc" id="L555" title="All 2 branches missed.">        if (_lh != null)</span>
+<span class="nc" id="L556">            _lh.startCDATA();</span>
+<span class="nc" id="L557">    }</span>
+
+    @Override
+    public void endCDATA() throws SAXException {
+<span class="nc bnc" id="L561" title="All 2 branches missed.">        if (_lh != null)</span>
+<span class="nc" id="L562">            _lh.endCDATA();</span>
+<span class="nc" id="L563">    }</span>
+
+    @Override
+    public void startDTD(String name, String publicId, String systemId)
+        throws SAXException {
+<span class="nc bnc" id="L568" title="All 2 branches missed.">        if (_lh != null)</span>
+<span class="nc" id="L569">            _lh.startDTD(name, publicId, systemId);</span>
+<span class="nc" id="L570">    }</span>
+
+    @Override
+    public void endDTD() throws SAXException {
+<span class="nc bnc" id="L574" title="All 2 branches missed.">        if (_lh != null)</span>
+<span class="nc" id="L575">            _lh.endDTD();</span>
+<span class="nc" id="L576">    }</span>
+
+    @Override
+    public void startEntity(String name) throws SAXException {
+<span class="nc bnc" id="L580" title="All 2 branches missed.">        if (_lh != null)</span>
+<span class="nc" id="L581">            _lh.startEntity(name);</span>
+<span class="nc" id="L582">    }</span>
+
+    @Override
+    public void endEntity(String name) throws SAXException {
+<span class="nc bnc" id="L586" title="All 2 branches missed.">        if (_lh != null)</span>
+<span class="nc" id="L587">            _lh.endEntity(name);</span>
+<span class="nc" id="L588">    }</span>
+
+    /**
+     * Override this method marking the start of some element. If this method
+     * returns false, the content of the element and the end element event will
+     * be ignored.
+     */
+    protected abstract boolean startElement(String name, Attributes attrs)
+        throws SAXException;
+
+    /**
+     * Override this method marking the end of some element.
+     */
+    protected abstract void endElement(String name) throws SAXException;
+
+    /**
+     * Add a result to be returned from the current parse.
+     */
+    protected void addResult(Object result) {
+<span class="nc bnc" id="L607" title="All 4 branches missed.">        if (_log != null &amp;&amp; _log.isTraceEnabled())</span>
+<span class="nc" id="L608">            _log.trace(_loc.get(&quot;add-result&quot;, result));</span>
+<span class="nc" id="L609">        _curResults.add(result);</span>
+<span class="nc" id="L610">    }</span>
+
+    /**
+     * Override this method to finish up after a parse; this is only
+     * called if no errors are encountered during parsing. Subclasses should
+     * call &lt;code&gt;super.finish()&lt;/code&gt; to resolve superclass state.
+     */
+    protected void finish() {
+<span class="nc bnc" id="L618" title="All 4 branches missed.">        if (_log != null &amp;&amp; _log.isTraceEnabled())</span>
+<span class="nc" id="L619">            _log.trace(_loc.get(&quot;end-parse&quot;, getSourceName()));</span>
+<span class="nc" id="L620">        _results = new ArrayList(_curResults);</span>
+<span class="nc" id="L621">    }</span>
+
+    /**
+     * Override this method to clear any state and ready the parser for
+     * a new document. Subclasses should call
+     * &lt;code&gt;super.reset()&lt;/code&gt; to clear superclass state.
+     */
+    protected void reset() {
+<span class="nc" id="L629">        _curResults.clear();</span>
+<span class="nc" id="L630">        _curLoader = null;</span>
+<span class="nc" id="L631">        _sourceName = null;</span>
+<span class="nc" id="L632">        _sourceFile = null;</span>
+<span class="nc" id="L633">        _depth = -1;</span>
+<span class="nc" id="L634">        _ignore = Integer.MAX_VALUE;</span>
+<span class="nc bnc" id="L635" title="All 2 branches missed.">        if (_comments != null)</span>
+<span class="nc" id="L636">            _comments.clear();</span>
+<span class="nc" id="L637">        clearDeferredMetaData();</span>
+<span class="nc" id="L638">        setParsing(false);</span>
+<span class="nc" id="L639">    }</span>
+
+    /**
+     * Implement to return the XML schema source for the document. Returns
+     * null by default. May return:
+     * &lt;ul&gt;
+     * &lt;li&gt;&lt;code&gt;String&lt;/code&gt; pointing to schema URI.&lt;/li&gt;
+     * &lt;li&gt;&lt;code&gt;InputStream&lt;/code&gt; containing schema contents.&lt;/li&gt;
+     * &lt;li&gt;&lt;code&gt;InputSource&lt;/code&gt; containing schema contents.&lt;/li&gt;
+     * &lt;li&gt;&lt;code&gt;File&lt;/code&gt; containing schema contents.&lt;/li&gt;
+     * &lt;li&gt;Array of any of the above elements.&lt;/li&gt;
+     * &lt;/ul&gt;
+     */
+    protected Object getSchemaSource() throws IOException {
+<span class="nc" id="L653">        return null;</span>
+    }
+
+    /**
+     * Override this method to return any &lt;code&gt;DOCTYPE&lt;/code&gt; declaration
+     * that should be dynamically included in xml documents that will be
+     * validated. Returns null by default.
+     */
+    protected Reader getDocType() throws IOException {
+<span class="nc" id="L662">        return null;</span>
+    }
+
+    /**
+     * Return the name of the source file being parsed.
+     */
+    protected String getSourceName() {
+<span class="nc" id="L669">        return _sourceName;</span>
+    }
+
+    /**
+     * Return the file of the source being parsed.
+     */
+    protected File getSourceFile() {
+<span class="nc" id="L676">        return _sourceFile;</span>
+    }
+
+    /**
+     * Add current comments to the given entity. By default, assumes entity
+     * is {@link Commentable}.
+     */
+    protected void addComments(Object obj) {
+<span class="nc" id="L684">        String[] comments = currentComments();</span>
+<span class="nc bnc" id="L685" title="All 4 branches missed.">        if (comments.length &gt; 0 &amp;&amp; obj instanceof Commentable)</span>
+<span class="nc" id="L686">            ((Commentable) obj).setComments(comments);</span>
+<span class="nc" id="L687">    }</span>
+
+    /**
+     * Array of comments for the current node, or empty array if none.
+     */
+    protected String[] currentComments() {
+<span class="nc bnc" id="L693" title="All 4 branches missed.">        if (_comments == null || _comments.isEmpty())</span>
+<span class="nc" id="L694">            return Commentable.EMPTY_COMMENTS;</span>
+<span class="nc" id="L695">        return _comments.toArray(new String[_comments.size()]);</span>
+    }
+
+    /**
+     * Return the text value within the current node.
+     */
+    protected String currentText() {
+<span class="nc bnc" id="L702" title="All 2 branches missed.">        if (_text == null)</span>
+<span class="nc" id="L703">            return &quot;&quot;;</span>
+<span class="nc" id="L704">        return _text.toString().trim();</span>
+    }
+
+    /**
+     * Return the current location within the source file.
+     */
+    protected String currentLocation() {
+<span class="nc" id="L711">        return &quot; [&quot; + _loc.get(&quot;loc-prefix&quot;) + _location.getLocation() + &quot;]&quot;;</span>
+    }
+
+    /**
+     * Return the parse depth. Within the root element, the depth is 0,
+     * within the first nested element, it is 1, and so forth.
+     */
+    protected int currentDepth() {
+<span class="nc" id="L719">        return _depth;</span>
+    }
+
+    /**
+     * Return the class loader to use when resolving resources and loading
+     * classes.
+     */
+    protected ClassLoader currentClassLoader() {
+<span class="nc bnc" id="L727" title="All 2 branches missed.">        if (_loader != null)</span>
+<span class="nc" id="L728">            return _loader;</span>
+<span class="nc bnc" id="L729" title="All 2 branches missed.">        if (_curLoader == null)</span>
+<span class="nc" id="L730">            _curLoader = AccessController.doPrivileged(</span>
+<span class="nc" id="L731">                J2DoPrivHelper.getContextClassLoaderAction());</span>
+<span class="nc" id="L732">        return _curLoader;</span>
+    }
+
+    /**
+     * Ignore all content below the current element.
+     *
+     * @param ignoreEnd whether to ignore the end element event
+     */
+    protected void ignoreContent(boolean ignoreEnd) {
+<span class="nc" id="L741">        _ignore = _depth;</span>
+<span class="nc bnc" id="L742" title="All 2 branches missed.">        if (!ignoreEnd)</span>
+<span class="nc" id="L743">            _ignore++;</span>
+<span class="nc" id="L744">    }</span>
+
+    /**
+     * Returns a SAXException with the source file name and the given error
+     * message.
+     */
+    protected SAXException getException(String msg) {
+<span class="nc" id="L751">        return new SAXException(getSourceName() + currentLocation() +</span>
+            &quot;: &quot; + msg);
+    }
+
+    /**
+     * Returns a SAXException with the source file name and the given error
+     * message.
+     */
+    protected SAXException getException(Message msg) {
+<span class="nc" id="L760">        return new SAXException(getSourceName() + currentLocation() +</span>
+<span class="nc" id="L761">            &quot;: &quot; + msg.getMessage());</span>
+    }
+
+    /**
+     * Returns a SAXException with the source file name and the given error
+     * message.
+     */
+    protected SAXException getException(Message msg, Throwable cause) {
+<span class="nc bnc" id="L769" title="All 6 branches missed.">        if (cause != null &amp;&amp; _log != null &amp;&amp; _log.isTraceEnabled())</span>
+<span class="nc" id="L770">            _log.trace(_loc.get(&quot;sax-exception&quot;,</span>
+<span class="nc" id="L771">                getSourceName(), _location.getLocation()), cause);</span>
+<span class="nc" id="L772">        SAXException e = new SAXException(getSourceName() + currentLocation() +</span>
+            &quot;: &quot; + msg + &quot; [&quot; + cause + &quot;]&quot;);
+<span class="nc" id="L774">        e.initCause(cause);</span>
+<span class="nc" id="L775">        return e;</span>
+    }
+
+    protected void clearDeferredMetaData() {
+<span class="nc" id="L779">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

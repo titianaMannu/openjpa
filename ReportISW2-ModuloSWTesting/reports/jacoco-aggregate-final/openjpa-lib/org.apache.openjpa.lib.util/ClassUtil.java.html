@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ClassUtil.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">ClassUtil.java</span></div><h1>ClassUtil.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+
+/**
+ * Various helper methods to deal with Classes
+ */
+public final class ClassUtil {
+
+
+<span class="nc" id="L26">    private static final Object[][] _codes = new Object[][]{</span>
+            {byte.class, &quot;byte&quot;, &quot;B&quot;},
+            {char.class, &quot;char&quot;, &quot;C&quot;},
+            {double.class, &quot;double&quot;, &quot;D&quot;},
+            {float.class, &quot;float&quot;, &quot;F&quot;},
+            {int.class, &quot;int&quot;, &quot;I&quot;},
+            {long.class, &quot;long&quot;, &quot;J&quot;},
+            {short.class, &quot;short&quot;, &quot;S&quot;},
+            {boolean.class, &quot;boolean&quot;, &quot;Z&quot;},
+            {void.class, &quot;void&quot;, &quot;V&quot;}
+    };
+
+    private ClassUtil() {
+    }
+
+    /**
+     * Return the class for the given string, correctly handling
+     * primitive types. If the given class loader is null, the context
+     * loader of the current thread will be used.
+     *
+     * @throws RuntimeException on load error
+     * @author Abe White, taken from the Serp project
+     */
+    public static Class toClass(String str, ClassLoader loader) {
+<span class="nc" id="L50">        return toClass(str, false, loader);</span>
+    }
+
+    /**
+     * Return the class for the given string, correctly handling
+     * primitive types. If the given class loader is null, the context
+     * loader of the current thread will be used.
+     *
+     * @throws RuntimeException on load error
+     * @author Abe White, taken from the Serp project
+     */
+    public static Class toClass(String str, boolean resolve,
+                                ClassLoader loader) {
+<span class="nc bnc" id="L63" title="All 2 branches missed.">        if (str == null) {</span>
+<span class="nc" id="L64">            throw new NullPointerException(&quot;str == null&quot;);</span>
+        }
+
+        // array handling
+<span class="nc" id="L68">        int dims = 0;</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        while (str.endsWith(&quot;[]&quot;)) {</span>
+<span class="nc" id="L70">            dims++;</span>
+<span class="nc" id="L71">            str = str.substring(0, str.length() - 2);</span>
+        }
+
+        // check against primitive types
+<span class="nc" id="L75">        boolean primitive = false;</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">        if (str.indexOf('.') == -1) {</span>
+<span class="nc bnc" id="L77" title="All 4 branches missed.">            for (int i = 0; !primitive &amp;&amp; (i &lt; _codes.length); i++) {</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">                if (_codes[i][1].equals(str)) {</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">                    if (dims == 0) {</span>
+<span class="nc" id="L80">                        return (Class) _codes[i][0];</span>
+                    }
+<span class="nc" id="L82">                    str = (String) _codes[i][2];</span>
+<span class="nc" id="L83">                    primitive = true;</span>
+                }
+            }
+        }
+
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if (dims &gt; 0) {</span>
+<span class="nc" id="L89">            StringBuilder buf = new StringBuilder(str.length() + dims + 2);</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">            for (int i = 0; i &lt; dims; i++) {</span>
+<span class="nc" id="L91">                buf.append('[');</span>
+            }
+<span class="nc bnc" id="L93" title="All 2 branches missed.">            if (!primitive) {</span>
+<span class="nc" id="L94">                buf.append('L');</span>
+            }
+<span class="nc" id="L96">            buf.append(str);</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">            if (!primitive) {</span>
+<span class="nc" id="L98">                buf.append(';');</span>
+            }
+<span class="nc" id="L100">            str = buf.toString();</span>
+        }
+
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        if (loader == null) {</span>
+<span class="nc" id="L104">            loader = Thread.currentThread().getContextClassLoader();</span>
+        }
+
+        try {
+<span class="nc" id="L108">            return Class.forName(str, resolve, loader);</span>
+        }
+<span class="nc" id="L110">        catch (ClassNotFoundException | NoClassDefFoundError e) {</span>
+<span class="nc" id="L111">            throw new IllegalArgumentException(e.getMessage());</span>
+        }
+    }
+
+    /**
+     * Return only the class name, without package.
+     */
+    public static String getClassName(Class cls) {
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        if (cls == null) {</span>
+<span class="nc" id="L120">            return null;</span>
+        }
+<span class="nc" id="L122">        return getClassName(cls.getName());</span>
+    }
+
+    /**
+     * Return only the class name.
+     */
+    public static String getClassName(String fullName) {
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        if (fullName == null) {</span>
+<span class="nc" id="L130">            return null;</span>
+        }
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (fullName.isEmpty()) {</span>
+<span class="nc" id="L133">            return fullName;</span>
+        }
+
+<span class="nc" id="L136">        int dims = getArrayDimensions(fullName);</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        if (dims &gt; 0) {</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">            if (fullName.length() == dims + 1) {</span>
+<span class="nc" id="L139">                String classCode = fullName.substring(dims);</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">                for (Object[] code : _codes) {</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">                    if (code[2].equals(classCode)) {</span>
+<span class="nc" id="L142">                        fullName = (String) code[1];</span>
+<span class="nc" id="L143">                        break;</span>
+                    }
+                }
+<span class="nc" id="L146">            }</span>
+            else {
+<span class="nc bnc" id="L148" title="All 2 branches missed.">                if (fullName.charAt(fullName.length()-1) == ';') {</span>
+<span class="nc" id="L149">                    fullName = fullName.substring(dims + 1, fullName.length() - 1);</span>
+                }
+                else {
+<span class="nc" id="L152">                    fullName = fullName.substring(dims + 1);</span>
+                }
+            }
+        }
+
+<span class="nc" id="L157">        int lastDot = fullName.lastIndexOf('.');</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        String simpleName = lastDot &gt; -1 ? fullName.substring(lastDot + 1) : fullName;</span>
+
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        if (dims &gt; 0) {</span>
+<span class="nc" id="L161">            StringBuilder sb = new StringBuilder(simpleName.length() + dims * 2);</span>
+<span class="nc" id="L162">            sb.append(simpleName);</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            for (int i = 0; i &lt; dims; i++) {</span>
+<span class="nc" id="L164">                sb.append(&quot;[]&quot;);</span>
+            }
+<span class="nc" id="L166">            simpleName = sb.toString();</span>
+        }
+<span class="nc" id="L168">        return simpleName;</span>
+    }
+
+    private static int getArrayDimensions(String fullClassName) {
+<span class="nc" id="L172">        int dims = 0;</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        while (fullClassName.charAt(dims) == '[') {</span>
+<span class="nc" id="L174">            dims++;</span>
+        }
+
+<span class="nc" id="L177">        return dims;</span>
+    }
+
+    /**
+     * Return only the package, or empty string if none.
+     */
+    public static String getPackageName(Class cls) {
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        return (cls == null) ? null : getPackageName(cls.getName());</span>
+    }
+
+    /**
+     * Return only the package, or empty string if none.
+     */
+    public static String getPackageName(String fullName) {
+<span class="nc bnc" id="L191" title="All 2 branches missed.">        if (fullName == null) {</span>
+<span class="nc" id="L192">            return null;</span>
+        }
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        if (fullName.isEmpty()) {</span>
+<span class="nc" id="L195">            return fullName;</span>
+        }
+
+<span class="nc" id="L198">        int dims = getArrayDimensions(fullName);</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        if (dims &gt; 0) {</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">            if (fullName.length() == dims + 1) {</span>
+                // don't care, it's a primitive
+<span class="nc" id="L202">                return &quot;&quot;;</span>
+            }
+            else {
+<span class="nc" id="L205">                fullName = fullName.substring(dims + 1);</span>
+            }
+        }
+
+<span class="nc" id="L209">        int lastDot = fullName.lastIndexOf('.');</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">        return lastDot &gt; -1 ? fullName.substring(0, lastDot) : &quot;&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

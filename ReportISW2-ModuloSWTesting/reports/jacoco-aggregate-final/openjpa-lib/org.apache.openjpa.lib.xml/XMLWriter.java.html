@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>XMLWriter.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.xml</a> &gt; <span class="el_source">XMLWriter.java</span></div><h1>XMLWriter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.xml;
+
+import java.io.FilterWriter;
+import java.io.IOException;
+import java.io.Writer;
+
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+
+/**
+ * The XMLWriter is a writer type for pretty-printing XML.
+ * It assumes that the streamed XML will be given without any whitespace,
+ * other than the space within text blocks.
+ *
+ * @author Abe White
+ */
+public class XMLWriter extends FilterWriter {
+
+<span class="nc" id="L36">    private static String _endl = J2DoPrivHelper.getLineSeparator();</span>
+
+<span class="nc" id="L38">    private int _lastChar = ' ';</span>
+<span class="nc" id="L39">    private int _lastChar2 = ' ';</span>
+<span class="nc" id="L40">    private int _lastChar3 = ' ';</span>
+<span class="nc" id="L41">    private int _depth = 0;</span>
+
+    /**
+     * Construct an XMLWriter that will write to the given stream.
+     */
+    public XMLWriter(Writer out) {
+<span class="nc" id="L47">        super(out);</span>
+<span class="nc" id="L48">    }</span>
+
+    @Override
+    public void write(char[] cbuf, int off, int len) throws IOException {
+<span class="nc bnc" id="L52" title="All 2 branches missed.">        for (int i = 0; i &lt; len; i++)</span>
+<span class="nc" id="L53">            write(cbuf[off + i]);</span>
+<span class="nc" id="L54">    }</span>
+
+    @Override
+    public void write(String str, int off, int len) throws IOException {
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        for (int i = 0; i &lt; len; i++)</span>
+<span class="nc" id="L59">            write(str.charAt(off + i));</span>
+<span class="nc" id="L60">    }</span>
+
+    @Override
+    public void write(int c) throws IOException {
+        // the basic idea of this method is to make sure that when a tag
+        // or a text block starts, it is placed on a separate line and
+        // indented an amount appropriate to the XML tree depth
+
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        if (_lastChar == '&lt;') {</span>
+            // tag or processing instruction?
+<span class="nc bnc" id="L70" title="All 4 branches missed.">            if (c != '?' &amp;&amp; c != '!') {</span>
+                // end tag; decrease depth before writing spaces
+<span class="nc bnc" id="L72" title="All 2 branches missed.">                if (c == '/')</span>
+<span class="nc" id="L73">                    _depth--;</span>
+
+                // tags are always on separate lines
+<span class="nc" id="L76">                out.write(_endl);</span>
+<span class="nc" id="L77">                writeSpaces();</span>
+
+                // beginning tag; increase depth for tag body
+<span class="nc bnc" id="L80" title="All 2 branches missed.">                if (c != '/')</span>
+<span class="nc" id="L81">                    _depth++;</span>
+            }
+
+            // if this is not a processing instruction / comment,
+            // write the chars
+<span class="nc bnc" id="L86" title="All 2 branches missed.">            if (c != '!') {</span>
+<span class="nc" id="L87">                out.write('&lt;');</span>
+<span class="nc" id="L88">                out.write(c);</span>
+            }
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        } else if (c == '&gt;') {</span>
+            // if unary tag decrease depth to undo the increase at tag start
+<span class="nc bnc" id="L92" title="All 2 branches missed.">            if (_lastChar == '/')</span>
+<span class="nc" id="L93">                _depth--;</span>
+
+            // check for the comment-processing conditions
+<span class="nc bnc" id="L96" title="All 4 branches missed.">            if (_lastChar2 == '&lt;' &amp;&amp; _lastChar == '!')</span>
+<span class="nc" id="L97">                out.write(&quot;&lt;!&quot;);</span>
+<span class="nc bnc" id="L98" title="All 6 branches missed.">            else if (_lastChar3 == '&lt;' &amp;&amp; _lastChar2 == '!' &amp;&amp; _lastChar == '-')</span>
+<span class="nc" id="L99">                out.write(&quot;&lt;!-&quot;);</span>
+
+<span class="nc" id="L101">            out.write('&gt;');</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        } else if (c != '&lt;') {</span>
+            // if we're at &quot;&lt;!--&quot;, indent and put in the beginning of
+            // the comment. if it's &quot;&lt;!-?&quot; where ? is something other
+            // than -, dump what we've gotten so far
+<span class="nc bnc" id="L106" title="All 6 branches missed.">            if (_lastChar3 == '&lt;' &amp;&amp; _lastChar2 == '!' &amp;&amp; _lastChar == '-') {</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">                if (c == '-') {</span>
+<span class="nc" id="L108">                    out.write(_endl);</span>
+<span class="nc" id="L109">                    writeSpaces();</span>
+<span class="nc" id="L110">                    out.write(&quot;&lt;!--&quot;);</span>
+                } else {
+<span class="nc" id="L112">                    out.write(&quot;&lt;!-&quot;);</span>
+<span class="nc" id="L113">                    out.write(c);</span>
+                }
+            }
+            // if we're at &quot;&lt;!-&quot;, keep on not writing data
+<span class="nc bnc" id="L117" title="All 6 branches missed.">            else if (!(_lastChar2 == '&lt;' &amp;&amp; _lastChar == '!' &amp;&amp; c == '-')) {</span>
+                // if just ended a tag and about to print text, put on
+                // separate line
+<span class="nc bnc" id="L120" title="All 6 branches missed.">                if (_lastChar == '&gt;' &amp;&amp; _lastChar2 != '?' &amp;&amp; _lastChar2 != '!')</span>
+                {
+<span class="nc" id="L122">                    out.write(_endl);</span>
+<span class="nc" id="L123">                    writeSpaces();</span>
+                }
+<span class="nc" id="L125">                out.write(c);</span>
+            }
+        }
+
+<span class="nc" id="L129">        _lastChar3 = _lastChar2;</span>
+<span class="nc" id="L130">        _lastChar2 = _lastChar;</span>
+<span class="nc" id="L131">        _lastChar = c;</span>
+<span class="nc" id="L132">    }</span>
+
+    private void writeSpaces() throws IOException {
+<span class="nc bnc" id="L135" title="All 2 branches missed.">        for (int i = 0; i &lt; _depth; i++)</span>
+<span class="nc" id="L136">            out.write(&quot;    &quot;);</span>
+<span class="nc" id="L137">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

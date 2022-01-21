@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ClassListValue.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.conf</a> &gt; <span class="el_source">ClassListValue.java</span></div><h1>ClassListValue.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.conf;
+
+import static java.util.Optional.ofNullable;
+
+import java.security.AccessController;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+import org.apache.openjpa.lib.util.StringUtil;
+
+<span class="nc" id="L30">public class ClassListValue extends Value {</span>
+<span class="nc" id="L31">    private Class&lt;?&gt;[] _values = new Class&lt;?&gt;[0];</span>
+
+    public void set(final Class&lt;?&gt;[] values) {
+<span class="nc" id="L34">        assertChangeable();</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">        if (values != null) {</span>
+<span class="nc" id="L36">            _values = values;</span>
+        }
+<span class="nc" id="L38">        valueChanged();</span>
+<span class="nc" id="L39">    }</span>
+
+    @Override
+    public Class&lt;?&gt;[] get() {
+<span class="nc" id="L43">        return _values;</span>
+    }
+
+    @Override
+    public Class&lt;Class[]&gt; getValueType() {
+<span class="nc" id="L48">        return Class[].class;</span>
+    }
+
+    @Override
+    protected String getInternalString() {
+<span class="nc" id="L53">        return Stream.of(_values).map(Class::getName).collect(Collectors.joining(&quot;,&quot;));</span>
+    }
+
+    @Override
+    protected void setInternalString(String val) {
+<span class="nc" id="L58">        String[] vals = StringUtil.split(val, &quot;,&quot;, 0);</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        if (vals != null) {</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">            for (int i = 0; i &lt; vals.length; i++)</span>
+<span class="nc" id="L61">                vals[i] = vals[i].trim();</span>
+        }
+
+<span class="nc" id="L64">        final ClassLoader loader = AccessController.doPrivileged(J2DoPrivHelper.getContextClassLoaderAction());</span>
+<span class="nc" id="L65">        set(ofNullable(StringUtil.split(val, &quot;,&quot;, 0))</span>
+<span class="nc" id="L66">                .map(it -&gt; Stream.of(it).map(v -&gt; {</span>
+                    try {
+<span class="nc" id="L68">                        return loader.loadClass(v.trim());</span>
+<span class="nc" id="L69">                    } catch (final ClassNotFoundException e) {</span>
+<span class="nc" id="L70">                        throw new IllegalStateException(e);</span>
+                    }
+<span class="nc" id="L72">                }).toArray(Class&lt;?&gt;[]::new))</span>
+<span class="nc" id="L73">                .orElse(null));</span>
+<span class="nc" id="L74">    }</span>
+
+    @Override
+    protected void setInternalObject(Object obj) {
+<span class="nc" id="L78">        set((Class&lt;?&gt;[]) obj);</span>
+<span class="nc" id="L79">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

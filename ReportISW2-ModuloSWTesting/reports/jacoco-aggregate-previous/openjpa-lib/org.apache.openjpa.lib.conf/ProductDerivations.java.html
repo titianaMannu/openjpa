@@ -1,0 +1,511 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ProductDerivations.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.conf</a> &gt; <span class="el_source">ProductDerivations.java</span></div><h1>ProductDerivations.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.conf;
+
+import java.io.File;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.MissingResourceException;
+import java.util.Set;
+import java.util.TreeSet;
+
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.lib.util.MultiClassLoader;
+import org.apache.openjpa.lib.util.Services;
+import org.apache.openjpa.lib.util.StringUtil;
+
+/**
+ * Utilities for running product derivations.
+ *
+ * @author Abe White
+ * @author Pinaki Poddar
+ */
+<span class="nc" id="L46">public class ProductDerivations {</span>
+
+<span class="nc" id="L48">    private static final Localizer _loc = Localizer.forPackage</span>
+<span class="nc" id="L49">        (ProductDerivations.class);</span>
+
+    private static final ProductDerivation[] _derivations;
+    private static final String[] _derivationNames;
+    private static final Throwable[] _derivationErrors;
+    private static String[] _prefixes;
+    static {
+<span class="nc" id="L56">        MultiClassLoader l = AccessController.doPrivileged(J2DoPrivHelper.newMultiClassLoaderAction());</span>
+<span class="nc" id="L57">        l.addClassLoader(0, AccessController</span>
+<span class="nc" id="L58">            .doPrivileged(J2DoPrivHelper.getClassLoaderAction(ProductDerivations.class)));</span>
+<span class="nc" id="L59">        l.addClassLoader(1, AccessController.doPrivileged(J2DoPrivHelper.getContextClassLoaderAction()));</span>
+<span class="nc" id="L60">        _derivationNames = Services.getImplementors(ProductDerivation.class, l);</span>
+<span class="nc" id="L61">        _derivationErrors = new Throwable[_derivationNames.length];</span>
+<span class="nc" id="L62">        List&lt;ProductDerivation&gt; derivations =</span>
+            new ArrayList&lt;&gt;(_derivationNames.length);
+<span class="nc" id="L64">        boolean errors = false;</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        for (int i = 0; i &lt; _derivationNames.length; i++) {</span>
+            try {
+<span class="nc" id="L67">                ProductDerivation d = (ProductDerivation)</span>
+<span class="nc" id="L68">                    AccessController.doPrivileged(</span>
+<span class="nc" id="L69">                        J2DoPrivHelper.newInstanceAction(</span>
+<span class="nc" id="L70">                            Class.forName(_derivationNames[i], true, l)));</span>
+<span class="nc" id="L71">                d.validate();</span>
+<span class="nc" id="L72">                derivations.add(d);</span>
+<span class="nc" id="L73">            } catch (Throwable t) {</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">                if (t instanceof PrivilegedActionException)</span>
+<span class="nc" id="L75">                    t = ((PrivilegedActionException) t).getException();</span>
+<span class="nc" id="L76">                _derivationErrors[i] = t;</span>
+<span class="nc" id="L77">                errors = true;</span>
+<span class="nc" id="L78">            }</span>
+        }
+
+        // must be at least one product derivation to define metadata factories,
+        // etc.
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (derivations.isEmpty()) {</span>
+<span class="nc" id="L84">            throw new MissingResourceException(_loc.get</span>
+<span class="nc" id="L85">                (&quot;no-product-derivations&quot;, ProductDerivation.class.getName(),</span>
+<span class="nc" id="L86">                derivationErrorsToString()).getMessage(),</span>
+<span class="nc" id="L87">                ProductDerivations.class.getName(),&quot;derivations&quot;);</span>
+        }
+
+        // START - ALLOW PRINT STATEMENTS
+        // if some derivations weren't instantiable, warn
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if (errors)</span>
+<span class="nc" id="L93">            System.err.println(_loc.get(&quot;bad-product-derivations&quot;,</span>
+<span class="nc" id="L94">                ProductDerivations.class.getName()));</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        for (int i = 0; i &lt; _derivationErrors.length; i++) {</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">            if (_derivationErrors[i] == null)</span>
+<span class="nc" id="L97">                continue;</span>
+<span class="nc" id="L98">            System.err.println(_derivationNames[i] + &quot;:&quot; +</span>
+                    _derivationErrors[i]);
+<span class="nc" id="L100">            break;</span>
+        }
+        // STOP - ALLOW PRINT STATEMENTS
+
+<span class="nc" id="L104">        Collections.sort(derivations, new ProductDerivationComparator());</span>
+<span class="nc" id="L105">        _derivations =</span>
+<span class="nc" id="L106">            derivations.toArray(new ProductDerivation[derivations.size()]);</span>
+
+<span class="nc" id="L108">        List&lt;String&gt; prefixes = new ArrayList&lt;&gt;(2);</span>
+<span class="nc" id="L109">        prefixes.add(&quot;openjpa&quot;);</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        for (ProductDerivation derivation : _derivations) {</span>
+<span class="nc" id="L111">            String prefix = derivation.getConfigurationPrefix();</span>
+<span class="nc bnc" id="L112" title="All 4 branches missed.">            if (prefix != null &amp;&amp; !&quot;openjpa&quot;.equals(prefix))</span>
+<span class="nc" id="L113">                prefixes.add(prefix);</span>
+        }
+<span class="nc" id="L115">        _prefixes = prefixes.toArray(new String[prefixes.size()]);</span>
+<span class="nc" id="L116">    }</span>
+
+    /**
+     * Return all the product derivations registered in the current classloader
+     */
+    public static ProductDerivation[] getProductDerivations() {
+<span class="nc" id="L122">        return _derivations;</span>
+    }
+
+    /**
+     * Return the recognized prefixes for configuration properties.
+     */
+    public static String[] getConfigurationPrefixes() {
+<span class="nc" id="L129">        return _prefixes;</span>
+    }
+
+    /**
+     * Set the configuration prefix array. This is package-visible for
+     * testing purposes.
+     *
+     * @since 0.9.7
+     */
+    static void setConfigurationPrefixes(String[] prefixes) {
+<span class="nc" id="L139">        _prefixes = prefixes;</span>
+<span class="nc" id="L140">    }</span>
+
+    /**
+     * Determine the full key name for &lt;code&gt;partialKey&lt;/code&gt;, given the
+     * registered prefixes and the entries in &lt;code&gt;map&lt;/code&gt;. This method
+     * computes the appropriate configuration prefix to use by looking
+     * through &lt;code&gt;map&lt;/code&gt; for a key starting with any of the known
+     * configuration prefixes and ending with &lt;code&gt;partialKey&lt;/code&gt; and, if a
+     * value is found, using the prefix of that key. Otherwise, it uses
+     * the first registered prefix.
+     *
+     * The given &lt;code&gt;partialKey&lt;/code&gt; is first tested for containment in the
+     * given map without any prefix.
+     *
+     * @since 0.9.7
+     */
+    public static String getConfigurationKey(String partialKey, Map map) {
+<span class="nc bnc" id="L157" title="All 4 branches missed.">        String firstKey = (map != null &amp;&amp; map.containsKey(partialKey))</span>
+            ? partialKey : null;
+<span class="nc bnc" id="L159" title="All 4 branches missed.">        for (int i = 0; map != null &amp;&amp; i &lt; _prefixes.length; i++) {</span>
+<span class="nc" id="L160">            String fullKey = _prefixes[i] + &quot;.&quot; + partialKey;</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">            if (map.containsKey(fullKey)) {</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">                if (firstKey == null)</span>
+<span class="nc" id="L163">                    firstKey = fullKey;</span>
+                else {
+                    // if we've already found a property with a previous
+                    // prefix, then this is a collision.
+<span class="nc" id="L167">                    throw new IllegalStateException(_loc.get(</span>
+                        &quot;dup-with-different-prefixes&quot;, firstKey, fullKey)
+<span class="nc" id="L169">                        .getMessage());</span>
+                }
+            }
+        }
+
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        if (firstKey == null)</span>
+<span class="nc" id="L175">            return _prefixes[0] + &quot;.&quot; + partialKey;</span>
+        else
+<span class="nc" id="L177">            return firstKey;</span>
+    }
+
+    /**
+     * Apply {@link ProductDerivation#beforeConfigurationConstruct} callbacks
+     * to the the given instance. Exceptions other than fatal
+     * {@link BootstrapException} are swallowed.
+     */
+    public static void beforeConfigurationConstruct(ConfigurationProvider cp) {
+<span class="nc bnc" id="L186" title="All 2 branches missed.">        for (ProductDerivation derivation : _derivations) {</span>
+            try {
+<span class="nc" id="L188">                derivation.beforeConfigurationConstruct(cp);</span>
+            }
+<span class="nc" id="L190">            catch (BootstrapException be) {</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">                if (be.isFatal())</span>
+<span class="nc" id="L192">                    throw be;</span>
+            }
+<span class="nc" id="L194">            catch (Exception e) {</span>
+                // can't log; no configuration yet
+<span class="nc" id="L196">                e.printStackTrace();</span>
+<span class="nc" id="L197">            }</span>
+        }
+<span class="nc" id="L199">    }</span>
+
+    /**
+     * Apply {@link ProductDerivation#beforeConfigurationLoad} callbacks
+     * to the the given instance. Exceptions other than fatal
+     * {@link BootstrapException} are swallowed.
+     */
+    public static void beforeConfigurationLoad(Configuration conf) {
+<span class="nc bnc" id="L207" title="All 2 branches missed.">        for (ProductDerivation derivation : _derivations) {</span>
+            try {
+<span class="nc" id="L209">                derivation.beforeConfigurationLoad(conf);</span>
+            }
+<span class="nc" id="L211">            catch (BootstrapException be) {</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">                if (be.isFatal())</span>
+<span class="nc" id="L213">                    throw be;</span>
+            }
+<span class="nc" id="L215">            catch (Exception e) {</span>
+                // logging not configured yet
+<span class="nc" id="L217">                e.printStackTrace();</span>
+<span class="nc" id="L218">            }</span>
+        }
+<span class="nc" id="L220">    }</span>
+
+    /**
+     * Apply {@link ProductDerivation#afterSpecificationSet} callbacks
+     * to the the given instance. Exceptions other than fatal
+     * {@link BootstrapException} are swallowed.
+     */
+    public static void afterSpecificationSet(Configuration conf) {
+<span class="nc bnc" id="L228" title="All 2 branches missed.">        for (ProductDerivation derivation : _derivations) {</span>
+            try {
+<span class="nc" id="L230">                derivation.afterSpecificationSet(conf);</span>
+            }
+<span class="nc" id="L232">            catch (BootstrapException be) {</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">                if (be.isFatal())</span>
+<span class="nc" id="L234">                    throw be;</span>
+            }
+<span class="nc" id="L236">            catch (Exception e) {</span>
+                // logging not configured yet
+<span class="nc" id="L238">                e.printStackTrace();</span>
+<span class="nc" id="L239">            }</span>
+        }
+<span class="nc" id="L241">    }</span>
+
+    /**
+     * Called as the first step of a Configuration's close() method.
+     * Exceptions are swallowed.
+     *
+     * @since 0.9.7
+     */
+    public static void beforeClose(Configuration conf) {
+<span class="nc bnc" id="L250" title="All 2 branches missed.">        for (ProductDerivation derivation : _derivations) {</span>
+            try {
+<span class="nc" id="L252">                derivation.beforeConfigurationClose(conf);</span>
+            }
+<span class="nc" id="L254">            catch (Exception e) {</span>
+<span class="nc" id="L255">                conf.getConfigurationLog().warn(_loc.get(&quot;before-close-ex&quot;), e);</span>
+<span class="nc" id="L256">            }</span>
+        }
+<span class="nc" id="L258">    }</span>
+
+    /**
+     * Load the given given resource, or return false if it is not a resource
+     * this provider understands. The given class loader may be null.
+     *
+     * @param anchor optional named anchor within a multiple-configuration
+     * resource
+     */
+    public static ConfigurationProvider load(String resource, String anchor,
+        ClassLoader loader) {
+<span class="nc bnc" id="L269" title="All 2 branches missed.">        if (StringUtil.isEmpty(resource))</span>
+<span class="nc" id="L270">            return null;</span>
+<span class="nc bnc" id="L271" title="All 2 branches missed.">        if (loader == null)</span>
+<span class="nc" id="L272">            loader = AccessController.doPrivileged(</span>
+<span class="nc" id="L273">                J2DoPrivHelper.getContextClassLoaderAction());</span>
+<span class="nc" id="L274">        ConfigurationProvider provider = null;</span>
+<span class="nc" id="L275">        StringBuilder errs = null;</span>
+        // most specific to least
+<span class="nc" id="L277">        Throwable err = null;</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">        for (int i = _derivations.length - 1; i &gt;= 0; i--) {</span>
+            try {
+<span class="nc" id="L280">                provider = _derivations[i].load(resource, anchor, loader);</span>
+<span class="nc bnc" id="L281" title="All 2 branches missed.">                if (provider != null)</span>
+<span class="nc" id="L282">                    return provider;</span>
+<span class="nc" id="L283">            } catch (Throwable t) {</span>
+<span class="nc" id="L284">                err = t;</span>
+<span class="nc bnc" id="L285" title="All 2 branches missed.">                errs = (errs == null) ? new StringBuilder() : errs.append(&quot;\n&quot;);</span>
+<span class="nc" id="L286">                errs.append(_derivations[i].getClass().getName() + &quot;:&quot; + t);</span>
+<span class="nc" id="L287">            }</span>
+        }
+<span class="nc" id="L289">        reportErrors(errs, resource, err);</span>
+<span class="nc" id="L290">        String rsrc = resource + &quot;#&quot; + anchor;</span>
+<span class="nc" id="L291">        MissingResourceException ex = new MissingResourceException(rsrc,</span>
+<span class="nc" id="L292">                ProductDerivations.class.getName(), rsrc);</span>
+<span class="nc" id="L293">        ex.initCause(err);</span>
+<span class="nc" id="L294">        throw ex;</span>
+    }
+
+    /**
+     * Load given file, or return false if it is not a file this provider
+     * understands.
+     *
+     * @param anchor optional named anchor within a multiple-configuration file
+     */
+    public static ConfigurationProvider load(File file, String anchor,
+        ClassLoader loader) {
+<span class="nc bnc" id="L305" title="All 2 branches missed.">        if (file == null)</span>
+<span class="nc" id="L306">            return null;</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">        if (loader == null)</span>
+<span class="nc" id="L308">            loader = AccessController.doPrivileged(</span>
+<span class="nc" id="L309">                J2DoPrivHelper.getContextClassLoaderAction());</span>
+<span class="nc" id="L310">        ConfigurationProvider provider = null;</span>
+<span class="nc" id="L311">        StringBuilder errs = null;</span>
+<span class="nc" id="L312">        Throwable err = null;</span>
+        // most specific to least
+<span class="nc bnc" id="L314" title="All 2 branches missed.">        for (int i = _derivations.length - 1; i &gt;= 0; i--) {</span>
+            try {
+<span class="nc" id="L316">                provider = _derivations[i].load(file, anchor);</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">                if (provider != null)</span>
+<span class="nc" id="L318">                    return provider;</span>
+<span class="nc" id="L319">            } catch (Throwable t) {</span>
+<span class="nc" id="L320">                err = t;</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">                errs = (errs == null) ? new StringBuilder() : errs.append(&quot;\n&quot;);</span>
+<span class="nc" id="L322">                errs.append(_derivations[i].getClass().getName() + &quot;:&quot; + t);</span>
+<span class="nc" id="L323">            }</span>
+        }
+<span class="nc" id="L325">        String aPath = AccessController.doPrivileged(</span>
+<span class="nc" id="L326">            J2DoPrivHelper.getAbsolutePathAction(file));</span>
+<span class="nc" id="L327">        reportErrors(errs, aPath, err);</span>
+<span class="nc" id="L328">        String rsrc = aPath + &quot;#&quot; + anchor;</span>
+<span class="nc" id="L329">        MissingResourceException ex = new MissingResourceException(rsrc,</span>
+<span class="nc" id="L330">                ProductDerivations.class.getName(), rsrc);</span>
+<span class="nc" id="L331">        ex.initCause(err);</span>
+<span class="nc" id="L332">        throw ex;</span>
+    }
+
+    /**
+     * Return a {@link ConfigurationProvider} that has parsed system defaults.
+     */
+    public static ConfigurationProvider loadDefaults(ClassLoader loader) {
+<span class="nc" id="L339">        return load(loader, false);</span>
+    }
+
+    /**
+     * Return a {@link ConfigurationProvider} that has parsed system globals.
+     */
+    public static ConfigurationProvider loadGlobals(ClassLoader loader) {
+<span class="nc" id="L346">        return load(loader, true);</span>
+    }
+
+    /**
+     * Load a built-in resource location.
+     */
+    private static ConfigurationProvider load(ClassLoader loader,
+       boolean globals) {
+<span class="nc bnc" id="L354" title="All 2 branches missed.">        if (loader == null)</span>
+<span class="nc" id="L355">            loader = AccessController.doPrivileged(</span>
+<span class="nc" id="L356">                J2DoPrivHelper.getContextClassLoaderAction());</span>
+
+<span class="nc" id="L358">        ConfigurationProvider provider = null;</span>
+<span class="nc" id="L359">        StringBuilder errs = null;</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">        String type = (globals) ? &quot;globals&quot; : &quot;defaults&quot;;</span>
+<span class="nc" id="L361">        Throwable err = null;</span>
+        // most specific to least
+<span class="nc bnc" id="L363" title="All 2 branches missed.">        for (int i = _derivations.length - 1; i &gt;= 0; i--) {</span>
+            try {
+<span class="nc bnc" id="L365" title="All 2 branches missed.">                provider = (globals) ? _derivations[i].loadGlobals(loader)</span>
+<span class="nc" id="L366">                    : _derivations[i].loadDefaults(loader);</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">                if (provider != null)</span>
+<span class="nc" id="L368">                   return provider;</span>
+<span class="nc" id="L369">            } catch (Throwable t) {</span>
+<span class="nc" id="L370">                err = t;</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">                errs = (errs == null) ? new StringBuilder() : errs.append(&quot;\n&quot;);</span>
+<span class="nc" id="L372">                errs.append(_derivations[i].getClass().getName() + &quot;:&quot; + t);</span>
+<span class="nc" id="L373">            }</span>
+        }
+<span class="nc" id="L375">        reportErrors(errs, type, err);</span>
+<span class="nc" id="L376">        return null;</span>
+    }
+
+    /**
+     * Thrown proper exception for given errors.
+     */
+    private static void reportErrors(StringBuilder errs, String resource,
+        Throwable nested) {
+<span class="nc bnc" id="L384" title="All 2 branches missed.">        if (errs == null)</span>
+<span class="nc" id="L385">            return;</span>
+<span class="nc" id="L386">        MissingResourceException ex = new MissingResourceException(errs.toString(),</span>
+<span class="nc" id="L387">                ProductDerivations.class.getName(), resource);</span>
+<span class="nc" id="L388">        ex.initCause(nested);</span>
+<span class="nc" id="L389">        throw ex;</span>
+    }
+
+    /**
+     * Return a List&lt;String&gt; of all the fully-qualified anchors specified in
+     * &lt;code&gt;propertiesLocation&lt;/code&gt;. The return values must be used in
+     * conjunction with &lt;code&gt;propertiesLocation&lt;/code&gt;. If there are no
+     * product derivations or if no product derivations could find anchors,
+     * this returns an empty list.
+     *
+     * @since 1.1.0
+     */
+    public static List&lt;String&gt; getFullyQualifiedAnchorsInPropertiesLocation(
+        final String propertiesLocation) {
+<span class="nc" id="L403">        List&lt;String&gt; fqAnchors = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L404">        StringBuilder errs = null;</span>
+<span class="nc" id="L405">        Throwable err = null;</span>
+<span class="nc bnc" id="L406" title="All 2 branches missed.">        for (int i = _derivations.length - 1; i &gt;= 0; i--) {</span>
+            try {
+<span class="nc bnc" id="L408" title="All 2 branches missed.">                if (propertiesLocation == null) {</span>
+<span class="nc" id="L409">                    String loc = _derivations[i].getDefaultResourceLocation();</span>
+<span class="nc" id="L410">                    addAll(fqAnchors, loc,</span>
+<span class="nc" id="L411">                        _derivations[i].getAnchorsInResource(loc));</span>
+<span class="nc" id="L412">                    continue;</span>
+                }
+
+<span class="nc" id="L415">                File f = new File(propertiesLocation);</span>
+<span class="nc bnc" id="L416" title="All 2 branches missed.">                if ((Boolean) J2DoPrivHelper.isFileAction(f).run()) {</span>
+<span class="nc" id="L417">                    addAll(fqAnchors, propertiesLocation,</span>
+<span class="nc" id="L418">                        _derivations[i].getAnchorsInFile(f));</span>
+                } else {
+<span class="nc" id="L420">                    f = new File(&quot;META-INF&quot; + File.separatorChar</span>
+                        + propertiesLocation);
+<span class="nc bnc" id="L422" title="All 2 branches missed.">                    if ((Boolean) J2DoPrivHelper.isFileAction(f).run()) {</span>
+<span class="nc" id="L423">                        addAll(fqAnchors, propertiesLocation,</span>
+<span class="nc" id="L424">                            _derivations[i].getAnchorsInFile(f));</span>
+                    } else {
+<span class="nc" id="L426">                        addAll(fqAnchors, propertiesLocation,</span>
+<span class="nc" id="L427">                            _derivations[i].getAnchorsInResource(</span>
+                                propertiesLocation));
+                    }
+                }
+<span class="nc" id="L431">            } catch (Throwable t) {</span>
+<span class="nc" id="L432">                err = t;</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">                errs = (errs == null) ? new StringBuilder() : errs.append(&quot;\n&quot;);</span>
+<span class="nc" id="L434">                errs.append(_derivations[i].getClass().getName() + &quot;:&quot; + t);</span>
+<span class="nc" id="L435">            }</span>
+        }
+<span class="nc" id="L437">        reportErrors(errs, propertiesLocation, err);</span>
+<span class="nc" id="L438">        return fqAnchors;</span>
+    }
+
+    private static void addAll(Collection collection, String base,
+        Collection newMembers) {
+<span class="nc bnc" id="L443" title="All 4 branches missed.">        if (newMembers == null || collection == null)</span>
+<span class="nc" id="L444">            return;</span>
+<span class="nc bnc" id="L445" title="All 2 branches missed.">        for (Object newMember : newMembers) {</span>
+<span class="nc" id="L446">            String fqLoc = base + &quot;#&quot; + newMember;</span>
+<span class="nc bnc" id="L447" title="All 2 branches missed.">            if (!collection.contains(fqLoc))</span>
+<span class="nc" id="L448">                collection.add(fqLoc);</span>
+<span class="nc" id="L449">        }</span>
+<span class="nc" id="L450">    }</span>
+
+
+    public static Set&lt;String&gt; getSupportedQueryHints() {
+<span class="nc" id="L454">        Set&lt;String&gt; result = new TreeSet&lt;&gt;();</span>
+        // most specific to least
+<span class="nc bnc" id="L456" title="All 2 branches missed.">        for (int i = _derivations.length - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L457">            Set&lt;String&gt; members = _derivations[i].getSupportedQueryHints();</span>
+<span class="nc bnc" id="L458" title="All 4 branches missed.">            if (members != null &amp;&amp; !members.isEmpty())</span>
+<span class="nc" id="L459">                result.addAll(members);</span>
+        }
+<span class="nc" id="L461">        return result;</span>
+    }
+
+
+    /**
+     * Compare {@link ProductDerivation}s.
+     */
+    private static class ProductDerivationComparator
+        implements Comparator&lt;ProductDerivation&gt; {
+
+        @Override
+        public int compare(ProductDerivation o1, ProductDerivation o2) {
+<span class="nc" id="L473">            int type1 = o1.getType();</span>
+<span class="nc" id="L474">            int type2 = o2.getType();</span>
+<span class="nc bnc" id="L475" title="All 2 branches missed.">            if (type1 != type2)</span>
+<span class="nc" id="L476">                return type1 - type2;</span>
+
+            // arbitrary but consistent order
+<span class="nc" id="L479">            return o1.getClass().getName().compareTo(o2.getClass().</span>
+<span class="nc" id="L480">                getName());</span>
+		}
+	}
+
+    /**
+     * Prints product derivation information.
+     */
+    public static void main(String[] args) {
+        // START - ALLOW PRINT STATEMENTS
+<span class="nc" id="L489">        System.err.println(derivationErrorsToString());</span>
+        // STOP - ALLOW PRINT STATEMENTS
+<span class="nc" id="L491">    }</span>
+
+    /**
+     * Return a message about the status of each product derivation.
+     */
+    private static String derivationErrorsToString() {
+<span class="nc" id="L497">        StringBuilder buf = new StringBuilder();</span>
+<span class="nc" id="L498">        buf.append(&quot;ProductDerivations: &quot;).append(_derivationNames.length);</span>
+<span class="nc bnc" id="L499" title="All 2 branches missed.">        for (int i = 0; i &lt; _derivationNames.length; i++) {</span>
+<span class="nc" id="L500">            buf.append(&quot;\n&quot;).append(i + 1).append(&quot;. &quot;).</span>
+<span class="nc" id="L501">                append(_derivationNames[i]).append(&quot;: &quot;);</span>
+<span class="nc bnc" id="L502" title="All 2 branches missed.">            if (_derivationErrors[i] == null)</span>
+<span class="nc" id="L503">                buf.append(&quot;OK&quot;);</span>
+            else
+<span class="nc" id="L505">                buf.append(_derivationErrors[i].toString());</span>
+        }
+<span class="nc" id="L507">        return buf.toString();</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

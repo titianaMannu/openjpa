@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>DocTypeReader.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.xml</a> &gt; <span class="el_source">DocTypeReader.java</span></div><h1>DocTypeReader.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.xml;
+
+import java.io.IOException;
+import java.io.PushbackReader;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.StringWriter;
+
+/**
+ * The DocTypeReader can be used to dynamically include a
+ * &lt;code&gt;DOCTYPE&lt;/code&gt; declaration in an XML stream. Often it is
+ * inconvenient to specify a &lt;code&gt;DOCTYPE&lt;/code&gt; in XML files -- you many
+ * want the option of parsing the files without reading the DTD, the files
+ * may move around, making placing a &lt;code&gt;DOCTYPE&lt;/code&gt; path to the DTD in
+ * them unattractive, and you may have many files, making an in-line include
+ * of the DTD unattractive as well. This class makes
+ * it possible to maintain XML files without any &lt;code&gt;DOCTYPE&lt;/code&gt;
+ * declaration, then dynamically include the &lt;code&gt;DOCTYPE&lt;/code&gt; information
+ * at runtime.
+ * If the XML stream already contains a &lt;code&gt;DOCTYPE&lt;/code&gt; declaration,
+ * the reader will not add an additional one.
+ * The &lt;code&gt;DOCTYPE&lt;/code&gt; information given to the reader will be placed
+ * in the XML stream it wraps just before the root element of the document.
+ * Note that all methods other than the various forms of &lt;code&gt;read&lt;/code&gt;
+ * apply onto the underlying XML stream and should not be used until the
+ * header and doc type have been read.
+ *
+ * @author Abe White
+ */
+public class DocTypeReader extends Reader {
+
+<span class="nc" id="L50">    private Reader _xml = null;</span>
+<span class="nc" id="L51">    private Reader _docType = null;</span>
+
+    // use to hold all header information until the doctype dec should be
+    // inserted
+<span class="nc" id="L55">    private char[] _header = null;</span>
+<span class="nc" id="L56">    private int _headerPos = 0;</span>
+
+    /**
+     * Construct the reader with an XML stream, and set the
+     * &lt;code&gt;DOCTYPE&lt;/code&gt; information to be included. The given
+     * reader should access an input source containing the exact declaration
+     * to include, such as:&lt;br /&gt;
+     * &lt;code&gt;&amp;lt;DOCTYPE schedule SYSTEM &quot;schedule.dtd&quot;&amp;gt;&lt;/code&gt;&lt;br /&gt;
+     * &lt;code&gt;&amp;lt;DOCTYPE html PUBLIC &quot;-//W3C//DTD XHTML ...&amp;gt;&lt;/code&gt;&lt;br /&gt;
+     * &lt;code&gt;&amp;lt;DOCTYPE stock-price [ &amp;lt;ELEMENT symb ... ]&amp;gt;&lt;/code&gt;&lt;br /&gt;
+     * If the reader is null, no &lt;code&gt;DOCTYPE&lt;/code&gt; information will be
+     * included in the stream.
+     */
+<span class="nc" id="L69">    public DocTypeReader(Reader xml, Reader docType) throws IOException {</span>
+<span class="nc" id="L70">        _docType = docType;</span>
+<span class="nc" id="L71">        _xml = bufferHeader(xml);</span>
+<span class="nc" id="L72">    }</span>
+
+    @Override
+    public int read() throws IOException {
+<span class="nc" id="L76">        int ch = readHeader();</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        if (ch != -1)</span>
+<span class="nc" id="L78">            return ch;</span>
+
+<span class="nc" id="L80">        ch = readDocType();</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (ch != -1)</span>
+<span class="nc" id="L82">            return ch;</span>
+
+<span class="nc" id="L84">        return _xml.read();</span>
+    }
+
+    @Override
+    public int read(char[] buf) throws IOException {
+<span class="nc" id="L89">        return read(buf, 0, buf.length);</span>
+    }
+
+    @Override
+    public int read(char[] buf, int off, int len) throws IOException {
+<span class="nc" id="L94">        int headerRead = readHeader(buf, off, len);</span>
+<span class="nc" id="L95">        off += headerRead;</span>
+<span class="nc" id="L96">        len -= headerRead;</span>
+
+<span class="nc" id="L98">        int docRead = readDocType(buf, off, len);</span>
+<span class="nc" id="L99">        off += docRead;</span>
+<span class="nc" id="L100">        len -= docRead;</span>
+
+<span class="nc" id="L102">        return headerRead + docRead + _xml.read(buf, off, len);</span>
+    }
+
+    @Override
+    public long skip(long len) throws IOException {
+<span class="nc" id="L107">        return _xml.skip(len);</span>
+    }
+
+    @Override
+    public boolean ready() throws IOException {
+<span class="nc" id="L112">        return _xml.ready();</span>
+    }
+
+    @Override
+    public boolean markSupported() {
+<span class="nc" id="L117">        return _xml.markSupported();</span>
+    }
+
+    @Override
+    public void mark(int readAheadLimit) throws IOException {
+<span class="nc" id="L122">        _xml.mark(readAheadLimit);</span>
+<span class="nc" id="L123">    }</span>
+
+    @Override
+    public void reset() throws IOException {
+<span class="nc" id="L127">        _xml.reset();</span>
+<span class="nc" id="L128">    }</span>
+
+    @Override
+    public void close() throws IOException {
+<span class="nc" id="L132">        _xml.close();</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (_docType != null)</span>
+<span class="nc" id="L134">            _docType.close();</span>
+<span class="nc" id="L135">    }</span>
+
+    /**
+     * Buffer all text until the doc type declaration should be inserted.
+     */
+    private Reader bufferHeader(Reader origXML) throws IOException {
+        // don't bother if no doc type declaration
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        if (_docType == null) {</span>
+<span class="nc" id="L143">            _header = new char[0];</span>
+<span class="nc" id="L144">            return origXML;</span>
+        }
+
+        // create buffer
+<span class="nc" id="L148">        StringWriter writer = new StringWriter();</span>
+<span class="nc" id="L149">        PushbackReader xml = new PushbackReader(origXML, 3);</span>
+        int ch, ch2, ch3;
+        boolean comment;
+
+        while (true) {
+            // read leading space
+<span class="nc" id="L155">            for (ch = xml.read(); ch != -1</span>
+<span class="nc bnc" id="L156" title="All 4 branches missed.">                &amp;&amp; Character.isWhitespace((char) ch); ch = xml.read())</span>
+<span class="nc" id="L157">                writer.write(ch);</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">            if (ch == -1)</span>
+<span class="nc" id="L159">                return headerOnly(writer.toString());</span>
+
+            // if not XML, finish
+<span class="nc bnc" id="L162" title="All 2 branches missed.">            if (ch != '&lt;') {</span>
+<span class="nc" id="L163">                xml.unread(ch);</span>
+<span class="nc" id="L164">                _header = writer.toString().toCharArray();</span>
+<span class="nc" id="L165">                return xml;</span>
+            }
+
+            // if the root element, finish
+<span class="nc" id="L169">            ch = xml.read();</span>
+<span class="nc bnc" id="L170" title="All 4 branches missed.">            if (ch != '?' &amp;&amp; ch != '!') {</span>
+<span class="nc" id="L171">                xml.unread(ch);</span>
+<span class="nc" id="L172">                xml.unread('&lt;');</span>
+<span class="nc" id="L173">                _header = writer.toString().toCharArray();</span>
+<span class="nc" id="L174">                return xml;</span>
+            }
+
+            // if a doc type element, finish
+<span class="nc" id="L178">            ch2 = xml.read();</span>
+<span class="nc bnc" id="L179" title="All 4 branches missed.">            if (ch == '!' &amp;&amp; ch2 == 'D') {</span>
+<span class="nc" id="L180">                xml.unread(ch2);</span>
+<span class="nc" id="L181">                xml.unread(ch);</span>
+<span class="nc" id="L182">                xml.unread('&lt;');</span>
+<span class="nc" id="L183">                _header = writer.toString().toCharArray();</span>
+<span class="nc" id="L184">                _docType = null; // make sure doc type not included</span>
+<span class="nc" id="L185">                return xml;</span>
+            }
+
+            // is this a comment?
+<span class="nc" id="L189">            ch3 = xml.read();</span>
+<span class="nc bnc" id="L190" title="All 6 branches missed.">            comment = ch == '!' &amp;&amp; ch2 == '-' &amp;&amp; ch3 == '-';</span>
+
+            // place everything read into the header material
+<span class="nc" id="L193">            writer.write('&lt;');</span>
+<span class="nc" id="L194">            writer.write(ch);</span>
+<span class="nc" id="L195">            writer.write(ch2);</span>
+<span class="nc" id="L196">            writer.write(ch3);</span>
+
+            // read until the next '&gt;' or '--&gt;' if a comment
+<span class="nc" id="L199">            ch2 = 0;</span>
+<span class="nc" id="L200">            ch3 = 0;</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">            while ((ch = xml.read()) != -1) {</span>
+<span class="nc" id="L202">                writer.write(ch);</span>
+
+<span class="nc bnc" id="L204" title="All 12 branches missed.">                if ((!comment &amp;&amp; ch == '&gt;')</span>
+                    || (comment &amp;&amp; ch == '&gt;' &amp;&amp; ch2 == '-' &amp;&amp; ch3 == '-'))
+<span class="nc" id="L206">                    break;</span>
+
+                // track last two chars so we can tell if comment is ending
+<span class="nc" id="L209">                ch3 = ch2;</span>
+<span class="nc" id="L210">                ch2 = ch;</span>
+            }
+<span class="nc bnc" id="L212" title="All 2 branches missed.">            if (ch == -1)</span>
+<span class="nc" id="L213">                return headerOnly(writer.toString());</span>
+
+            // read the space after the declaration
+<span class="nc" id="L216">            for (ch = xml.read(); ch != -1</span>
+<span class="nc bnc" id="L217" title="All 4 branches missed.">                &amp;&amp; Character.isWhitespace((char) ch); ch = xml.read())</span>
+<span class="nc" id="L218">                writer.write(ch);</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">            if (ch == -1)</span>
+<span class="nc" id="L220">                return headerOnly(writer.toString());</span>
+<span class="nc" id="L221">            xml.unread(ch);</span>
+        }
+    }
+
+    /**
+     * If the stream contained only space, think of it as pure XML with no
+     * header for consistency with the other methods.
+     */
+    private Reader headerOnly(String header) {
+<span class="nc" id="L230">        _header = new char[0];</span>
+<span class="nc" id="L231">        _docType = null;</span>
+<span class="nc" id="L232">        return new StringReader(header);</span>
+    }
+
+    /**
+     * Return a single character from the buffered header, or -1 if none.
+     */
+    private int readHeader() {
+<span class="nc bnc" id="L239" title="All 2 branches missed.">        if (_headerPos == _header.length)</span>
+<span class="nc" id="L240">            return -1;</span>
+<span class="nc" id="L241">        return _header[_headerPos++];</span>
+    }
+
+    /**
+     * Read from the buffered header to the given array, returning the
+     * number of characters read.
+     */
+    private int readHeader(char[] buf, int off, int len) {
+<span class="nc" id="L249">        int read = 0;</span>
+<span class="nc bnc" id="L250" title="All 4 branches missed.">        for (; len &gt; 0 &amp;&amp; _headerPos &lt; _header.length; read++, off++, len--)</span>
+<span class="nc" id="L251">            buf[off] = _header[_headerPos++];</span>
+
+<span class="nc" id="L253">        return read;</span>
+    }
+
+    /**
+     * Return a single character from the doc type declaration, or -1 if none.
+     */
+    private int readDocType() throws IOException {
+<span class="nc bnc" id="L260" title="All 2 branches missed.">        if (_docType == null)</span>
+<span class="nc" id="L261">            return -1;</span>
+
+<span class="nc" id="L263">        int ch = _docType.read();</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">        if (ch == -1)</span>
+<span class="nc" id="L265">            _docType = null;</span>
+
+<span class="nc" id="L267">        return ch;</span>
+    }
+
+    /**
+     * Read from the doc type declaration to the given array, returning the
+     * number of characters read.
+     */
+    private int readDocType(char[] buf, int off, int len) throws IOException {
+<span class="nc bnc" id="L275" title="All 2 branches missed.">        if (_docType == null)</span>
+<span class="nc" id="L276">            return 0;</span>
+
+<span class="nc" id="L278">        int read = _docType.read(buf, off, len);</span>
+<span class="nc bnc" id="L279" title="All 2 branches missed.">        if (read &lt; len)</span>
+<span class="nc" id="L280">            _docType = null;</span>
+<span class="nc bnc" id="L281" title="All 2 branches missed.">        if (read == -1)</span>
+<span class="nc" id="L282">            read = 0;</span>
+
+<span class="nc" id="L284">        return read;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

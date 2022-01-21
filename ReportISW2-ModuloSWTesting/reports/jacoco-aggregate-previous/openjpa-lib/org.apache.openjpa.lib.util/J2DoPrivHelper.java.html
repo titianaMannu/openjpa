@@ -1,0 +1,1343 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>J2DoPrivHelper.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">J2DoPrivHelper.java</span></div><h1>J2DoPrivHelper.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.net.InetAddress;
+import java.net.JarURLConnection;
+import java.net.MalformedURLException;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.UnknownHostException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.security.PrivilegedExceptionAction;
+import java.security.ProtectionDomain;
+import java.util.Enumeration;
+import java.util.Properties;
+import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.zip.ZipFile;
+
+import javax.validation.ConstraintViolation;
+import javax.validation.Validation;
+import javax.validation.Validator;
+import javax.validation.ValidatorFactory;
+
+import serp.bytecode.BCClass;
+import serp.bytecode.BCClassLoader;
+import serp.bytecode.BCField;
+import serp.bytecode.Code;
+import serp.bytecode.FieldInstruction;
+import serp.bytecode.Project;
+
+/**
+ * Helper class to obtain the Privilege(Exception)Action object to perform
+ * Java 2 doPrivilege security sensitive function call in the following
+ * methods:
+ * &lt;ul&gt;
+ * &lt;li&gt;AccessibleObject.setAccessible
+ * &lt;li&gt;Class.forName
+ * &lt;li&gt;Class.getClassLoader
+ * &lt;li&gt;Class.getDeclaredField
+ * &lt;li&gt;Class.getDeclaredFields
+ * &lt;li&gt;Class.getDeclaredMethod
+ * &lt;li&gt;Class.getDeclaredMethods
+ * &lt;li&gt;Class.getProtectionDomain
+ * &lt;li&gt;Class.getResource
+ * &lt;li&gt;Class.newInstance
+ * &lt;li&gt;ClassLoader.getParent
+ * &lt;li&gt;ClassLoader.getResource
+ * &lt;li&gt;ClassLoader.getResources
+ * &lt;li&gt;ClassLoader.getSystemClassLoader
+ * &lt;li&gt;File.deleteOnExit
+ * &lt;li&gt;File.delete
+ * &lt;li&gt;File.exists
+ * &lt;li&gt;File.getAbsoluteFile
+ * &lt;li&gt;File.getAbsolutePath
+ * &lt;li&gt;File.getCanonicalPath
+ * &lt;li&gt;File.listFiles
+ * &lt;li&gt;File.length
+ * &lt;li&gt;File.isDirectory
+ * &lt;li&gt;File.mkdirs
+ * &lt;li&gt;File.renameTo
+ * &lt;li&gt;File.toURL
+ * &lt;li&gt;FileInputStream new
+ * &lt;li&gt;FileOutputStream new
+ * &lt;li&gt;System.getProperties
+ * &lt;li&gt;InetAddress.getByName
+ * &lt;li&gt;MultiClassLoader new
+ * &lt;li&gt;ServerSocket new
+ * &lt;li&gt;Socket new
+ * &lt;li&gt;Socket.accept
+ * &lt;li&gt;System.getProperty
+ * &lt;li&gt;Thread.getContextClassLoader
+ * &lt;li&gt;Thread.setContextClassLoader
+ * &lt;li&gt;Thread new
+ * &lt;li&gt;TemporaryClassLoader new
+ * &lt;li&gt;URL.openStream
+ * &lt;li&gt;URLConnection.getContent
+ * &lt;li&gt;ZipFile new
+ * &lt;li&gt;serp.bytecode.Code new
+ * &lt;li&gt;serp.bytecode.BCClassLoader new
+ * &lt;li&gt;serp.bytecode.BCClass.write
+ * &lt;li&gt;serp.bytecode.BCClass.getFields
+ * &lt;li&gt;serp.bytecode.FieldInstruction.getField
+ * &lt;li&gt;serp.bytecode.Project.loadClass
+ * &lt;li&gt;AnnotatedElement.getAnnotations
+ * &lt;li&gt;AnnotatedElement.getDeclaredAnnotations
+ * &lt;li&gt;AnnotatedElement.isAnnotationPresent
+ * &lt;li&gt;javax.validation.Validator.validate
+ * &lt;li&gt;javax.validation.Validation.buildDefaultValidatorFactory
+ * &lt;/ul&gt;
+ *
+ * If these methods are used, the following sample usage patterns should be
+ * followed to ensure proper privilege is granted:
+ * &lt;pre&gt;
+ * 1) No security risk method call. E.g.
+ *
+ *    private static final String SEP = J2DoPrivHelper.getLineSeparator();
+ *
+ * 2) Methods with no exception thrown. PrivilegedAction is returned from
+ *    J2DoPrivHelper.*Action(). E.g.
+ *
+ *    ClassLoader loader = AccessController.doPrivileged(
+ *                             J2DoPrivHelper.getClassLoaderAction(clazz));
+ *
+ *    ClassLoader loader = (ClassLoader) (System.getSecurityManager() == null)
+ *                         ? clazz.getClassLoader()
+ *                         : AccessController.doPrivileged(
+ *                             J2DoPrivHelper.getClassLoaderAction(clazz));
+ * 3) Methods with exception thrown. PrivilegedExceptionAction is returned
+ *    from J2DoPrivHelper.*Action(). E.g.
+ *
+ *    try {
+ *      method = AccessController.doPrivileged(
+ *        J2DoPrivHelper.getDeclaredMethodAction(clazz, name, parameterType));
+ *    } catch (PrivilegedActionException pae) {
+ *      throw (NoSuchMethodException) pae.getException();
+ *    }
+ *
+ *    try {
+ *      method = (System.getSecurityManager() == null)
+ *        ? clazz.getDeclaredMethod(name,parameterType)
+ *        : AccessController.doPrivileged(
+ *            J2DoPrivHelper.getDeclaredMethodAction(
+ *              clazz, name, parameterType));
+ *    } catch (PrivilegedActionException pae) {
+ *        throw (NoSuchMethodException) pae.getException()
+ *    }
+ * &lt;/pre&gt;
+ * @author Albert Lee
+ */
+
+<span class="nc" id="L164">public abstract class J2DoPrivHelper {</span>
+<span class="fc" id="L165">    private static String lineSeparator = null;</span>
+<span class="fc" id="L166">    private static String pathSeparator = null;</span>
+
+    /**
+     * Return the value of the &quot;line.separator&quot; system property.
+     *
+     * Requires security policy:
+     *   'permission java.util.PropertyPermission &quot;read&quot;;'
+     */
+    public static String getLineSeparator() {
+<span class="nc bnc" id="L175" title="All 2 branches missed.">        if (lineSeparator == null) {</span>
+<span class="nc" id="L176">            lineSeparator =</span>
+<span class="nc" id="L177">                AccessController.doPrivileged(new PrivilegedAction&lt;String&gt;() {</span>
+                    @Override
+                    public String run() {
+<span class="nc" id="L180">                        return System.getProperty(&quot;line.separator&quot;);</span>
+                    }
+                });
+        }
+<span class="nc" id="L184">        return lineSeparator;</span>
+    }
+
+    /**
+     * Return the value of the &quot;path.separator&quot; system property.
+     *
+     * Requires security policy:
+     *   'permission java.util.PropertyPermission &quot;read&quot;;'
+     */
+    public static String getPathSeparator() {
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        if (pathSeparator == null) {</span>
+<span class="nc" id="L195">            pathSeparator =</span>
+<span class="nc" id="L196">                AccessController.doPrivileged(new PrivilegedAction&lt;String&gt;() {</span>
+                    @Override
+                    public String run() {
+<span class="nc" id="L199">                        return System.getProperty(&quot;path.separator&quot;);</span>
+                    }
+                });
+        }
+<span class="nc" id="L203">        return pathSeparator;</span>
+    }
+
+    /**
+     * Return a PrivilegeAction object for aObj.setAccessible().
+     *
+     * Requires security policy: 'permission java.lang.reflect.ReflectPermission
+     * &quot;suppressAccessChecks&quot;;'
+     */
+    public static PrivilegedAction&lt;Object&gt; setAccessibleAction(
+        final AccessibleObject aObj, final boolean flag) {
+<span class="nc" id="L214">        return new PrivilegedAction&lt;Object&gt;() {</span>
+            @Override
+            public Object run() {
+<span class="nc" id="L217">                aObj.setAccessible(flag);</span>
+<span class="nc" id="L218">                return (Object) null;</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for Class.forName().
+     *
+     * Notes: doPriv of Class.forName call is required only if the input
+     * classloader argument is null. E.g.
+     *
+     * Class.forName(&quot;x&quot;, false, Collection.class.getClassLoader());
+     *
+     * Requires security policy: 'permission java.lang.RuntimePermission
+     * &quot;getClassLoader&quot;;'
+     *
+     * @return Class
+     */
+    public static PrivilegedExceptionAction&lt;Class&lt;?&gt;&gt; getForNameAction(
+        final String className, final boolean initializeBoolean,
+        final ClassLoader classLoader) {
+<span class="nc" id="L239">        return new PrivilegedExceptionAction&lt;Class&lt;?&gt;&gt;() {</span>
+            @Override
+            public Class&lt;?&gt; run() throws ClassNotFoundException {
+<span class="nc" id="L242">                return Class.forName(className, initializeBoolean, classLoader);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for clazz.getClassloader().
+     *
+     * Notes: No doPrivilege wrapping is required in the caller if:
+     *     &quot;the caller's class loader is not null and the caller's class loader
+     *      is not the same as or an ancestor of the class loader for the class
+     *      whose class loader is requested&quot;. E.g.
+     *
+     *         this.getClass().getClassLoader();
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;getClassLoader&quot;;'
+     *
+     * @return Classloader
+     */
+    public static PrivilegedAction&lt;ClassLoader&gt; getClassLoaderAction(
+        final Class&lt;?&gt; clazz) {
+<span class="fc" id="L264">        return new PrivilegedAction&lt;ClassLoader&gt;() {</span>
+            @Override
+            public ClassLoader run() {
+<span class="fc" id="L267">                return clazz.getClassLoader();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for clazz.getDeclaredField().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;accessDeclaredMembers&quot;;'
+     *
+     * @return Field
+     * @exception NoSuchFieldException
+     */
+    public static PrivilegedExceptionAction&lt;Field&gt; getDeclaredFieldAction(
+        final Class&lt;?&gt; clazz, final String name) {
+<span class="nc" id="L283">        return new PrivilegedExceptionAction&lt;Field&gt;() {</span>
+            @Override
+            public Field run() throws NoSuchFieldException {
+<span class="nc" id="L286">                return clazz.getDeclaredField(name);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for class.getDeclaredFields().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;accessDeclaredMembers&quot;;'
+     *
+     * @return Field[]
+     */
+    public static PrivilegedAction&lt;Field []&gt; getDeclaredFieldsAction(
+        final Class&lt;?&gt; clazz) {
+<span class="nc" id="L301">        return new PrivilegedAction&lt;Field []&gt;() {</span>
+            @Override
+            public Field[] run() {
+<span class="nc" id="L304">                return clazz.getDeclaredFields();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for clazz.getDeclaredMethod().
+     *
+     * Requires security policy
+     *   'permission java.lang.RuntimePermission &quot;accessDeclaredMembers&quot;;'
+     *
+     * @return Method
+     * @exception NoSuchMethodException
+     */
+    public static PrivilegedExceptionAction&lt;Method&gt;
+        getDeclaredMethodAction(
+            final Class&lt;?&gt; clazz, final String name,
+            final Class&lt;?&gt;[] parameterTypes) {
+<span class="nc" id="L322">        return new PrivilegedExceptionAction&lt;Method&gt;() {</span>
+            @Override
+            public Method run() throws NoSuchMethodException {
+<span class="nc" id="L325">                return clazz.getDeclaredMethod(name, parameterTypes);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for clazz.getDeclaredMethods().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;accessDeclaredMembers&quot;;'
+     *
+     * @return Method[]
+     */
+    public static PrivilegedAction&lt;Method []&gt; getDeclaredMethodsAction(
+        final Class&lt;?&gt; clazz) {
+<span class="nc" id="L340">        return new PrivilegedAction&lt;Method []&gt;() {</span>
+            @Override
+            public Method[] run() {
+<span class="nc" id="L343">                return clazz.getDeclaredMethods();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for clazz.getResource().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return URL
+     */
+    public static PrivilegedAction&lt;URL&gt; getResourceAction(
+        final Class&lt;?&gt; clazz, final String resource) {
+<span class="nc" id="L358">        return new PrivilegedAction&lt;URL&gt;() {</span>
+            @Override
+            public URL run() {
+<span class="nc" id="L361">                return clazz.getResource(resource);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for clazz.newInstance().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;getClassLoader&quot;;'
+     *
+     * @return A new instance of the provided class.
+     * @exception IllegalAccessException
+     * @exception InstantiationException
+     */
+    public static &lt;T&gt; PrivilegedExceptionAction&lt;T&gt; newInstanceAction(
+        final Class&lt;T&gt; clazz) throws IllegalAccessException,
+        InstantiationException {
+<span class="nc" id="L379">        return new PrivilegedExceptionAction&lt;T&gt;() {</span>
+            @Override
+            public T run() throws IllegalAccessException,
+                    InstantiationException {
+<span class="nc bnc" id="L383" title="All 2 branches missed.">                if (!Modifier.isAbstract(clazz.getModifiers())) {</span>
+<span class="nc" id="L384">                    return clazz.newInstance();</span>
+                } else {
+                    try {
+<span class="nc" id="L387">                        return (T)clazz.getMethod(&quot;newInstance&quot;,</span>
+<span class="nc" id="L388">                            new Class[]{}).invoke(null, new Object[]{});</span>
+<span class="nc" id="L389">                    } catch (Throwable t) {</span>
+<span class="nc" id="L390">                        throw new InstantiationException(t.toString());</span>
+                    }
+                }
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for class.getProtectionDomain().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;getProtectionDomain&quot;;'
+     *
+     * @return ProtectionDomain
+     */
+    public static PrivilegedAction&lt;ProtectionDomain&gt; getProtectionDomainAction(
+        final Class&lt;?&gt; clazz) {
+<span class="nc" id="L407">        return new PrivilegedAction&lt;ProtectionDomain&gt;() {</span>
+            @Override
+            public ProtectionDomain run() {
+<span class="nc" id="L410">                return clazz.getProtectionDomain();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for loader.getParent().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;getClassLoader&quot;;'
+     *
+     * @return ClassLoader
+     */
+    public static PrivilegedAction&lt;ClassLoader&gt; getParentAction(
+        final ClassLoader loader) {
+<span class="nc" id="L425">        return new PrivilegedAction&lt;ClassLoader&gt;() {</span>
+            @Override
+            public ClassLoader run() {
+<span class="nc" id="L428">                return loader.getParent();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for loader.getResource().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return URL
+     */
+    public static PrivilegedAction&lt;URL&gt; getResourceAction(
+        final ClassLoader loader, final String resource) {
+<span class="nc" id="L443">        return new PrivilegedAction&lt;URL&gt;() {</span>
+            @Override
+            public URL run() {
+<span class="nc" id="L446">                return loader.getResource(resource);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for loader.getResources().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return Enumeration
+     * @exception IOException
+     */
+    public static PrivilegedExceptionAction&lt;Enumeration&lt;URL&gt;&gt;
+        getResourcesAction(
+        final ClassLoader loader, final String resource) throws IOException {
+<span class="nc" id="L463">        return new PrivilegedExceptionAction&lt;Enumeration&lt;URL&gt;&gt;() {</span>
+            @Override
+            public Enumeration&lt;URL&gt; run() throws IOException {
+<span class="nc" id="L466">                return loader.getResources(resource);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for ClassLoader.getSystemClassLoader().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;getClassLoader&quot;;'
+     *
+     * @return ClassLoader
+     */
+    public static PrivilegedAction&lt;ClassLoader&gt;
+        getSystemClassLoaderAction() {
+<span class="nc" id="L481">        return new PrivilegedAction&lt;ClassLoader&gt;() {</span>
+            @Override
+            public ClassLoader run() {
+<span class="nc" id="L484">                return ClassLoader.getSystemClassLoader();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for f.delete().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;delete&quot;;'
+     *
+     * @return Boolean
+     */
+    public static PrivilegedAction&lt;Boolean&gt; deleteAction(final File f) {
+<span class="nc" id="L498">        return new PrivilegedAction&lt;Boolean&gt;() {</span>
+            @Override
+            public Boolean run() {
+<span class="nc bnc" id="L501" title="All 2 branches missed.">                return f.delete() ? Boolean.TRUE : Boolean.FALSE;</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for f.exists().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return Boolean
+     */
+    public static PrivilegedAction&lt;Boolean&gt; existsAction(final File f) {
+<span class="nc" id="L515">        return new PrivilegedAction&lt;Boolean&gt;() {</span>
+            @Override
+            public Boolean run() {
+                try {
+<span class="nc bnc" id="L519" title="All 2 branches missed.">                    return f.exists() ? Boolean.TRUE : Boolean.FALSE;</span>
+<span class="nc" id="L520">                } catch (NullPointerException npe) {</span>
+<span class="nc" id="L521">                    return Boolean.FALSE;</span>
+                }
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for f.deleteOnExit().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;delete&quot;;'
+     */
+    public static PrivilegedAction&lt;Boolean&gt; deleteOnExitAction(
+        final File f) {
+<span class="nc" id="L535">        return new PrivilegedAction&lt;Boolean&gt;() {</span>
+            @Override
+            public Boolean run() {
+<span class="nc" id="L538">                f.deleteOnExit();</span>
+<span class="nc" id="L539">                return Boolean.TRUE;</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for f.getAbsoluteFile().
+     *
+     * Requires security policy:
+     *   'permission java.util.PropertyPermission &quot;read&quot;;'
+     *
+     * @return File
+     */
+    public static PrivilegedAction&lt;File&gt; getAbsoluteFileAction(
+            final File f) {
+<span class="nc" id="L554">        return new PrivilegedAction&lt;File&gt;() {</span>
+            @Override
+            public File run() {
+<span class="nc" id="L557">                return f.getAbsoluteFile();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for f.getAbsolutePath().
+     *
+     * Requires security policy:
+     *   'permission java.util.PropertyPermission &quot;read&quot;;'
+     *
+     * @return String
+     */
+    public static PrivilegedAction&lt;String&gt;
+        getAbsolutePathAction(final File f) {
+<span class="nc" id="L572">        return new PrivilegedAction&lt;String&gt;() {</span>
+            @Override
+            public String run() {
+<span class="nc" id="L575">                return f.getAbsolutePath();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for f.getCanonicalPath().
+     *
+     * Requires security policy:
+     *   'permission java.util.PropertyPermission &quot;read&quot;;'
+     *
+     * @return String
+     * @exception IOException
+     */
+    public static PrivilegedExceptionAction&lt;String&gt;
+        getCanonicalPathAction(
+        final File f) throws IOException {
+<span class="nc" id="L592">        return new PrivilegedExceptionAction&lt;String&gt;() {</span>
+            @Override
+            public String run() throws IOException {
+<span class="nc" id="L595">                return f.getCanonicalPath();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for f.isDirectory().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return Boolean
+     */
+    public static PrivilegedAction&lt;Boolean&gt;
+        isDirectoryAction(final File f) {
+<span class="nc" id="L610">        return new PrivilegedAction&lt;Boolean&gt;() {</span>
+            @Override
+            public Boolean run() {
+<span class="nc bnc" id="L613" title="All 2 branches missed.">                return f.isDirectory() ? Boolean.TRUE : Boolean.FALSE;</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for f.isFile().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return Boolean
+     */
+    public static PrivilegedAction&lt;Boolean&gt; isFileAction(final File f) {
+<span class="nc" id="L627">        return new PrivilegedAction&lt;Boolean&gt;() {</span>
+            @Override
+            public Boolean run() {
+<span class="nc bnc" id="L630" title="All 2 branches missed.">                return f.isFile() ? Boolean.TRUE : Boolean.FALSE;</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for f.length().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return Long
+     */
+    public static PrivilegedAction&lt;Long&gt; lengthAction(final File f) {
+<span class="nc" id="L644">        return new PrivilegedAction&lt;Long&gt;() {</span>
+            @Override
+            public Long run() {
+<span class="nc" id="L647">                return f.length();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for f.listFiles().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return File[]
+     */
+    public static PrivilegedAction&lt;File []&gt;
+        listFilesAction(final File f) {
+<span class="nc" id="L662">        return new PrivilegedAction&lt;File []&gt;() {</span>
+            @Override
+            public File [] run() {
+<span class="nc" id="L665">                return f.listFiles();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for f.mkdirs().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;write&quot;;'
+     *
+     * @return Boolean
+     */
+    public static PrivilegedAction&lt;Boolean&gt; mkdirsAction(final File f) {
+<span class="nc" id="L679">        return new PrivilegedAction&lt;Boolean&gt;() {</span>
+            @Override
+            public Boolean run() {
+<span class="nc bnc" id="L682" title="All 2 branches missed.">                return f.mkdirs() ? Boolean.TRUE : Boolean.FALSE;</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for f.renameTo().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;write&quot;;'
+     *
+     * @return Boolean
+     */
+    public static PrivilegedAction&lt;Boolean&gt; renameToAction(
+        final File from, final File to) {
+<span class="nc" id="L697">        return new PrivilegedAction&lt;Boolean&gt;() {</span>
+            @Override
+            public Boolean run() {
+<span class="nc bnc" id="L700" title="All 2 branches missed.">                return from.renameTo(to) ? Boolean.TRUE : Boolean.FALSE;</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for f.toURL().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return URL
+     * @throws MalformedURLException
+     */
+    public static PrivilegedExceptionAction&lt;URL&gt; toURLAction(
+        final File file)
+        throws MalformedURLException {
+<span class="nc" id="L717">        return new PrivilegedExceptionAction&lt;URL&gt;() {</span>
+            @Override
+            public URL run() throws MalformedURLException {
+<span class="nc" id="L720">                return file.toURL();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for new FileInputStream().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return FileInputStream
+     * @throws FileNotFoundException
+     */
+    public static PrivilegedExceptionAction&lt;FileInputStream&gt;
+        newFileInputStreamAction(
+        final File f) throws FileNotFoundException {
+<span class="nc" id="L737">        return new PrivilegedExceptionAction&lt;FileInputStream&gt;() {</span>
+            @Override
+            public FileInputStream run() throws FileNotFoundException {
+<span class="nc" id="L740">                return new FileInputStream(f);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for new FileOutputStream().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;write&quot;;'
+     *
+     * @return FileOutputStream
+     * @throws FileNotFoundException
+     */
+    public static PrivilegedExceptionAction&lt;FileOutputStream&gt;
+        newFileOutputStreamAction(
+        final File f) throws FileNotFoundException {
+<span class="nc" id="L757">        return new PrivilegedExceptionAction&lt;FileOutputStream&gt;() {</span>
+            @Override
+            public FileOutputStream run() throws FileNotFoundException {
+<span class="nc" id="L760">                return new FileOutputStream(f);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for new FileOutputStream().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;write&quot;;'
+     *
+     * @return FileOutputStream
+     * @throws FileNotFoundException
+     */
+    public static PrivilegedExceptionAction&lt;FileOutputStream&gt;
+        newFileOutputStreamAction(
+        final String f, final boolean append) throws FileNotFoundException {
+<span class="nc" id="L777">        return new PrivilegedExceptionAction&lt;FileOutputStream&gt;() {</span>
+            @Override
+            public FileOutputStream run() throws FileNotFoundException {
+<span class="nc" id="L780">                return new FileOutputStream(f, append);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for InetAdress.getByName().
+     *
+     * Requires security policy:
+     *   'permission java.net.SocketPermission &quot;connect&quot;;'
+     *
+     * @return InetAddress
+     * @throws UnknownHostException
+     */
+    public static PrivilegedExceptionAction&lt;InetAddress&gt; getByNameAction(
+        final String hostname) throws UnknownHostException {
+<span class="nc" id="L796">        return new PrivilegedExceptionAction&lt;InetAddress&gt;() {</span>
+            @Override
+            public InetAddress run() throws UnknownHostException {
+<span class="nc" id="L799">                return InetAddress.getByName(hostname);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for new Socket().
+     *
+     * Requires security policy:
+     *   'permission java.net.SocketPermission &quot;connect&quot;;'
+     *
+     * @return Socket
+     * @throws IOException
+     */
+    public static PrivilegedExceptionAction&lt;Socket&gt; newSocketAction(
+        final InetAddress host, final int port) throws IOException {
+<span class="nc" id="L815">        return new PrivilegedExceptionAction&lt;Socket&gt;() {</span>
+            @Override
+            public Socket run() throws IOException {
+<span class="nc" id="L818">                return new Socket(host, port);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for new ServerSocket().
+     *
+     * Requires security policy:
+     *   'permission java.net.SocketPermission &quot;listen&quot;;'
+     *
+     * @return ServerSocket
+     * @throws IOException
+     */
+    public static PrivilegedExceptionAction&lt;ServerSocket&gt;
+            newServerSocketAction(
+        final int port) throws IOException {
+<span class="nc" id="L835">        return new PrivilegedExceptionAction&lt;ServerSocket&gt;() {</span>
+            @Override
+            public ServerSocket run() throws IOException {
+<span class="nc" id="L838">                return new ServerSocket(port);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for ServerSocket.accept().
+     *
+     * Requires security policy:
+     *   'permission java.net.SocketPermission &quot;listen&quot;;'
+     *
+     * @return Socket
+     * @throws IOException
+     */
+    public static PrivilegedExceptionAction&lt;Socket&gt; acceptAction(
+        final ServerSocket ss) throws IOException {
+<span class="nc" id="L854">        return new PrivilegedExceptionAction&lt;Socket&gt;() {</span>
+            @Override
+            public Socket run() throws IOException {
+<span class="nc" id="L857">                return ss.accept();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for System.getProperties().
+     *
+     * Requires security policy:
+     *   'permission java.util.PropertyPermission &quot;read&quot;;'
+     *
+     * @return Properties
+     */
+    public static PrivilegedAction&lt;Properties&gt; getPropertiesAction() {
+<span class="nc" id="L871">        return new PrivilegedAction&lt;Properties&gt;() {</span>
+            @Override
+            public Properties run() {
+<span class="nc" id="L874">                return System.getProperties();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for System.getProperty().
+     *
+     * Requires security policy:
+     *   'permission java.util.PropertyPermission &quot;read&quot;;'
+     *
+     * @return String
+     */
+    public static PrivilegedAction&lt;String&gt; getPropertyAction(
+        final String name) {
+<span class="nc" id="L889">        return new PrivilegedAction&lt;String&gt;() {</span>
+            @Override
+            public String run() {
+<span class="nc" id="L892">                return System.getProperty(name);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for System.getProperty().
+     *
+     * Requires security policy:
+     *   'permission java.util.PropertyPermission &quot;read&quot;;'
+     *
+     * @return String
+     */
+    public static PrivilegedAction&lt;String&gt; getPropertyAction(
+        final String name, final String def) {
+<span class="nc" id="L907">        return new PrivilegedAction&lt;String&gt;() {</span>
+            @Override
+            public String run() {
+<span class="nc" id="L910">                return System.getProperty(name, def);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for Thread.currentThread
+     *   .getContextClassLoader().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;getClassLoader&quot;;'
+     *
+     * @return ClassLoader
+     */
+    public static PrivilegedAction&lt;ClassLoader&gt;
+            getContextClassLoaderAction() {
+<span class="nc" id="L926">        return new PrivilegedAction&lt;ClassLoader&gt;() {</span>
+            @Override
+            public ClassLoader run() {
+<span class="nc" id="L929">                return Thread.currentThread().getContextClassLoader();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for Thread.currentThread
+     *   .setContextClassLoader().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;setContextClassLoader&quot;;'
+     *
+     * @return ClassLoader
+     */
+    public static PrivilegedAction&lt;Boolean&gt;
+            setContextClassLoaderAction(final ClassLoader loader) {
+<span class="nc" id="L945">        return new PrivilegedAction&lt;Boolean&gt;() {</span>
+            @Override
+            public Boolean run() {
+<span class="nc" id="L948">                Thread.currentThread().setContextClassLoader(loader);</span>
+<span class="nc" id="L949">                return Boolean.TRUE;</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedAction object for new Thread().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;modifyThreadGroup&quot;;'
+     *   'permission java.lang.RuntimePermission &quot;modifyThread&quot;;'
+     *
+     * @return Thread
+     */
+    public static PrivilegedAction&lt;Thread&gt; newDaemonThreadAction(
+        final Runnable target, final String name) {
+<span class="nc" id="L965">        return new PrivilegedAction&lt;Thread&gt;() {</span>
+            @Override
+            public Thread run() {
+<span class="nc" id="L968">                Thread thread = new Thread(target, name);</span>
+<span class="nc" id="L969">                thread.setDaemon(true);</span>
+<span class="nc" id="L970">                return thread;</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for url.openStream().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return InputStream
+     * @throws IOException
+     */
+    public static PrivilegedExceptionAction&lt;InputStream&gt; openStreamAction(
+        final URL url) throws IOException {
+<span class="nc" id="L986">        return new PrivilegedExceptionAction&lt;InputStream&gt;() {</span>
+            @Override
+            public InputStream run() throws IOException {
+<span class="nc" id="L989">                return url.openStream();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object con.getContent().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return Object
+     * @throws IOException
+     */
+    public static PrivilegedExceptionAction&lt;Object&gt; getContentAction(
+        final URLConnection con) throws IOException {
+<span class="nc" id="L1005">        return new PrivilegedExceptionAction&lt;Object&gt;() {</span>
+            @Override
+            public Object run() throws IOException {
+<span class="nc" id="L1008">                return con.getContent();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for new ZipFile().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return ZipFile
+     * @throws IOException
+     */
+    public static PrivilegedExceptionAction&lt;ZipFile&gt; newZipFileAction(
+        final File f)
+        throws IOException {
+<span class="nc" id="L1025">        return new PrivilegedExceptionAction&lt;ZipFile&gt;() {</span>
+            @Override
+            public ZipFile run() throws IOException {
+<span class="nc" id="L1028">                return new ZipFile(f);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for con.getJarFile().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return JarFile
+     * @throws IOException
+     */
+    public static PrivilegedExceptionAction&lt;JarFile&gt; getJarFileAction(final JarURLConnection con)
+        throws IOException {
+<span class="nc" id="L1044">        return new PrivilegedExceptionAction&lt;JarFile&gt;() {</span>
+            @Override
+            public JarFile run() throws IOException {
+<span class="nc" id="L1047">                return con.getJarFile();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedExceptionAction object for con.getJarEntry().
+     *
+     * Requires security policy:
+     *   'permission java.io.FilePermission &quot;read&quot;;'
+     *
+     * @return JarEntry
+     * @throws IOException
+     */
+    public static PrivilegedExceptionAction&lt;JarEntry&gt; getJarEntryAction(final JarURLConnection con)
+        throws IOException {
+<span class="nc" id="L1063">        return new PrivilegedExceptionAction&lt;JarEntry&gt;() {</span>
+            @Override
+            public JarEntry run() throws IOException {
+<span class="nc" id="L1066">                return con.getJarEntry();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for new serp.bytecode.Code().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;getClassLoader&quot;;'
+     *
+     * @return serp.bytecode.Code
+     */
+    public static PrivilegedAction&lt;Code&gt; newCodeAction() {
+<span class="nc" id="L1080">        return new PrivilegedAction&lt;Code&gt;() {</span>
+            @Override
+            public Code run() {
+<span class="nc" id="L1083">                return new Code();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for new TemporaryClassLoader().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;createClassLoader&quot;;'
+     *
+     * @return TemporaryClassLoader
+     */
+    public static PrivilegedAction&lt;TemporaryClassLoader&gt;
+        newTemporaryClassLoaderAction(
+        final ClassLoader parent) {
+<span class="nc" id="L1099">        return new PrivilegedAction&lt;TemporaryClassLoader&gt;() {</span>
+            @Override
+            public TemporaryClassLoader run() {
+<span class="nc" id="L1102">                return new TemporaryClassLoader(parent);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for new MultiClassLoader().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;createClassLoader&quot;;'
+     *
+     * @return MultiClassLoader
+     */
+    public static PrivilegedAction&lt;MultiClassLoader&gt; newMultiClassLoaderAction() {
+<span class="nc" id="L1116">        return new PrivilegedAction() {</span>
+            @Override
+            public MultiClassLoader run() {
+<span class="nc" id="L1119">                return new MultiClassLoader();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for new BCClassLoader().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;createClassLoader&quot;;'
+     *
+     * @return BCClassLoader
+     */
+    public static PrivilegedAction&lt;BCClassLoader&gt; newBCClassLoaderAction(
+        final Project project, final ClassLoader parent) {
+<span class="nc" id="L1134">        return new PrivilegedAction&lt;BCClassLoader&gt;() {</span>
+            @Override
+            public BCClassLoader run() {
+<span class="nc" id="L1137">                return new BCClassLoader(project, parent);</span>
+            }
+        };
+    }
+
+    public static PrivilegedAction&lt;BCClassLoader&gt; newBCClassLoaderAction(
+        final Project project) {
+<span class="nc" id="L1144">        return new PrivilegedAction&lt;BCClassLoader&gt;() {</span>
+            @Override
+            public BCClassLoader run() {
+<span class="nc" id="L1147">                return new BCClassLoader(project);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for BCClass.getFields().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;getClassLoader&quot;;'
+     *
+     * @return BCField
+     */
+    public static PrivilegedAction&lt;BCField []&gt; getBCClassFieldsAction(
+        final BCClass bcClass, final String fieldName) {
+<span class="nc" id="L1162">        return new PrivilegedAction&lt;BCField []&gt;() {</span>
+            @Override
+            public BCField [] run() {
+<span class="nc" id="L1165">                return bcClass.getFields(fieldName);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for FieldInstruction.getField().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;getClassLoader&quot;;'
+     *
+     * @return BCField
+     */
+    public static PrivilegedAction&lt;BCField&gt; getFieldInstructionFieldAction
+    (
+        final FieldInstruction instruction) {
+<span class="nc" id="L1181">        return new PrivilegedAction&lt;BCField&gt;() {</span>
+            @Override
+            public BCField run() {
+<span class="nc" id="L1184">                return instruction.getField();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for Project.loadClass().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;createClassLoader&quot;;'
+     *
+     * @return BCClass
+     */
+    public static PrivilegedAction&lt;BCClass&gt; loadProjectClassAction(
+        final Project project, final Class&lt;?&gt; clazz) {
+<span class="nc" id="L1199">        return new PrivilegedAction&lt;BCClass&gt;() {</span>
+            @Override
+            public BCClass run() {
+<span class="nc" id="L1202">                return project.loadClass(clazz);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for Project.loadClass().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;getClassLoader&quot;;'
+     *
+     * @return BCClass
+     */
+    public static PrivilegedAction&lt;BCClass&gt; loadProjectClassAction(
+        final Project project, final String clazzName) {
+<span class="nc" id="L1217">        return new PrivilegedAction&lt;BCClass&gt;() {</span>
+            @Override
+            public BCClass run() {
+<span class="nc" id="L1220">                return project.loadClass(clazzName);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for AnnotatedElement.getAnnotations().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;accessDeclaredMembers&quot;;'
+     *
+     * @return Annotation[]
+     */
+    public static PrivilegedAction&lt;Annotation []&gt; getAnnotationsAction(
+        final AnnotatedElement element) {
+<span class="nc" id="L1235">        return new PrivilegedAction&lt;Annotation []&gt;() {</span>
+            @Override
+            public Annotation [] run() {
+<span class="nc" id="L1238">                return element.getAnnotations();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for
+     *   AnnotatedElement.getDeclaredAnnotations().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;accessDeclaredMembers&quot;;'
+     *
+     * @return Annotation[]
+     */
+    public static PrivilegedAction&lt;Annotation []&gt;
+        getDeclaredAnnotationsAction(
+        final AnnotatedElement element) {
+<span class="nc" id="L1255">        return new PrivilegedAction&lt;Annotation[]&gt;() {</span>
+            @Override
+            public Annotation [] run() {
+<span class="nc" id="L1258">                return element.getDeclaredAnnotations();</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for
+     *   AnnotatedElement.isAnnotationPresent().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;accessDeclaredMembers&quot;;'
+     *
+     * @return Boolean
+     */
+    public static PrivilegedAction&lt;Boolean&gt; isAnnotationPresentAction(
+        final AnnotatedElement element,
+        final Class&lt;? extends Annotation&gt; annotationClazz) {
+<span class="nc" id="L1275">        return new PrivilegedAction&lt;Boolean&gt;() {</span>
+            @Override
+            public Boolean run() {
+<span class="nc bnc" id="L1278" title="All 2 branches missed.">                return element.isAnnotationPresent(annotationClazz)</span>
+                    ? Boolean.TRUE : Boolean.FALSE;
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegedAction object for
+     *   AnnotatedElement.getAnnotation().
+     *
+     * Requires security policy:
+     *   'permission java.lang.RuntimePermission &quot;accessDeclaredMembers&quot;;'
+     *
+     * @return Annotation
+     */
+    public static &lt;T extends Annotation&gt; PrivilegedAction&lt;T&gt;
+        getAnnotationAction(
+        final AnnotatedElement element,
+        final Class&lt;T&gt; annotationClazz) {
+<span class="nc" id="L1297">        return new PrivilegedAction&lt;T&gt;() {</span>
+            @Override
+            public T run() {
+<span class="nc" id="L1300">                return (T) element.getAnnotation(annotationClazz);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for javax.validation.Validator.validate().
+     *
+     * Requires security policy: 'permission java.lang.RuntimePermission &quot;accessDeclaredMemeber&quot;;'
+     */
+    public static &lt;T&gt; PrivilegedAction&lt;Set&lt;ConstraintViolation&lt;T&gt;&gt;&gt; validateAction(
+        final Validator validator, final T arg0, final Class&lt;?&gt;[] groups) {
+<span class="nc" id="L1312">        return new PrivilegedAction&lt;Set&lt;ConstraintViolation&lt;T&gt;&gt;&gt;() {</span>
+            @Override
+            public Set&lt;ConstraintViolation&lt;T&gt;&gt; run() {
+<span class="nc" id="L1315">                return validator.validate(arg0, groups);</span>
+            }
+        };
+    }
+
+    /**
+     * Return a PrivilegeAction object for javax.validation.Validation.buildDefaultValidatorFactory().
+     *
+     * Requires security policy: 'permission java.lang.RuntimePermission &quot;createClassLoader&quot;;'
+     */
+    public static &lt;T&gt; PrivilegedAction&lt;ValidatorFactory&gt; buildDefaultValidatorFactoryAction() {
+<span class="nc" id="L1326">        return new PrivilegedAction&lt;ValidatorFactory&gt;() {</span>
+            @Override
+            public ValidatorFactory run() {
+<span class="nc" id="L1329">                return Validation.buildDefaultValidatorFactory();</span>
+            }
+        };
+    }
+
+    public static PrivilegedExceptionAction&lt;URL&gt; createURL(final String url) throws MalformedURLException {
+<span class="nc" id="L1335">        return new PrivilegedExceptionAction&lt;URL&gt;() {</span>
+            @Override
+            public URL run() throws MalformedURLException {
+<span class="nc" id="L1338">                return new URL(url);</span>
+            }
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>XMLFactory.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.xml</a> &gt; <span class="el_source">XMLFactory.java</span></div><h1>XMLFactory.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.xml;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+
+import org.w3c.dom.Document;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.SAXException;
+
+/**
+ * The XMLFactory produces validating and non-validating DOM level 2
+ * and SAX level 2 parsers and XSL transformers through JAXP. It uses
+ * caching to avoid repeatedly paying the relatively expensive runtime costs
+ * associated with resolving the correct XML implementation through the
+ * JAXP configuration mechanisms.
+ *
+ * @author Abe White
+ */
+<span class="nc" id="L40">public class XMLFactory {</span>
+
+    // cache parsers and transformers in all possible configurations
+<span class="nc" id="L43">    private static SAXParserFactory[] _saxFactories = null;</span>
+<span class="nc" id="L44">    private static DocumentBuilderFactory[] _domFactories = null;</span>
+    private static ErrorHandler _validating;
+
+    static {
+<span class="nc" id="L48">        _saxFactories = new SAXParserFactory[4];</span>
+<span class="nc" id="L49">        _domFactories = new DocumentBuilderFactory[4];</span>
+
+        SAXParserFactory saxFactory;
+        DocumentBuilderFactory domFactory;
+        int arrIdx;
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        for (int validating = 0; validating &lt; 2; validating++) {</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">            for (int namespace = 0; namespace &lt; 2; namespace++) {</span>
+<span class="nc bnc" id="L56" title="All 4 branches missed.">                arrIdx = factoryIndex(validating == 1, namespace == 1);</span>
+
+<span class="nc" id="L58">                saxFactory = SAXParserFactory.newInstance();</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">                saxFactory.setValidating(validating == 1);</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">                saxFactory.setNamespaceAware(namespace == 1);</span>
+<span class="nc" id="L61">                _saxFactories[arrIdx] = saxFactory;</span>
+
+<span class="nc" id="L63">                domFactory = DocumentBuilderFactory.newInstance();</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">                domFactory.setValidating(validating == 1);</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">                domFactory.setNamespaceAware(namespace == 1);</span>
+<span class="nc" id="L66">                _domFactories[arrIdx] = domFactory;</span>
+            }
+        }
+<span class="nc" id="L69">        _validating = new ValidatingErrorHandler();</span>
+<span class="nc" id="L70">    }</span>
+
+    /**
+     * Return a SAXParser with the specified configuration.
+     */
+    public static SAXParser getSAXParser(boolean validating,
+        boolean namespaceAware) {
+        SAXParser sp;
+        try {
+<span class="nc" id="L79">            sp = _saxFactories[factoryIndex(validating, namespaceAware)].</span>
+<span class="nc" id="L80">                newSAXParser();</span>
+<span class="nc" id="L81">        } catch (ParserConfigurationException | SAXException pce) {</span>
+<span class="nc" id="L82">            throw new RuntimeException(pce);</span>
+<span class="nc" id="L83">        }</span>
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (validating) {</span>
+            try {
+<span class="nc" id="L87">                sp.getXMLReader().setErrorHandler(_validating);</span>
+<span class="nc" id="L88">            } catch (SAXException se) {</span>
+<span class="nc" id="L89">                throw new RuntimeException(se);</span>
+<span class="nc" id="L90">            }</span>
+        }
+
+<span class="nc" id="L93">        return sp;</span>
+    }
+
+    /**
+     * Return a DocumentBuilder with the specified configuration.
+     */
+    public static DocumentBuilder getDOMParser(boolean validating,
+        boolean namespaceAware) {
+        DocumentBuilder db;
+        try {
+<span class="nc" id="L103">            db = _domFactories[factoryIndex(validating, namespaceAware)].</span>
+<span class="nc" id="L104">                newDocumentBuilder();</span>
+<span class="nc" id="L105">        } catch (ParserConfigurationException pce) {</span>
+<span class="nc" id="L106">            throw new RuntimeException(pce);</span>
+<span class="nc" id="L107">        }</span>
+
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        if (validating)</span>
+<span class="nc" id="L110">            db.setErrorHandler(_validating);</span>
+<span class="nc" id="L111">        return db;</span>
+    }
+
+    /**
+     * Return a new DOM Document.
+     */
+    public static Document getDocument() {
+<span class="nc" id="L118">        return getDOMParser(false, false).newDocument();</span>
+    }
+
+    /**
+     * Return the array index of the factory with the given properties.
+     */
+    private static int factoryIndex(boolean validating,
+        boolean namespaceAware) {
+<span class="nc" id="L126">        int arrayIndex = 0;</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        if (validating)</span>
+<span class="nc" id="L128">            arrayIndex += 2;</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        if (namespaceAware)</span>
+<span class="nc" id="L130">            arrayIndex += 1;</span>
+<span class="nc" id="L131">        return arrayIndex;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

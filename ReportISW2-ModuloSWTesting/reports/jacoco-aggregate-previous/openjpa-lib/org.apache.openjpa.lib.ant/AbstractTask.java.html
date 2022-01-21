@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>AbstractTask.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.ant</a> &gt; <span class="el_source">AbstractTask.java</span></div><h1>AbstractTask.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.ant;
+
+import java.io.File;
+import java.security.AccessController;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.openjpa.lib.conf.Configuration;
+import org.apache.openjpa.lib.conf.ConfigurationImpl;
+import org.apache.openjpa.lib.conf.ConfigurationProvider;
+import org.apache.openjpa.lib.conf.Configurations;
+import org.apache.openjpa.lib.conf.ProductDerivations;
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.lib.util.MultiClassLoader;
+import org.apache.openjpa.lib.util.StringUtil;
+import org.apache.tools.ant.AntClassLoader;
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.DirectoryScanner;
+import org.apache.tools.ant.taskdefs.MatchingTask;
+import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.Path;
+
+/**
+ * Ant tasks all have a nested &lt;code&gt;&amp;lt;config&amp;rt;&lt;/code&gt; tag, which uses
+ * the configuration as a bean-like task. E.g., you can do:
+ *
+ * &lt;code&gt;
+ * &amp;lt;mytask&amp;rt;&lt;br /&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;config connectionUserName=&quot;foo&quot;/&amp;rt;&lt;br /&gt;
+ * &amp;lt;/mytask&amp;rt;
+ * &lt;/code&gt;
+ *
+ * The default configuration for the system will be used if the
+ * &lt;code&gt;&amp;lt;config&amp;rt;&lt;/code&gt; subtask is excluded.
+ *
+ */
+<span class="nc" id="L57">public abstract class AbstractTask extends MatchingTask {</span>
+
+<span class="nc" id="L59">    private static final Localizer _loc = Localizer.forPackage</span>
+<span class="nc" id="L60">        (AbstractTask.class);</span>
+
+<span class="nc" id="L62">    protected final List&lt;FileSet&gt; fileSets = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L63">    protected boolean haltOnError = true;</span>
+<span class="nc" id="L64">    protected Path classpath = null;</span>
+<span class="nc" id="L65">    protected boolean useParent = false;</span>
+<span class="nc" id="L66">    protected boolean isolate = false;</span>
+
+<span class="nc" id="L68">    private ConfigurationImpl _conf = null;</span>
+<span class="nc" id="L69">    private AntClassLoader _cl = null;</span>
+
+    /**
+     * Set whether we want the task to ignore all errors.
+     */
+    public void setHaltOnError(boolean haltOnError) {
+<span class="nc" id="L75">        this.haltOnError = haltOnError;</span>
+<span class="nc" id="L76">    }</span>
+
+    /**
+     * Whether we want the ClassLoader to be isolated from
+     * all other ClassLoaders
+     */
+    public void setIsolate(boolean isolate) {
+<span class="nc" id="L83">        this.isolate = isolate;</span>
+<span class="nc" id="L84">    }</span>
+
+    /**
+     * Whether we want to delegate to the parent ClassLoader
+     * for resolveing classes. This may &quot;taint&quot; classes.
+     */
+    public void setUseParentClassloader(boolean useParent) {
+<span class="nc" id="L91">        this.useParent = useParent;</span>
+<span class="nc" id="L92">    }</span>
+
+    /**
+     * The task configuration.
+     */
+    public Configuration getConfiguration() {
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        if (_conf == null) {</span>
+<span class="nc" id="L99">             _conf = newConfiguration();</span>
+<span class="nc" id="L100">            _conf.setDeferResourceLoading(true);</span>
+        }
+<span class="nc" id="L102">        return _conf;</span>
+    }
+
+    /**
+     * Implement this method to return a configuration object for the
+     * product in use.
+     */
+    protected abstract ConfigurationImpl newConfiguration();
+
+    /**
+     * Perform the task action on the given files.
+     */
+    protected abstract void executeOn(String[] files) throws Exception;
+
+    /**
+     * Return the classloader to use.
+     */
+    protected ClassLoader getClassLoader() {
+<span class="nc bnc" id="L120" title="All 2 branches missed.">        if (_cl != null)</span>
+<span class="nc" id="L121">            return _cl;</span>
+
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        if (classpath != null)</span>
+<span class="nc" id="L124">            _cl = new AntClassLoader(getProject(), classpath, useParent);</span>
+        else
+<span class="nc" id="L126">            _cl = new AntClassLoader(getProject().getCoreLoader(), getProject(),</span>
+<span class="nc" id="L127">                new Path(getProject()), useParent);</span>
+<span class="nc" id="L128">        _cl.setIsolated(isolate);</span>
+
+<span class="nc" id="L130">        return _cl;</span>
+    }
+
+    /**
+     * Helper method to throw a standard exception if the task is not given
+     * any files to execute on. Implementations might call this method as
+     * the first step in {@link #executeOn} to validate that they are given
+     * files to work on.
+     */
+    protected void assertFiles(String[] files) {
+<span class="nc bnc" id="L140" title="All 2 branches missed.">        if (files.length == 0)</span>
+<span class="nc" id="L141">            throw new BuildException(_loc.get(&quot;no-filesets&quot;).getMessage());</span>
+<span class="nc" id="L142">    }</span>
+
+    public void setClasspath(Path classPath) {
+<span class="nc" id="L145">        createClasspath().append(classPath);</span>
+<span class="nc" id="L146">    }</span>
+
+    public Path createClasspath() {
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        if (classpath == null)</span>
+<span class="nc" id="L150">            classpath = new Path(getProject());</span>
+<span class="nc" id="L151">        return classpath.createPath();</span>
+    }
+
+    public Object createConfig() {
+<span class="nc" id="L155">        return getConfiguration();</span>
+    }
+
+    public void addFileset(FileSet set) {
+<span class="nc" id="L159">        fileSets.add(set);</span>
+<span class="nc" id="L160">    }</span>
+
+    @Override
+    public void execute() throws BuildException {
+        // if the user didn't supply a conf file, load the default
+<span class="nc bnc" id="L165" title="All 2 branches missed.">        if (_conf == null)</span>
+<span class="nc" id="L166">            _conf = newConfiguration();</span>
+<span class="nc" id="L167">        ConfigurationProvider cp = null;</span>
+<span class="nc" id="L168">        String propertiesResource = _conf.getPropertiesResource();</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        if ( propertiesResource == null) {</span>
+<span class="nc" id="L170">            cp = ProductDerivations.loadDefaults(getConfigPropertiesResourceLoader());</span>
+<span class="nc bnc" id="L171" title="All 4 branches missed.">        } else if (_conf.isDeferResourceLoading() &amp;&amp; !StringUtil.isEmpty(propertiesResource)) {</span>
+<span class="nc" id="L172">            Map&lt;String, String&gt; result = Configurations.parseConfigResource(propertiesResource);</span>
+<span class="nc" id="L173">            String path = result.get(Configurations.CONFIG_RESOURCE_PATH);</span>
+<span class="nc" id="L174">            String anchor = result.get(Configurations.CONFIG_RESOURCE_ANCHOR);</span>
+<span class="nc" id="L175">            cp = ProductDerivations.load(path, anchor, getConfigPropertiesResourceLoader());</span>
+        }
+
+<span class="nc bnc" id="L178" title="All 2 branches missed.">        if (cp != null){</span>
+<span class="nc" id="L179">            cp.setInto(_conf);</span>
+        }
+
+<span class="nc" id="L182">        String[] files = getFiles();</span>
+        try {
+<span class="nc" id="L184">            executeOn(files);</span>
+<span class="nc" id="L185">        } catch (Throwable e) {</span>
+<span class="nc" id="L186">            e.printStackTrace();</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">            if (haltOnError)</span>
+<span class="nc" id="L188">                throw new BuildException(e);</span>
+        } finally {
+<span class="nc" id="L190">            _conf.close();</span>
+<span class="nc" id="L191">            _conf = null;</span>
+        }
+<span class="nc" id="L193">    }</span>
+
+    private MultiClassLoader getConfigPropertiesResourceLoader() {
+        MultiClassLoader loader = AccessController
+<span class="nc" id="L197">                .doPrivileged(J2DoPrivHelper.newMultiClassLoaderAction());</span>
+<span class="nc" id="L198">        loader.addClassLoader(getClassLoader());</span>
+<span class="nc" id="L199">        loader.addClassLoader(AccessController.doPrivileged(</span>
+<span class="nc" id="L200">                J2DoPrivHelper.getClassLoaderAction(_conf.getClass())));</span>
+<span class="nc" id="L201">        return loader;</span>
+    }
+
+    private String[] getFiles() {
+<span class="nc" id="L205">        List&lt;String&gt; files = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">        for(FileSet fs : fileSets) {</span>
+<span class="nc" id="L207">            DirectoryScanner ds = fs.getDirectoryScanner(getProject());</span>
+
+<span class="nc" id="L209">            String[] dsFiles = ds.getIncludedFiles();</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">            for (String dsFile : dsFiles) {</span>
+<span class="nc" id="L211">                File f = new File(dsFile);</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">                if (!AccessController.doPrivileged(J2DoPrivHelper</span>
+<span class="nc" id="L213">                        .isFileAction(f)))</span>
+<span class="nc" id="L214">                    f = new File(ds.getBasedir(), dsFile);</span>
+<span class="nc" id="L215">                files.add(AccessController.doPrivileged(</span>
+<span class="nc" id="L216">                        J2DoPrivHelper.getAbsolutePathAction(f)));</span>
+            }
+<span class="nc" id="L218">        }</span>
+<span class="nc" id="L219">        return (String[]) files.toArray(new String[files.size()]);</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

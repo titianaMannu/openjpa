@@ -10,6 +10,7 @@ import org.junit.runners.Parameterized;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 
 
@@ -82,8 +83,18 @@ public class GraphTest {
         Iterator<Object> iterator = graph.getNodes().iterator();
         if (iterator.hasNext()) {
             Object node = iterator.next();
+            int initialEdges = graph.getEdges().size();
+            // ignore duplicated
+            HashSet<Edge> edgesOverNode = new HashSet<>();
+            edgesOverNode.addAll(graph.getEdgesFrom(node));
+            edgesOverNode.addAll(graph.getEdgesTo(node));
+            int degree = edgesOverNode.size();
+            if (!directed){
+                degree = graph.getEdgesFrom(node).size();
+            }
             graph.removeNode(node);
             assertEquals(initialSize - 1, graph.getNodes().size());
+            assertEquals(initialEdges - degree, graph.getEdges().size());
         }
 
         graph.clear();

@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>CFMetaDataParser.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.meta</a> &gt; <span class="el_source">CFMetaDataParser.java</span></div><h1>CFMetaDataParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.meta;
+
+import java.security.AccessController;
+
+import org.apache.openjpa.lib.util.ClassUtil;
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.lib.util.StringUtil;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+
+/**
+ * Custom SAX parser used by the system to quickly parse metadata files
+ * for classes.
+ *
+ * @author Abe White
+ */
+public class CFMetaDataParser extends XMLMetaDataParser {
+
+<span class="nc" id="L38">    static final String[] PACKAGES = new String[]{</span>
+        &quot;java.lang.&quot;, &quot;java.util.&quot;, &quot;java.math.&quot; };
+<span class="nc" id="L40">    private static final Localizer _loc = Localizer.forPackage</span>
+<span class="nc" id="L41">        (CFMetaDataParser.class);</span>
+
+    // the current package and class being parsed
+<span class="nc" id="L44">    private String _package = null;</span>
+<span class="nc" id="L45">    private String _class = null;</span>
+
+<span class="nc" id="L47">    public CFMetaDataParser() {</span>
+<span class="nc" id="L48">        setParseText(false);</span>
+<span class="nc" id="L49">    }</span>
+
+    /**
+     * The name of the package element. Defaults to &quot;package&quot;.
+     */
+    protected boolean isPackageElementName(String name) {
+<span class="nc" id="L55">        return &quot;package&quot;.equals(name);</span>
+    }
+
+    /**
+     * The attribute of the package element that holds the name, or null to
+     * use the element text. Defaults to &quot;name&quot;.
+     */
+    protected String getPackageAttributeName() {
+<span class="nc" id="L63">        return &quot;name&quot;;</span>
+    }
+
+    /**
+     * The depth of the package element. Defaults to 1.
+     */
+    protected int getPackageElementDepth() {
+<span class="nc" id="L70">        return 1;</span>
+    }
+
+    /**
+     * The name of the class element. Defaults to &quot;class&quot;.
+     */
+    protected boolean isClassElementName(String name) {
+<span class="nc" id="L77">        return &quot;class&quot;.equals(name);</span>
+    }
+
+    /**
+     * The attribute of the class element that holds the name, or null to
+     * use the element text. Defaults to &quot;name&quot;.
+     */
+    protected String getClassAttributeName() {
+<span class="nc" id="L85">        return &quot;name&quot;;</span>
+    }
+
+    /**
+     * The depth of the class element. Defaults to 2.
+     */
+    protected int getClassElementDepth() {
+<span class="nc" id="L92">        return 2;</span>
+    }
+
+    @Override
+    protected boolean startElement(String name, Attributes attrs)
+        throws SAXException {
+        // skip root element
+<span class="nc" id="L99">        int depth = currentDepth();</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (depth == 0)</span>
+<span class="nc" id="L101">            return true;</span>
+
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        if (StringUtil.contains(name, ':')) {</span>
+<span class="nc" id="L104">            int index = name.indexOf(':');</span>
+<span class="nc" id="L105">            name = name.substring(index + 1);</span>
+        }
+
+        try {
+<span class="nc bnc" id="L109" title="All 2 branches missed.">            if (_openjpaNamespace &gt; 0) {</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">                if (name.equals(&quot;entity&quot;))</span>
+<span class="nc" id="L111">                    return startExtendedClass(name,attrs);</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">                if (name.equals(&quot;attributes&quot;)) {</span>
+<span class="nc" id="L113">                    return true;</span>
+                }
+<span class="nc" id="L115">                return startClassElement(name, attrs);</span>
+
+            }
+<span class="nc bnc" id="L118" title="All 2 branches missed.">            if (depth == getPackageElementDepth()</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">                &amp;&amp; isPackageElementName(name))</span>
+<span class="nc" id="L120">                return startPackage(name, attrs);</span>
+<span class="nc bnc" id="L121" title="All 4 branches missed.">            if (depth == getClassElementDepth() &amp;&amp; isClassElementName(name))</span>
+<span class="nc" id="L122">                return startClass(name, attrs);</span>
+<span class="nc bnc" id="L123" title="All 4 branches missed.">            if (depth &gt; getClassElementDepth() &amp;&amp; _class != null</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">                &amp;&amp; getClassAttributeName() != null)</span>
+<span class="nc" id="L125">                return startClassElement(name, attrs);</span>
+<span class="nc bnc" id="L126" title="All 4 branches missed.">            if (depth &gt; getPackageElementDepth() &amp;&amp; _package != null</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">                &amp;&amp; getPackageAttributeName() != null)</span>
+<span class="nc" id="L128">                return startPackageElement(name, attrs);</span>
+<span class="nc" id="L129">            return startSystemElement(name, attrs);</span>
+<span class="nc" id="L130">        } catch (SAXException se) {</span>
+<span class="nc" id="L131">            throw se;</span>
+<span class="nc" id="L132">        } catch (NullPointerException npe) {</span>
+<span class="nc" id="L133">            throw getException(_loc.get(&quot;parse-error&quot;, name), npe);</span>
+        }
+    }
+
+    @Override
+    protected void endElement(String name) throws SAXException {
+        // skip root element
+<span class="nc" id="L140">        int depth = currentDepth();</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">        if (depth == 0)</span>
+<span class="nc" id="L142">            return;</span>
+
+<span class="nc bnc" id="L144" title="All 2 branches missed.">        if (StringUtil.contains(name, ':')) {</span>
+<span class="nc" id="L145">            int index = name.indexOf(':');</span>
+<span class="nc" id="L146">            name = name.substring(index + 1);</span>
+        }
+
+        try {
+<span class="nc bnc" id="L150" title="All 2 branches missed.">            if (_openjpaNamespace &gt; 0) {</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">                if (name.equals(&quot;entity&quot;))</span>
+<span class="nc" id="L152">                    endExtendedClass(name);</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">                else if (name.equals(&quot;attributes&quot;)) {</span>
+                    // do nothing
+                }
+                else {
+<span class="nc" id="L157">                    endClassElement(name);</span>
+                }
+            }
+<span class="nc bnc" id="L160" title="All 2 branches missed.">            else if (depth == getPackageElementDepth()</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">                &amp;&amp; isPackageElementName(name))</span>
+<span class="nc" id="L162">                endPackage(name);</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            else if (depth == getClassElementDepth()</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">                &amp;&amp; isClassElementName(name))</span>
+<span class="nc" id="L165">                endClass(name);</span>
+<span class="nc bnc" id="L166" title="All 4 branches missed.">            else if (depth &gt; getClassElementDepth() &amp;&amp; _class != null</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">                &amp;&amp; getClassAttributeName() != null)</span>
+<span class="nc" id="L168">                endClassElement(name);</span>
+<span class="nc bnc" id="L169" title="All 4 branches missed.">            else if (depth &gt; getPackageElementDepth() &amp;&amp; _package != null</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">                &amp;&amp; getPackageAttributeName() != null)</span>
+<span class="nc" id="L171">                endPackageElement(name);</span>
+            else
+<span class="nc" id="L173">                endSystemElement(name);</span>
+<span class="nc" id="L174">        } catch (SAXException se) {</span>
+<span class="nc" id="L175">            throw se;</span>
+<span class="nc" id="L176">        } catch (NullPointerException npe) {</span>
+<span class="nc" id="L177">            throw getException(_loc.get(&quot;parse-error&quot;, name), npe);</span>
+<span class="nc" id="L178">        }</span>
+<span class="nc" id="L179">    }</span>
+
+    /**
+     * Start a package. Parses out package attribute by default.
+     * Return false to skip package element and its contents.
+     */
+    protected boolean startPackage(String elem, Attributes attrs)
+        throws SAXException {
+<span class="nc bnc" id="L187" title="All 2 branches missed.">        if (getPackageAttributeName() != null) {</span>
+<span class="nc" id="L188">            _package = attrs.getValue(getPackageAttributeName());</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">            if (_package == null)</span>
+<span class="nc" id="L190">                _package = &quot;&quot;;</span>
+        }
+<span class="nc" id="L192">        return true;</span>
+    }
+
+    /**
+     * End a package. Parses contained text by default.
+     */
+    protected void endPackage(String elem) {
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        if (getPackageAttributeName() != null)</span>
+<span class="nc" id="L200">            _package = null;</span>
+        else
+<span class="nc" id="L202">            _package = currentText();</span>
+<span class="nc" id="L203">    }</span>
+
+    /**
+     * Start a class. Parses out class name by default. Return
+     * false to skip class element and its contents.
+     */
+    protected boolean startClass(String elem, Attributes attrs)
+        throws SAXException {
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        if (getClassAttributeName() != null) {</span>
+<span class="nc" id="L212">            _class = attrs.getValue(getClassAttributeName());</span>
+<span class="nc bnc" id="L213" title="All 4 branches missed.">            if (!StringUtil.isEmpty(_package) &amp;&amp; _class.indexOf('.') == -1)</span>
+<span class="nc" id="L214">                _class = _package + &quot;.&quot; + _class;</span>
+        }
+<span class="nc" id="L216">        return true;</span>
+    }
+
+    /**
+     * End a class. Parses contained text by default.
+     */
+    protected void endClass(String elem) throws SAXException {
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        if (getClassAttributeName() != null)</span>
+<span class="nc" id="L224">            _class = null;</span>
+        else {
+<span class="nc" id="L226">            _class = currentText();</span>
+<span class="nc bnc" id="L227" title="All 4 branches missed.">            if (!StringUtil.isEmpty(_package) &amp;&amp; _class.indexOf('.') == -1)</span>
+<span class="nc" id="L228">                _class = _package + &quot;.&quot; + _class;</span>
+        }
+<span class="nc" id="L230">    }</span>
+
+    protected boolean startExtendedClass(String elem, Attributes attrs)
+        throws SAXException {
+<span class="nc" id="L234">        return false;</span>
+    }
+
+    protected void endExtendedClass(String elem) throws SAXException {
+<span class="nc" id="L238">    }</span>
+
+    /**
+     * Override this method marking the start of an element outside of any
+     * package or class.
+     */
+    protected boolean startSystemElement(String name, Attributes attrs)
+        throws SAXException {
+<span class="nc" id="L246">        return false;</span>
+    }
+
+    /**
+     * Override this method marking the end of an element outside of any
+     * package or class.
+     */
+    protected void endSystemElement(String name) throws SAXException {
+<span class="nc" id="L254">    }</span>
+
+    /**
+     * Override this method marking the start of an element within a declared
+     * package.
+     */
+    protected boolean startPackageElement(String name, Attributes attrs)
+        throws SAXException {
+<span class="nc" id="L262">        return false;</span>
+    }
+
+    /**
+     * Override this method marking the end of an element within a declared
+     * package.
+     */
+    protected void endPackageElement(String name) throws SAXException {
+<span class="nc" id="L270">    }</span>
+
+    /**
+     * Override this method marking the start of an element within a declared
+     * class.
+     */
+    protected boolean startClassElement(String name, Attributes attrs)
+        throws SAXException {
+<span class="nc" id="L278">        return false;</span>
+    }
+
+    /**
+     * Override this method marking the end of an element within a declared
+     * class.
+     */
+    protected void endClassElement(String name) throws SAXException {
+<span class="nc" id="L286">    }</span>
+
+    /**
+     * Override this method to clear any state and ready the parser for
+     * a new document. Subclasses should call
+     * &lt;code&gt;super.reset()&lt;/code&gt; to clear superclass state.
+     */
+    @Override
+    protected void reset() {
+<span class="nc" id="L295">        super.reset();</span>
+<span class="nc" id="L296">        _package = null;</span>
+<span class="nc" id="L297">        _class = null;</span>
+<span class="nc" id="L298">    }</span>
+
+    /**
+     * Return the current class being parsed; the returned name will
+     * be fully qualified.
+     */
+    protected String currentClassName() {
+<span class="nc" id="L305">        return _class;</span>
+    }
+
+    /**
+     * Return the current package being parsed.
+     */
+    protected String currentPackage() {
+<span class="nc" id="L312">        return _package;</span>
+    }
+
+    /**
+     * Helper method to create the {@link Class} for the given name,
+     * taking into account the package currently being parsed for relative
+     * class names.
+     */
+    protected Class&lt;?&gt; classForName(String name, boolean resolve)
+        throws SAXException {
+<span class="nc bnc" id="L322" title="All 2 branches missed.">        if (name == null)</span>
+<span class="nc" id="L323">            return null;</span>
+<span class="nc" id="L324">        Class&lt;?&gt; cls =</span>
+<span class="nc" id="L325">            classForName(name, _package, resolve, currentClassLoader());</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">        if (cls == null)</span>
+<span class="nc" id="L327">            throw getException(_loc.get(&quot;invalid-class&quot;, name).getMessage());</span>
+<span class="nc" id="L328">        return cls;</span>
+    }
+
+    /**
+     * Load the given class name against the given package and the set
+     * of accepted standard packages. Return null if the class cannot be loaded.
+     */
+    public static Class&lt;?&gt; classForName(String name, String pkg,
+        boolean resolve, ClassLoader loader) {
+<span class="nc bnc" id="L337" title="All 2 branches missed.">        if (StringUtil.isEmpty(name))</span>
+<span class="nc" id="L338">            return null;</span>
+
+<span class="nc bnc" id="L340" title="All 2 branches missed.">        if (loader == null)</span>
+<span class="nc" id="L341">            loader = AccessController.doPrivileged(</span>
+<span class="nc" id="L342">                J2DoPrivHelper.getContextClassLoaderAction());</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        boolean fullName = name.indexOf('.') != -1;</span>
+<span class="nc" id="L344">        boolean noPackage = StringUtil.isEmpty(pkg);</span>
+        try {
+<span class="nc bnc" id="L346" title="All 4 branches missed.">            if (fullName || noPackage)</span>
+<span class="nc" id="L347">                return ClassUtil.toClass(name, resolve, loader);</span>
+<span class="nc" id="L348">            return ClassUtil.toClass(pkg + &quot;.&quot; + name, resolve, loader);</span>
+<span class="nc" id="L349">        } catch (RuntimeException re) {</span>
+        }
+
+        // if not a full name, now try the name without a package
+<span class="nc bnc" id="L353" title="All 4 branches missed.">        if (!fullName &amp;&amp; !noPackage) {</span>
+            try {
+<span class="nc" id="L355">                return ClassUtil.toClass(name, resolve, loader);</span>
+<span class="nc" id="L356">            } catch (RuntimeException re) {</span>
+            }
+        }
+
+        // try with standard packages
+<span class="nc bnc" id="L361" title="All 2 branches missed.">        if (!fullName) {</span>
+<span class="nc bnc" id="L362" title="All 2 branches missed.">            for (String aPackage : PACKAGES) {</span>
+                try {
+<span class="nc" id="L364">                    return ClassUtil.toClass(aPackage + name, resolve, loader);</span>
+                }
+<span class="nc" id="L366">                catch (RuntimeException re) {</span>
+                }
+            }
+        }
+<span class="nc" id="L370">        return null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

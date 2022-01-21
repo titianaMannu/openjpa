@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ReferenceHashSet.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">ReferenceHashSet.java</span></div><h1>ReferenceHashSet.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+
+import org.apache.openjpa.lib.util.collections.AbstractReferenceMap;
+import org.apache.openjpa.lib.util.collections.MapBackedSet;
+import org.apache.openjpa.lib.util.collections.ReferenceMap;
+
+/**
+ * A set whose values may be stored as weak or soft references.
+ *
+ * @author Abe White
+ */
+public class ReferenceHashSet implements Set, Serializable {
+    
+    private static final long serialVersionUID = 1L;
+
+<span class="nc" id="L40">    private static final Object DUMMY_VAL = new Serializable() {</span>
+        
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public String toString() {
+<span class="nc" id="L46">            return ReferenceHashSet.class.getName() + &quot;.DUMMY_VAL&quot;;</span>
+        }
+    };
+
+    private final Set _set;
+
+    /**
+     * Construct a set with the given reference type.
+     */
+<span class="nc" id="L55">    public ReferenceHashSet(AbstractReferenceMap.ReferenceStrength refType) {</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        if (refType == AbstractReferenceMap.ReferenceStrength.HARD)</span>
+<span class="nc" id="L57">            _set = new HashSet();</span>
+        else {
+<span class="nc" id="L59">            _set = MapBackedSet.mapBackedSet(new ReferenceMap(refType, AbstractReferenceMap.ReferenceStrength.HARD), DUMMY_VAL);</span>
+        }
+<span class="nc" id="L61">    }</span>
+
+    @Override
+    public boolean add(Object obj) {
+<span class="nc" id="L65">        return _set.add(obj);</span>
+    }
+
+    @Override
+    public boolean addAll(Collection coll) {
+<span class="nc" id="L70">        return _set.addAll(coll);</span>
+    }
+
+    @Override
+    public void clear() {
+<span class="nc" id="L75">        _set.clear();</span>
+<span class="nc" id="L76">    }</span>
+
+    @Override
+    public boolean contains(Object obj) {
+<span class="nc" id="L80">        return _set.contains(obj);</span>
+    }
+
+    @Override
+    public boolean containsAll(Collection coll) {
+<span class="nc" id="L85">        return _set.containsAll(coll);</span>
+    }
+
+    @Override
+    public boolean isEmpty() {
+<span class="nc" id="L90">        return _set.isEmpty();</span>
+    }
+
+    @Override
+    public Iterator iterator() {
+<span class="nc" id="L95">        return _set.iterator();</span>
+    }
+
+    @Override
+    public boolean remove(Object obj) {
+<span class="nc" id="L100">        return _set.remove(obj);</span>
+    }
+
+    @Override
+    public boolean removeAll(Collection coll) {
+<span class="nc" id="L105">        return _set.removeAll(coll);</span>
+    }
+
+    @Override
+    public boolean retainAll(Collection coll) {
+<span class="nc" id="L110">        return _set.retainAll(coll);</span>
+    }
+
+    @Override
+    public int size() {
+<span class="nc" id="L115">        return _set.size();</span>
+    }
+
+    @Override
+    public Object[] toArray() {
+<span class="nc" id="L120">        return _set.toArray();</span>
+    }
+
+    @Override
+    public Object[] toArray(Object[] arr) {
+<span class="nc" id="L125">        return _set.toArray(arr);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L130">        return _set.hashCode();</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L135" title="All 2 branches missed.">        if (this == obj)</span>
+<span class="nc" id="L136">            return true;</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        if (obj instanceof ReferenceHashSet)</span>
+<span class="nc" id="L138">            obj = ((ReferenceHashSet) obj)._set;</span>
+<span class="nc" id="L139">        return _set.equals(obj);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

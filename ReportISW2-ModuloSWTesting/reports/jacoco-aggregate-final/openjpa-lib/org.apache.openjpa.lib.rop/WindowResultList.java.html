@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>WindowResultList.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.rop</a> &gt; <span class="el_source">WindowResultList.java</span></div><h1>WindowResultList.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.rop;
+
+import java.io.ObjectStreamException;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * ResultList implementation that uses a forward-scrolling window of results.
+ *
+ * @author Abe White
+ */
+public class WindowResultList extends AbstractNonSequentialResultList {
+
+    private static final int OPEN = 0;
+    private static final int FREED = 1;
+    private static final int CLOSED = 2;
+
+    private final Object[] _window;
+<span class="nc" id="L37">    private int _pos = -1;</span>
+<span class="nc" id="L38">    private ResultObjectProvider _rop = null;</span>
+<span class="nc" id="L39">    private boolean _random = false;</span>
+<span class="nc" id="L40">    private int _state = OPEN;</span>
+<span class="nc" id="L41">    private int _size = -1;</span>
+
+    public WindowResultList(ResultObjectProvider rop) {
+<span class="nc" id="L44">        this(rop, 10);</span>
+<span class="nc" id="L45">    }</span>
+
+<span class="nc" id="L47">    public WindowResultList(ResultObjectProvider rop, int windowSize) {</span>
+<span class="nc" id="L48">        _rop = rop;</span>
+
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        if (windowSize &lt;= 0)</span>
+<span class="nc" id="L51">            windowSize = 10;</span>
+<span class="nc" id="L52">        _window = new Object[windowSize];</span>
+
+        try {
+<span class="nc" id="L55">            _rop.open();</span>
+<span class="nc" id="L56">            _random = _rop.supportsRandomAccess();</span>
+<span class="nc" id="L57">        } catch (RuntimeException re) {</span>
+<span class="nc" id="L58">            close();</span>
+<span class="nc" id="L59">            throw re;</span>
+<span class="nc" id="L60">        } catch (Exception e) {</span>
+<span class="nc" id="L61">            close();</span>
+<span class="nc" id="L62">            _rop.handleCheckedException(e);</span>
+<span class="nc" id="L63">        }</span>
+<span class="nc" id="L64">    }</span>
+
+    @Override
+    public boolean isProviderOpen() {
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        return _state == OPEN;</span>
+    }
+
+    @Override
+    public boolean isClosed() {
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        return _state == CLOSED;</span>
+    }
+
+    @Override
+    public void close() {
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        if (_state != CLOSED) {</span>
+<span class="nc" id="L79">            free();</span>
+<span class="nc" id="L80">            _state = CLOSED;</span>
+        }
+<span class="nc" id="L82">    }</span>
+
+    @Override
+    public int size() {
+<span class="nc" id="L86">        assertOpen();</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        if (_size != -1)</span>
+<span class="nc" id="L88">            return _size;</span>
+        try {
+<span class="nc" id="L90">            _size = _rop.size();</span>
+<span class="nc" id="L91">            return _size;</span>
+<span class="nc" id="L92">        } catch (RuntimeException re) {</span>
+<span class="nc" id="L93">            close();</span>
+<span class="nc" id="L94">            throw re;</span>
+<span class="nc" id="L95">        } catch (Exception e) {</span>
+<span class="nc" id="L96">            close();</span>
+<span class="nc" id="L97">            _rop.handleCheckedException(e);</span>
+<span class="nc" id="L98">            return -1;</span>
+        }
+    }
+
+    @Override
+    public Object getInternal(int index) {
+        // out of range?
+<span class="nc bnc" id="L105" title="All 6 branches missed.">        if (index &lt; 0 || (_size != -1 &amp;&amp; index &gt;= _size))</span>
+<span class="nc" id="L106">            return PAST_END;</span>
+
+        try {
+            // if this is before window range, move window back
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            if (index &lt; _pos) {</span>
+<span class="nc bnc" id="L111" title="All 4 branches missed.">                if (!_random || index == 0)</span>
+<span class="nc" id="L112">                    _rop.reset();</span>
+<span class="nc" id="L113">                _pos = -1;</span>
+            }
+
+            // if this is the first get or past window range, move window
+<span class="nc bnc" id="L117" title="All 4 branches missed.">            if (_pos == -1 || index &gt;= _pos + _window.length) {</span>
+                // position result provider just before requested index
+<span class="nc bnc" id="L119" title="All 4 branches missed.">                if (_random &amp;&amp; index != 0) {</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">                    if (!_rop.absolute(index - 1))</span>
+<span class="nc" id="L121">                        return PAST_END;</span>
+                } else {
+<span class="nc bnc" id="L123" title="All 2 branches missed.">                    int begin = (_pos == -1) ? 0 : _pos + _window.length;</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">                    for (int i = begin; i &lt; index; i++)</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">                        if (!_rop.next())</span>
+<span class="nc" id="L126">                            return PAST_END;</span>
+                }
+
+                // create window starting at requested index
+<span class="nc" id="L130">                int end = -1;</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">                for (int i = 0; i &lt; _window.length; i++) {</span>
+<span class="nc bnc" id="L132" title="All 4 branches missed.">                    if (end == -1 &amp;&amp; !_rop.next())</span>
+<span class="nc" id="L133">                        end = i;</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">                    _window[i] = (end == -1) ? _rop.getResultObject()</span>
+                        : PAST_END;
+                }
+<span class="nc" id="L137">                _pos = index;</span>
+
+                // if the window spans the entire result list, free
+<span class="nc bnc" id="L140" title="All 4 branches missed.">                if (end != -1 &amp;&amp; _pos == 0) {</span>
+<span class="nc" id="L141">                    _size = end;</span>
+<span class="nc" id="L142">                    free();</span>
+                }
+            }
+
+            // grab result from window
+<span class="nc" id="L147">            return _window[index - _pos];</span>
+<span class="nc" id="L148">        } catch (RuntimeException re) {</span>
+<span class="nc" id="L149">            close();</span>
+<span class="nc" id="L150">            throw re;</span>
+<span class="nc" id="L151">        } catch (Exception e) {</span>
+<span class="nc" id="L152">            close();</span>
+<span class="nc" id="L153">            _rop.handleCheckedException(e);</span>
+<span class="nc" id="L154">            return null;</span>
+        }
+    }
+
+    private void free() {
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        if (_state == OPEN) {</span>
+            try {
+<span class="nc" id="L161">                _rop.close();</span>
+<span class="nc" id="L162">            } catch (Exception e) {</span>
+<span class="nc" id="L163">            }</span>
+<span class="nc" id="L164">            _state = FREED;</span>
+        }
+<span class="nc" id="L166">    }</span>
+
+    public Object writeReplace() throws ObjectStreamException {
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        if (_state != OPEN)</span>
+<span class="nc" id="L170">            return this;</span>
+
+        // load results into list
+<span class="nc" id="L173">        List list = new ArrayList();</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        for (Object o : this) {</span>
+<span class="nc" id="L175">            list.add(o);</span>
+<span class="nc" id="L176">        }</span>
+<span class="nc" id="L177">        return list;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

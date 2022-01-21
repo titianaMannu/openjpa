@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>MultiClassLoader.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">MultiClassLoader.java</span></div><h1>MultiClassLoader.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+import java.io.IOException;
+import java.net.URL;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Vector;
+
+/**
+ * Class loader type that can be configured to delegate to multiple
+ * internal class loaders.
+ * The {@link #THREAD_LOADER} constant is a marker that will be replaced
+ * with the context loader of the current thread.
+ *
+ * @author Abe White
+ */
+public class MultiClassLoader extends ClassLoader {
+
+    /**
+     * Marker that will be replaced with the context loader of the current
+     * thread whenever it is discovered in the class loader list.
+     */
+<span class="nc" id="L45">    public static final ClassLoader THREAD_LOADER = null;</span>
+
+    /**
+     * The standard system class loader.
+     */
+<span class="nc" id="L50">    public static final ClassLoader SYSTEM_LOADER =</span>
+<span class="nc" id="L51">        AccessController.doPrivileged(</span>
+<span class="nc" id="L52">            J2DoPrivHelper.getSystemClassLoaderAction());</span>
+
+<span class="nc" id="L54">    private List&lt;ClassLoader&gt; _loaders = new ArrayList&lt;&gt;(5);</span>
+
+    /**
+     * Constructor; initializes the loader with an empty list of delegates.
+     */
+    public MultiClassLoader() {
+<span class="nc" id="L60">        super(null);</span>
+<span class="nc" id="L61">    }</span>
+
+    /**
+     * Construct with the class loaders of another multi loader.
+     */
+    public MultiClassLoader(MultiClassLoader other) {
+<span class="nc" id="L67">        super(null);</span>
+<span class="nc" id="L68">        addClassLoaders(other);</span>
+<span class="nc" id="L69">    }</span>
+
+<span class="nc" id="L71">    public MultiClassLoader(ClassLoader... loaders) {</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        for (ClassLoader loader : loaders) {</span>
+<span class="nc" id="L73">            addClassLoader(loader);</span>
+        }
+<span class="nc" id="L75">    }</span>
+
+    /**
+     * Returns true if the list contains the given class loader or marker.
+     */
+    public boolean containsClassLoader(ClassLoader loader) {
+<span class="nc" id="L81">        return _loaders.contains(loader);</span>
+    }
+
+    /**
+     * Return an array of all contained class loaders.
+     */
+    public ClassLoader[] getClassLoaders() {
+<span class="nc" id="L88">        ClassLoader[] loaders = new ClassLoader[size()];</span>
+        ClassLoader loader;
+<span class="nc" id="L90">        Iterator&lt;ClassLoader&gt; itr = _loaders.iterator();</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        for (int i = 0; i &lt; loaders.length; i++) {</span>
+<span class="nc" id="L92">            loader = itr.next();</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">            if (loader == THREAD_LOADER)</span>
+<span class="nc" id="L94">                loader = AccessController.doPrivileged(</span>
+<span class="nc" id="L95">                    J2DoPrivHelper.getContextClassLoaderAction());</span>
+<span class="nc" id="L96">            loaders[i] = loader;</span>
+        }
+<span class="nc" id="L98">        return loaders;</span>
+    }
+
+    /**
+     * Return the class loader at the given index.
+     */
+    public ClassLoader getClassLoader(int index) {
+<span class="nc" id="L105">        ClassLoader loader = (ClassLoader) _loaders.get(index);</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">        if (loader == THREAD_LOADER)</span>
+<span class="nc" id="L107">            loader = AccessController.doPrivileged(</span>
+<span class="nc" id="L108">                J2DoPrivHelper.getContextClassLoaderAction());</span>
+<span class="nc" id="L109">        return loader;</span>
+    }
+
+    /**
+     * Add the given class loader to the set of loaders that will be tried.
+     *
+     * @return true if the loader was added, false if already in the list
+     */
+    public boolean addClassLoader(ClassLoader loader) {
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        if (_loaders.contains(loader))</span>
+<span class="nc" id="L119">            return false;</span>
+<span class="nc" id="L120">        return _loaders.add(loader);</span>
+    }
+
+    /**
+     * Add the given class loader at the specified index.
+     *
+     * @return true if the loader was added, false if already in the list
+     */
+    public boolean addClassLoader(int index, ClassLoader loader) {
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        if (_loaders.contains(loader))</span>
+<span class="nc" id="L130">            return false;</span>
+<span class="nc" id="L131">        _loaders.add(index, loader);</span>
+<span class="nc" id="L132">        return true;</span>
+    }
+
+    /**
+     * Set the class loaders of this loader to those of the given loader.
+     */
+    public void setClassLoaders(MultiClassLoader multi) {
+<span class="nc" id="L139">        clear();</span>
+<span class="nc" id="L140">        addClassLoaders(multi);</span>
+<span class="nc" id="L141">    }</span>
+
+    /**
+     * Adds all class loaders from the given multi loader starting at the
+     * given index.
+     *
+     * @return true if any loaders were added, false if all already in list
+     */
+    public boolean addClassLoaders(int index, MultiClassLoader multi) {
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if (multi == null)</span>
+<span class="nc" id="L151">            return false;</span>
+
+        // use iterator so that the thread loader is not resolved
+<span class="nc" id="L154">        boolean added = false;</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        for (ClassLoader loader : multi._loaders) {</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            if (addClassLoader(index, loader)) {</span>
+<span class="nc" id="L157">                index++;</span>
+<span class="nc" id="L158">                added = true;</span>
+            }
+<span class="nc" id="L160">        }</span>
+<span class="nc" id="L161">        return added;</span>
+    }
+
+    /**
+     * Adds all the class loaders from the given multi loader.
+     *
+     * @return true if any loaders were added, false if all already in list
+     */
+    public boolean addClassLoaders(MultiClassLoader multi) {
+<span class="nc bnc" id="L170" title="All 2 branches missed.">        if (multi == null)</span>
+<span class="nc" id="L171">            return false;</span>
+
+        // use iterator so that the thread loader is not resolved
+<span class="nc" id="L174">        boolean added = false;</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">        for (ClassLoader loader : multi._loaders) {</span>
+<span class="nc bnc" id="L176" title="All 4 branches missed.">            added = addClassLoader(loader) || added;</span>
+<span class="nc" id="L177">        }</span>
+<span class="nc" id="L178">        return added;</span>
+    }
+
+    /**
+     * Remove the given loader from the list.
+     *
+     * @return true if removed, false if not in list
+     */
+    public boolean removeClassLoader(ClassLoader loader) {
+<span class="nc" id="L187">        return _loaders.remove(loader);</span>
+    }
+
+    /**
+     * Clear the list of class loaders.
+     */
+    public void clear() {
+<span class="nc" id="L194">        _loaders.clear();</span>
+<span class="nc" id="L195">    }</span>
+
+    /**
+     * Return the number of internal class loaders.
+     */
+    public int size() {
+<span class="nc" id="L201">        return _loaders.size();</span>
+    }
+
+    /**
+     * Return true if there are no internal class laoders.
+     */
+    public boolean isEmpty() {
+<span class="nc" id="L208">        return _loaders.isEmpty();</span>
+    }
+
+    @Override
+    protected Class&lt;?&gt; findClass(String name) throws ClassNotFoundException {
+        ClassLoader loader;
+<span class="nc bnc" id="L214" title="All 2 branches missed.">        for (ClassLoader classLoader : _loaders) {</span>
+<span class="nc" id="L215">            loader = classLoader;</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">            if (loader == THREAD_LOADER)</span>
+<span class="nc" id="L217">                loader = AccessController.doPrivileged(</span>
+<span class="nc" id="L218">                        J2DoPrivHelper.getContextClassLoaderAction());</span>
+            try {
+<span class="nc" id="L220">                return Class.forName(name, false, loader);</span>
+            }
+<span class="nc" id="L222">            catch (Throwable t) {</span>
+            }
+<span class="nc" id="L224">        }</span>
+<span class="nc" id="L225">        throw new ClassNotFoundException(name);</span>
+    }
+
+    @Override
+    protected URL findResource(String name) {
+        ClassLoader loader;
+        URL rsrc;
+<span class="nc bnc" id="L232" title="All 2 branches missed.">        for (ClassLoader classLoader : _loaders) {</span>
+<span class="nc" id="L233">            loader = classLoader;</span>
+<span class="nc bnc" id="L234" title="All 2 branches missed.">            if (loader == THREAD_LOADER)</span>
+<span class="nc" id="L235">                loader = AccessController.doPrivileged(</span>
+<span class="nc" id="L236">                        J2DoPrivHelper.getContextClassLoaderAction());</span>
+
+<span class="nc bnc" id="L238" title="All 2 branches missed.">            if (loader == null) // skip</span>
+<span class="nc" id="L239">                continue;</span>
+
+<span class="nc" id="L241">            rsrc = AccessController.doPrivileged(</span>
+<span class="nc" id="L242">                    J2DoPrivHelper.getResourceAction(loader, name));</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">            if (rsrc != null)</span>
+<span class="nc" id="L244">                return rsrc;</span>
+<span class="nc" id="L245">        }</span>
+<span class="nc" id="L246">        return null;</span>
+    }
+
+    @Override
+    protected Enumeration&lt;URL&gt; findResources(String name) throws IOException {
+        ClassLoader loader;
+        Enumeration&lt;URL&gt; rsrcs;
+        URL rsrc;
+<span class="nc" id="L254">        Vector&lt;URL&gt; all = new Vector&lt;&gt;();</span>
+<span class="nc bnc" id="L255" title="All 2 branches missed.">        for (ClassLoader classLoader : _loaders) {</span>
+<span class="nc" id="L256">            loader = classLoader;</span>
+<span class="nc bnc" id="L257" title="All 2 branches missed.">            if (loader == THREAD_LOADER)</span>
+<span class="nc" id="L258">                loader = AccessController.doPrivileged(</span>
+<span class="nc" id="L259">                        J2DoPrivHelper.getContextClassLoaderAction());</span>
+
+<span class="nc bnc" id="L261" title="All 2 branches missed.">            if (loader == null) // skip</span>
+<span class="nc" id="L262">                continue;</span>
+
+            try {
+<span class="nc" id="L265">                rsrcs = AccessController.doPrivileged(</span>
+<span class="nc" id="L266">                        J2DoPrivHelper.getResourcesAction(loader, name));</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">                while (rsrcs.hasMoreElements()) {</span>
+<span class="nc" id="L268">                    rsrc = rsrcs.nextElement();</span>
+<span class="nc bnc" id="L269" title="All 2 branches missed.">                    if (!all.contains(rsrc))</span>
+<span class="nc" id="L270">                        all.addElement(rsrc);</span>
+                }
+            }
+<span class="nc" id="L273">            catch (PrivilegedActionException pae) {</span>
+<span class="nc" id="L274">                throw (IOException) pae.getException();</span>
+<span class="nc" id="L275">            }</span>
+<span class="nc" id="L276">        }</span>
+<span class="nc" id="L277">        return all.elements();</span>
+    }
+
+    @Override
+    public boolean equals(Object other) {
+<span class="nc bnc" id="L282" title="All 2 branches missed.">        if (other == this)</span>
+<span class="nc" id="L283">            return true;</span>
+<span class="nc bnc" id="L284" title="All 2 branches missed.">        if (!(other instanceof MultiClassLoader))</span>
+<span class="nc" id="L285">            return false;</span>
+<span class="nc" id="L286">        return ((MultiClassLoader) other)._loaders.equals(_loaders);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L291">        return _loaders.hashCode();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

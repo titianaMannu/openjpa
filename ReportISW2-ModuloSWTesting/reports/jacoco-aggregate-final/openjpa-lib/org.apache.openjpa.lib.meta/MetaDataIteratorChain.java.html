@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>MetaDataIteratorChain.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.meta</a> &gt; <span class="el_source">MetaDataIteratorChain.java</span></div><h1>MetaDataIteratorChain.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.meta;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
+
+/**
+ * Metadata iterator that combines several iterators.
+ *
+ * @author Abe White
+ */
+public class MetaDataIteratorChain implements MetaDataIterator {
+
+<span class="nc" id="L35">    private List&lt;MetaDataIterator&gt; _itrs = null;</span>
+<span class="nc" id="L36">    private int _cur = -1;</span>
+<span class="nc" id="L37">    private MetaDataIterator _itr = null;</span>
+
+    /**
+     * Default constructor.
+     */
+<span class="nc" id="L42">    public MetaDataIteratorChain() {</span>
+<span class="nc" id="L43">    }</span>
+
+    /**
+     * Combine two iterators.
+     */
+<span class="nc" id="L48">    public MetaDataIteratorChain(MetaDataIterator itr1, MetaDataIterator itr2) {</span>
+<span class="nc" id="L49">        _itrs = new ArrayList&lt;&gt;(2);</span>
+<span class="nc" id="L50">        _itrs.add(itr1);</span>
+<span class="nc" id="L51">        _itrs.add(itr2);</span>
+<span class="nc" id="L52">    }</span>
+
+    /**
+     * Add an iterator to the chain.
+     */
+    public void addIterator(MetaDataIterator itr) {
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        if (_cur != -1)</span>
+<span class="nc" id="L59">            throw new IllegalStateException();</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (_itrs == null)</span>
+<span class="nc" id="L61">            _itrs = new ArrayList&lt;&gt;(4);</span>
+<span class="nc" id="L62">        _itrs.add(itr);</span>
+<span class="nc" id="L63">    }</span>
+
+    @Override
+    public boolean hasNext() throws IOException {
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        if (_itrs == null)</span>
+<span class="nc" id="L68">            return false;</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        if (_cur == -1)</span>
+<span class="nc" id="L70">            _cur = 0;</span>
+
+        MetaDataIterator itr;
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        for (; _cur &lt; _itrs.size(); _cur++) {</span>
+<span class="nc" id="L74">            itr = (MetaDataIterator) _itrs.get(_cur);</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">            if (itr.hasNext()) {</span>
+<span class="nc" id="L76">                _itr = itr;</span>
+<span class="nc" id="L77">                return true;</span>
+            }
+        }
+<span class="nc" id="L80">        _itr = null;</span>
+<span class="nc" id="L81">        return false;</span>
+    }
+
+    @Override
+    public Object next() throws IOException {
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (!hasNext())</span>
+<span class="nc" id="L87">            throw new NoSuchElementException();</span>
+<span class="nc" id="L88">        return _itr.next();</span>
+    }
+
+    @Override
+    public InputStream getInputStream() throws IOException {
+<span class="nc bnc" id="L93" title="All 2 branches missed.">        if (_itr == null)</span>
+<span class="nc" id="L94">            throw new IllegalStateException();</span>
+<span class="nc" id="L95">        return _itr.getInputStream();</span>
+    }
+
+    @Override
+    public File getFile() throws IOException {
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (_itr == null)</span>
+<span class="nc" id="L101">            throw new IllegalStateException();</span>
+<span class="nc" id="L102">        return _itr.getFile();</span>
+    }
+
+    @Override
+    public void close() {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (_itrs != null) {</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">            for(MetaDataIterator mdi: _itrs) {</span>
+<span class="nc" id="L109">                mdi.close();</span>
+<span class="nc" id="L110">            }</span>
+        }
+<span class="nc" id="L112">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

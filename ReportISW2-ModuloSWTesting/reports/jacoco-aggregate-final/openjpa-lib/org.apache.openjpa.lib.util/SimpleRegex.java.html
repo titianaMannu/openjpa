@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>SimpleRegex.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">SimpleRegex.java</span></div><h1>SimpleRegex.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+/**
+ * Allows for simple regex style testing of strings. The wildcard '.'
+ * is used to represent any single character, while '.*' is used to represent
+ * any series of 0 or more characters. Examples:&lt;br /&gt;
+ * &lt;code&gt; SimpleRegex re = new SimpleRegex(&quot;the qu.ck .* dog&quot;, true);
+ * boolean matches = re.matches(&quot;The quick fox jumped over the lazy dog&quot;);
+ * &lt;/code&gt;
+ *
+ */
+public class SimpleRegex {
+
+    private final String expr;
+    private final boolean caseInsensitive;
+
+<span class="nc" id="L35">    public SimpleRegex(String expr, boolean caseInsensitive) {</span>
+<span class="nc" id="L36">        this.caseInsensitive = caseInsensitive;</span>
+
+        // If we're case insensitive, toLowerCase the expr.  We'll toLowerCase
+        // each target, too, in the matches call.
+<span class="nc bnc" id="L40" title="All 2 branches missed.">        if (caseInsensitive)</span>
+<span class="nc" id="L41">            this.expr = expr.toLowerCase();</span>
+        else
+<span class="nc" id="L43">            this.expr = expr;</span>
+<span class="nc" id="L44">    }</span>
+
+    public boolean matches(String target) {
+        // If we're case insensitive, toLowerCase the target
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        if (caseInsensitive)</span>
+<span class="nc" id="L49">            target = target.toLowerCase();</span>
+
+        // By default, we are not position independent(&quot;mobile&quot;). We only
+        // become position independent once we hit our first &quot;.*&quot;.
+<span class="nc" id="L53">        boolean mobile = false;</span>
+
+        // Find occurrences of &quot;.*&quot; in the expression.
+<span class="nc" id="L56">        int exprPos = 0;</span>
+<span class="nc" id="L57">        int targetPos = 0;</span>
+        while (true) {
+            // Find the next occurrence of &quot;.*&quot;
+<span class="nc" id="L60">            int star = expr.indexOf(&quot;.*&quot;, exprPos);</span>
+
+            // If we're at a &quot;.*&quot; now, simply skip it and become position
+            // independent
+<span class="nc bnc" id="L64" title="All 2 branches missed.">            if (star == exprPos) {</span>
+<span class="nc" id="L65">                mobile = true;</span>
+<span class="nc" id="L66">                exprPos += 2;</span>
+<span class="nc" id="L67">                continue;</span>
+            }
+            // If there are no more &quot;.*&quot;s, then we're effectively no longer
+            // position independent(assuming we even were before), since
+            // we must match the end of the string
+<span class="nc bnc" id="L72" title="All 2 branches missed.">            else if (star == -1) {</span>
+<span class="nc" id="L73">                int len = expr.length() - exprPos;</span>
+
+                // If we're not mobile, then the remainder of the expr and
+                // target must be the same length.  If not, then it's not a
+                // match.  If we're mobile, then the length doesn't have to
+                // be the same as long as the remainder of the expression
+                // is equal to the end of the target
+<span class="nc bnc" id="L80" title="All 4 branches missed.">                if (!mobile &amp;&amp; targetPos != target.length() - len)</span>
+<span class="nc" id="L81">                    return false;</span>
+
+                // In anycase, the remaining length of the target must be
+                // at least as long as the remaining length of the expression.
+                // (We check now to avoid sending a negative start pos to
+                // indexOf)
+<span class="nc bnc" id="L87" title="All 2 branches missed.">                if (target.length() &lt; len)</span>
+<span class="nc" id="L88">                    return false;</span>
+
+                // Match the end of the target to the remainder of the
+                // expression
+<span class="nc" id="L92">                int match = indexOf(target, target.length() - len, exprPos,</span>
+                    len, true);
+<span class="nc bnc" id="L94" title="All 2 branches missed.">                if (match != -1)</span>
+<span class="nc" id="L95">                    return true;</span>
+<span class="nc" id="L96">                return false;</span>
+            }
+
+            // Match the fragment of the expression to the target
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            int match = indexOf(target, targetPos, exprPos,</span>
+                star - exprPos, !mobile);
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            if (match == -1)</span>
+<span class="nc" id="L103">                return false;</span>
+<span class="nc" id="L104">            targetPos = match + star - exprPos;</span>
+<span class="nc" id="L105">            exprPos = star + 2;</span>
+<span class="nc" id="L106">            mobile = true;</span>
+<span class="nc" id="L107">        }</span>
+    }
+
+    /**
+     * Match a section of target to a fragment of the expression.
+     * If we're only to match the beginning of the target, beginOnly
+     * will be true, otherwise we can match anymore in the target(starting
+     * at the targetStart position). A &quot;.&quot; in the expression matches any
+     * character.
+     */
+    private int indexOf(String target, int targetStart,
+        int exprStart, int exprLength, boolean beginOnly) {
+        // Run through the target seeing if there is a match
+<span class="nc bnc" id="L120" title="All 2 branches missed.">        while (target.length() - targetStart &gt;= exprLength) {</span>
+            // Assume success.  If there isn't a match we'll break out
+<span class="nc" id="L122">            boolean found = true;</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">            for (int i = 0; i &lt; exprLength; i++) {</span>
+                // &quot;.&quot; in the expr matches any character in the target
+<span class="nc bnc" id="L125" title="All 2 branches missed.">                if (expr.charAt(exprStart + i) != '.' &amp;&amp;</span>
+<span class="nc" id="L126">                    expr.charAt(exprStart + i) !=</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">                        target.charAt(targetStart + i)) {</span>
+<span class="nc" id="L128">                    found = false;</span>
+<span class="nc" id="L129">                    break;</span>
+                }
+            }
+<span class="nc bnc" id="L132" title="All 2 branches missed.">            if (found)</span>
+<span class="nc" id="L133">                return targetStart;</span>
+
+            // If we're position dependent(beginOnly == true), then don't
+            // continue the search
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            if (beginOnly)</span>
+<span class="nc" id="L138">                return -1;</span>
+
+<span class="nc" id="L140">            targetStart++;</span>
+<span class="nc" id="L141">        }</span>
+<span class="nc" id="L142">        return -1;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

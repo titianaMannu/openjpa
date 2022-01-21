@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>Edge.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.graph</a> &gt; <span class="el_source">Edge.java</span></div><h1>Edge.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.graph;
+
+import java.util.List;
+
+/**
+ * &lt;p&gt;A graph edge.  Includes the from and to nodes, an arbitrary user object,
+ * and a weight.  Edges can be either directed or undirected.&lt;/p&gt;
+ *
+ * @author Abe White
+ * @since 1.0.0
+ */
+public class Edge {
+
+    /**
+     * An edge (u, v) is a tree edge if node v was first discovered by
+     * traversing the edge.
+     */
+    public static final int TYPE_TREE = 1;
+
+    /**
+     * An edge (u, v) is a back edge if it creates a cycle back to an
+     * ancestor in the graph.
+     */
+    public static final int TYPE_BACK = 2;
+
+    /**
+     * An edge (u, v) is a forward edge if it is not a tree or back edge.
+     */
+    public static final int TYPE_FORWARD = 3;
+
+    private final Object _from;
+    private final Object _to;
+    private final boolean _directed;
+
+<span class="fc" id="L53">    private int _type = 0;</span>
+<span class="fc" id="L54">    private double _weight = 0;</span>
+<span class="fc" id="L55">    private Object _userObj = null;</span>
+<span class="fc" id="L56">    private List&lt;Edge&gt; _cycle = null;</span>
+<span class="fc" id="L57">    private boolean _removedFromGraph = false;</span>
+
+    /**
+     * Constructor.
+     *
+     * @param    from        the node the edge comes from
+     * @param    to            the node the edge goes to
+     * @param    directed    whether the edge is directed
+     */
+<span class="fc" id="L66">    public Edge(Object from, Object to, boolean directed) {</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        if (from == null)</span>
+<span class="nc" id="L68">            throw new NullPointerException(&quot;from == null&quot;);</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        if (to == null)</span>
+<span class="nc" id="L70">            throw new NullPointerException(&quot;to == null&quot;);</span>
+<span class="fc" id="L71">        _from = from;</span>
+<span class="fc" id="L72">        _to = to;</span>
+<span class="fc" id="L73">        _directed = directed;</span>
+<span class="fc" id="L74">    }</span>
+
+    /**
+     * Constructor.
+     *
+     * @param    from        the node the edge comes from
+     * @param    to            the node the edge goes to
+     * @param    directed    whether the edge is directed
+     * @param    userObject    an associated object
+     */
+    public Edge(Object from, Object to, boolean directed, Object userObject) {
+<span class="nc" id="L85">        this(from, to, directed);</span>
+<span class="nc" id="L86">        _userObj = userObject;</span>
+<span class="nc" id="L87">    }</span>
+
+    /**
+     * Return the node the edge links from.
+     */
+    public Object getFrom() {
+<span class="fc" id="L93">        return _from;</span>
+    }
+
+    /**
+     * Return the node the edge links to.
+     */
+    public Object getTo() {
+<span class="fc" id="L100">        return _to;</span>
+    }
+
+    /**
+     * Return the node on the opposite end of the given one, or null if the
+     * given node is not part of this edge.
+     */
+    public Object getOther(Object node) {
+<span class="fc bfc" id="L108" title="All 2 branches covered.">        if (_to.equals(node))</span>
+<span class="fc" id="L109">            return _from;</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">        if (_from.equals(node))</span>
+<span class="fc" id="L111">            return _to;</span>
+<span class="nc" id="L112">        return null;</span>
+    }
+
+    /**
+     * Return true if this edge links to the given node.  For undirected edges,
+     * this method returns true if either side is equal to the given node.
+     */
+    public boolean isTo(Object node) {
+<span class="fc bfc" id="L120" title="All 6 branches covered.">        return _to.equals(node) || (!_directed &amp;&amp; _from.equals(node));</span>
+    }
+
+    /**
+     * Return true if this edge links from the given node.  For undirected
+     * edges, this method returns true if either side is equal to the given
+     * node.
+     */
+    public boolean isFrom(Object node) {
+<span class="nc bnc" id="L129" title="All 6 branches missed.">        return _from.equals(node) || (!_directed &amp;&amp; _to.equals(node));</span>
+    }
+
+    /**
+     * Return whether the edge is directed.
+     */
+    public boolean isDirected() {
+<span class="fc" id="L136">        return _directed;</span>
+    }
+
+    /**
+     * Return the weight of the edge.
+     */
+    public double getWeight() {
+<span class="nc" id="L143">        return _weight;</span>
+    }
+
+    /**
+     * Set the weight of the edge.
+     */
+    public void setWeight(double weight) {
+<span class="nc" id="L150">        _weight = weight;</span>
+<span class="nc" id="L151">    }</span>
+
+    /**
+     * Arbitrary user object associated with the edge.
+     */
+    public Object getUserObject() {
+<span class="nc" id="L157">        return _userObj;</span>
+    }
+
+    /**
+     * Arbitrary user object associated with the edge.
+     */
+    public void setUserObject(Object obj) {
+<span class="nc" id="L164">        _userObj = obj;</span>
+<span class="nc" id="L165">    }</span>
+
+    /**
+     * Traversal bookkeeping info.
+     */
+    public int getType() {
+<span class="fc" id="L171">        return _type;</span>
+    }
+
+    /**
+     * Traversal bookkeeping info.
+     */
+    public void setType(int type) {
+<span class="fc" id="L178">        _type = type;</span>
+<span class="fc" id="L179">    }</span>
+
+    /**
+     * List of edges forming a cycle. Only set for TYPE_BACK and TYPE_FORWARD
+     * edges.
+     */
+    public List&lt;Edge&gt; getCycle() {
+<span class="fc" id="L186">        return _cycle;</span>
+    }
+
+    /**
+     * List of edges forming a cycle. Only set for TYPE_BACK and TYPE_FORWARD
+     * edges.
+     */
+    public void setCycle(List&lt;Edge&gt; cycle) {
+<span class="fc" id="L194">        _cycle = cycle;</span>
+<span class="fc" id="L195">    }</span>
+
+    /**
+     * Returns if this edge is (still) part of the graph.
+     */
+    public boolean isRemovedFromGraph() {
+<span class="nc" id="L201">        return _removedFromGraph;</span>
+    }
+
+    /**
+     * Mark this edge as removed from the graph.
+     */
+    public void setRemovedFromGraph() {
+<span class="nc" id="L208">        this._removedFromGraph = true;</span>
+<span class="nc" id="L209">    }</span>
+
+    /**
+     * Clear traversal info.
+     */
+    public void clearTraversal() {
+<span class="nc" id="L215">        _type = 0;</span>
+<span class="nc" id="L216">        _cycle = null;</span>
+<span class="nc" id="L217">    }</span>
+
+    @Override
+    public String toString() {
+<span class="nc" id="L221">        return super.toString() + &quot;[from=&quot; + getFrom() + &quot;;to=&quot; + getTo()</span>
+<span class="nc" id="L222">            + &quot;;directed=&quot; + isDirected () + &quot;;weight=&quot; + getWeight () + &quot;]&quot;;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

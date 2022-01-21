@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>PluginListValue.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.conf</a> &gt; <span class="el_source">PluginListValue.java</span></div><h1>PluginListValue.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.conf;
+
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.openjpa.lib.util.StringUtil;
+
+/**
+ * A list of plugins. Defaults and aliases on plugin lists apply only
+ * to individual class names.
+ *
+ * @author Abe White
+ * @see PluginValue
+ */
+public class PluginListValue extends ObjectValue {
+
+<span class="nc" id="L36">    private static final String[] EMPTY = new String[0];</span>
+
+<span class="nc" id="L38">    private String[] _names = EMPTY;</span>
+<span class="nc" id="L39">    private String[] _props = EMPTY;</span>
+
+    public PluginListValue(String prop) {
+<span class="nc" id="L42">        super(prop);</span>
+<span class="nc" id="L43">    }</span>
+
+    /**
+     * The plugin class names.
+     */
+    public String[] getClassNames() {
+<span class="nc" id="L49">        return _names;</span>
+    }
+
+    /**
+     * The plugin class names.
+     */
+    public void setClassNames(String[] names) {
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        if (names == null)</span>
+<span class="nc" id="L57">            names = EMPTY;</span>
+<span class="nc" id="L58">        _names = names;</span>
+<span class="nc" id="L59">        set(null, true);</span>
+<span class="nc" id="L60">        valueChanged();</span>
+<span class="nc" id="L61">    }</span>
+
+    /**
+     * The plugin properties.
+     */
+    public String[] getProperties() {
+<span class="nc" id="L67">        return _props;</span>
+    }
+
+    /**
+     * The plugin properties.
+     */
+    public void setProperties(String[] props) {
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (props == null)</span>
+<span class="nc" id="L75">            props = EMPTY;</span>
+<span class="nc" id="L76">        _props = props;</span>
+<span class="nc" id="L77">        set(null, true);</span>
+<span class="nc" id="L78">        valueChanged();</span>
+<span class="nc" id="L79">    }</span>
+
+    /**
+     * Instantiate the plugins as instances of the given class.
+     */
+    @Override
+    public Object instantiate(Class&lt;?&gt; elemType, Configuration conf,
+        boolean fatal) {
+        Object[] ret;
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if (_names.length == 0)</span>
+<span class="nc" id="L89">            ret = (Object[]) Array.newInstance(elemType, 0);</span>
+        else {
+<span class="nc" id="L91">            ret = (Object[]) Array.newInstance(elemType, _names.length);</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">            for (int i = 0; i &lt; ret.length; i++) {</span>
+<span class="nc" id="L93">                ret[i] = newInstance(_names[i], elemType, conf, fatal);</span>
+<span class="nc" id="L94">                Configurations.configureInstance(ret[i], conf, _props[i],</span>
+<span class="nc" id="L95">                    getProperty());</span>
+            }
+        }
+<span class="nc" id="L98">        set(ret, true);</span>
+<span class="nc" id="L99">        return ret;</span>
+    }
+
+    /**
+     * Override to recognize aliases of the class name without the attached
+     * properties string.
+     */
+    @Override
+    public String getString() {
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (_names.length == 0)</span>
+<span class="nc" id="L109">            return null;</span>
+
+<span class="nc" id="L111">        StringBuilder buf = new StringBuilder();</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        for (int i = 0; i &lt; _names.length; i++) {</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">            if (i &gt; 0)</span>
+<span class="nc" id="L114">                buf.append(&quot;, &quot;);</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">            buf.append(Configurations.getPlugin(alias(_names[i]),</span>
+            		(i&lt;_props.length) ? _props[i] : null));
+        }
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        if (buf.length() == 0)</span>
+<span class="nc" id="L119">            return null;</span>
+<span class="nc" id="L120">        return buf.toString();</span>
+    }
+
+    /**
+     * Override to recognize aliases of the plugin name without the attached
+     * properties string.
+     */
+    @Override
+    public void setString(String str) {
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        if (StringUtil.isEmpty(str))</span>
+<span class="nc" id="L130">            str = getDefault();</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        if (StringUtil.isEmpty(str)) {</span>
+<span class="nc" id="L132">            _names = EMPTY;</span>
+<span class="nc" id="L133">            _props = EMPTY;</span>
+<span class="nc" id="L134">            set(null, true);</span>
+<span class="nc" id="L135">            valueChanged();</span>
+<span class="nc" id="L136">            return;</span>
+        }
+
+        // split up the string; each element might be a class name, or a
+        // class name with properties settings
+<span class="nc" id="L141">        List&lt;String&gt; plugins = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L142">        StringBuilder plugin = new StringBuilder();</span>
+<span class="nc" id="L143">        boolean inParen = false;</span>
+        char c;
+<span class="nc bnc" id="L145" title="All 2 branches missed.">        for (int i = 0; i &lt; str.length(); i++) {</span>
+<span class="nc" id="L146">            c = str.charAt(i);</span>
+<span class="nc bnc" id="L147" title="All 4 branches missed.">            switch (c) {</span>
+                case '(':
+<span class="nc" id="L149">                    inParen = true;</span>
+<span class="nc" id="L150">                    plugin.append(c);</span>
+<span class="nc" id="L151">                    break;</span>
+                case ')':
+<span class="nc" id="L153">                    inParen = false;</span>
+<span class="nc" id="L154">                    plugin.append(c);</span>
+<span class="nc" id="L155">                    break;</span>
+                case ',':
+<span class="nc bnc" id="L157" title="All 2 branches missed.">                    if (inParen)</span>
+<span class="nc" id="L158">                        plugin.append(c);</span>
+                    else {
+<span class="nc" id="L160">                        plugins.add(plugin.toString());</span>
+<span class="nc" id="L161">                        plugin = new StringBuilder();</span>
+                    }
+<span class="nc" id="L163">                    break;</span>
+                default:
+<span class="nc" id="L165">                    plugin.append(c);</span>
+            }
+        }
+<span class="nc bnc" id="L168" title="All 2 branches missed.">        if (plugin.length() &gt; 0)</span>
+<span class="nc" id="L169">            plugins.add(plugin.toString());</span>
+
+        // parse each plugin element into its name and properties
+<span class="nc" id="L172">        List&lt;String&gt; names = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L173">        List&lt;String&gt; props = new ArrayList&lt;&gt;();</span>
+        String clsName;
+<span class="nc bnc" id="L175" title="All 2 branches missed.">        for(String s : plugins) {</span>
+<span class="nc" id="L176">            clsName = unalias(Configurations.getClassName(s));</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">            if (clsName != null) {</span>
+<span class="nc" id="L178">                names.add(clsName);</span>
+<span class="nc" id="L179">                props.add(Configurations.getProperties(s));</span>
+            }
+<span class="nc" id="L181">        }</span>
+<span class="nc" id="L182">        _names =  names.toArray(new String[names.size()]);</span>
+<span class="nc" id="L183">        _props = props.toArray(new String[props.size()]);</span>
+<span class="nc" id="L184">        set(null, true);</span>
+<span class="nc" id="L185">        valueChanged();</span>
+<span class="nc" id="L186">    }</span>
+
+    @Override
+    public Class&lt;Object []&gt; getValueType() {
+<span class="nc" id="L190">        return Object[].class;</span>
+    }
+
+    @Override
+    protected void objectChanged() {
+<span class="nc" id="L195">        Object[] vals = (Object[]) get();</span>
+<span class="nc bnc" id="L196" title="All 4 branches missed.">        if (vals == null || vals.length == 0)</span>
+<span class="nc" id="L197">            _names = EMPTY;</span>
+        else {
+<span class="nc" id="L199">            _names = new String[vals.length];</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">            for (int i = 0; i &lt; vals.length; i++)</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">                _names[i] = (vals[i] == null) ? null</span>
+<span class="nc" id="L202">                    : vals[i].getClass().getName();</span>
+        }
+<span class="nc" id="L204">        _props = EMPTY;</span>
+<span class="nc" id="L205">    }</span>
+
+    @Override
+    protected String getInternalString() {
+        // should never get called
+<span class="nc" id="L210">        throw new IllegalStateException();</span>
+    }
+
+    @Override
+    protected void setInternalString(String str) {
+        // should never get called
+<span class="nc" id="L216">        throw new IllegalStateException();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,1089 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>DelegatingResultSet.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.jdbc</a> &gt; <span class="el_source">DelegatingResultSet.java</span></div><h1>DelegatingResultSet.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.jdbc;
+
+import java.io.InputStream;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.net.URL;
+import java.sql.Array;
+import java.sql.Blob;
+import java.sql.Clob;
+import java.sql.Date;
+import java.sql.NClob;
+import java.sql.Ref;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.RowId;
+import java.sql.SQLException;
+import java.sql.SQLWarning;
+import java.sql.SQLXML;
+import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.Calendar;
+import java.util.Map;
+
+import org.apache.openjpa.lib.util.Closeable;
+
+/**
+ * Wrapper around an existing result set. Subclasses can override the
+ * methods whose behavior they mean to change. The &lt;code&gt;equals&lt;/code&gt; and
+ * &lt;code&gt;hashCode&lt;/code&gt; methods pass through to the base underlying data
+ * store statement.
+ *
+ * @author Marc Prud'hommeaux
+ */
+public class DelegatingResultSet implements ResultSet, Closeable {
+
+    private final ResultSet _rs;
+    private final DelegatingResultSet _del;
+    private final Statement _stmnt;
+
+<span class="nc" id="L59">    public DelegatingResultSet(ResultSet rs, Statement stmnt) {</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (rs == null)</span>
+<span class="nc" id="L61">            throw new IllegalArgumentException();</span>
+
+<span class="nc" id="L63">        _stmnt = stmnt;</span>
+<span class="nc" id="L64">        _rs = rs;</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        if (_rs instanceof DelegatingResultSet)</span>
+<span class="nc" id="L66">            _del = (DelegatingResultSet) _rs;</span>
+        else
+<span class="nc" id="L68">            _del = null;</span>
+<span class="nc" id="L69">    }</span>
+
+    /**
+     * Return the wrapped result set.
+     */
+    public ResultSet getDelegate() {
+<span class="nc" id="L75">        return _rs;</span>
+    }
+
+    /**
+     * Return the inner-most wrapped delegate.
+     */
+    public ResultSet getInnermostDelegate() {
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        return (_del == null) ? _rs : _del.getInnermostDelegate();</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L87">        return _rs.hashCode();</span>
+    }
+
+    @Override
+    public boolean equals(Object other) {
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if (other == this)</span>
+<span class="nc" id="L93">            return true;</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        if (other instanceof DelegatingResultSet)</span>
+<span class="nc" id="L95">            other = ((DelegatingResultSet) other).getInnermostDelegate();</span>
+<span class="nc" id="L96">        return getInnermostDelegate().equals(other);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L101">        StringBuffer buf = new StringBuffer(&quot;resultset &quot;).append(hashCode());</span>
+<span class="nc" id="L102">        appendInfo(buf);</span>
+<span class="nc" id="L103">        return buf.toString();</span>
+    }
+
+    protected void appendInfo(StringBuffer buf) {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (_del != null)</span>
+<span class="nc" id="L108">            _del.appendInfo(buf);</span>
+<span class="nc" id="L109">    }</span>
+
+    @Override
+    public boolean next() throws SQLException {
+<span class="nc" id="L113">        return _rs.next();</span>
+    }
+
+    @Override
+    public void close() throws SQLException {
+<span class="nc" id="L118">        _rs.close();</span>
+<span class="nc" id="L119">    }</span>
+
+    @Override
+    public boolean wasNull() throws SQLException {
+<span class="nc" id="L123">        return _rs.wasNull();</span>
+    }
+
+    @Override
+    public String getString(int a) throws SQLException {
+<span class="nc" id="L128">        return _rs.getString(a);</span>
+    }
+
+    @Override
+    public boolean getBoolean(int a) throws SQLException {
+<span class="nc" id="L133">        return _rs.getBoolean(a);</span>
+    }
+
+    @Override
+    public byte getByte(int a) throws SQLException {
+<span class="nc" id="L138">        return _rs.getByte(a);</span>
+    }
+
+    @Override
+    public short getShort(int a) throws SQLException {
+<span class="nc" id="L143">        return _rs.getShort(a);</span>
+    }
+
+    @Override
+    public int getInt(int a) throws SQLException {
+<span class="nc" id="L148">        return _rs.getInt(a);</span>
+    }
+
+    @Override
+    public long getLong(int a) throws SQLException {
+<span class="nc" id="L153">        return _rs.getLong(a);</span>
+    }
+
+    @Override
+    public float getFloat(int a) throws SQLException {
+<span class="nc" id="L158">        return _rs.getFloat(a);</span>
+    }
+
+    @Override
+    public double getDouble(int a) throws SQLException {
+<span class="nc" id="L163">        return _rs.getDouble(a);</span>
+    }
+
+    @Override
+    @Deprecated
+    public BigDecimal getBigDecimal(int a, int b) throws SQLException {
+<span class="nc" id="L169">        return _rs.getBigDecimal(a, b);</span>
+    }
+
+    @Override
+    public byte[] getBytes(int a) throws SQLException {
+<span class="nc" id="L174">        return _rs.getBytes(a);</span>
+    }
+
+    @Override
+    public Date getDate(int a) throws SQLException {
+<span class="nc" id="L179">        return _rs.getDate(a);</span>
+    }
+
+    @Override
+    public Time getTime(int a) throws SQLException {
+<span class="nc" id="L184">        return _rs.getTime(a);</span>
+    }
+
+    @Override
+    public Timestamp getTimestamp(int a) throws SQLException {
+<span class="nc" id="L189">        return _rs.getTimestamp(a);</span>
+    }
+
+    @Override
+    public InputStream getAsciiStream(int a) throws SQLException {
+<span class="nc" id="L194">        return _rs.getAsciiStream(a);</span>
+    }
+
+    @Override
+    @Deprecated
+    public InputStream getUnicodeStream(int a) throws SQLException {
+<span class="nc" id="L200">        return _rs.getUnicodeStream(a);</span>
+    }
+
+    @Override
+    public InputStream getBinaryStream(int a) throws SQLException {
+<span class="nc" id="L205">        return _rs.getBinaryStream(a);</span>
+    }
+
+    @Override
+    public String getString(String a) throws SQLException {
+<span class="nc" id="L210">        return _rs.getString(a);</span>
+    }
+
+    @Override
+    public boolean getBoolean(String a) throws SQLException {
+<span class="nc" id="L215">        return _rs.getBoolean(a);</span>
+    }
+
+    @Override
+    public byte getByte(String a) throws SQLException {
+<span class="nc" id="L220">        return _rs.getByte(a);</span>
+    }
+
+    @Override
+    public short getShort(String a) throws SQLException {
+<span class="nc" id="L225">        return _rs.getShort(a);</span>
+    }
+
+    @Override
+    public int getInt(String a) throws SQLException {
+<span class="nc" id="L230">        return _rs.getInt(a);</span>
+    }
+
+    @Override
+    public long getLong(String a) throws SQLException {
+<span class="nc" id="L235">        return _rs.getLong(a);</span>
+    }
+
+    @Override
+    public float getFloat(String a) throws SQLException {
+<span class="nc" id="L240">        return _rs.getFloat(a);</span>
+    }
+
+    @Override
+    public double getDouble(String a) throws SQLException {
+<span class="nc" id="L245">        return _rs.getDouble(a);</span>
+    }
+
+    @Override
+    @Deprecated
+    public BigDecimal getBigDecimal(String a, int b) throws SQLException {
+<span class="nc" id="L251">        return _rs.getBigDecimal(a, b);</span>
+    }
+
+    @Override
+    public byte[] getBytes(String a) throws SQLException {
+<span class="nc" id="L256">        return _rs.getBytes(a);</span>
+    }
+
+    @Override
+    public Date getDate(String a) throws SQLException {
+<span class="nc" id="L261">        return _rs.getDate(a);</span>
+    }
+
+    @Override
+    public Time getTime(String a) throws SQLException {
+<span class="nc" id="L266">        return _rs.getTime(a);</span>
+    }
+
+    @Override
+    public Timestamp getTimestamp(String a) throws SQLException {
+<span class="nc" id="L271">        return _rs.getTimestamp(a);</span>
+    }
+
+    @Override
+    public InputStream getAsciiStream(String a) throws SQLException {
+<span class="nc" id="L276">        return _rs.getAsciiStream(a);</span>
+    }
+
+    @Override
+    @Deprecated
+    public InputStream getUnicodeStream(String a) throws SQLException {
+<span class="nc" id="L282">        return _rs.getUnicodeStream(a);</span>
+    }
+
+    @Override
+    public InputStream getBinaryStream(String a) throws SQLException {
+<span class="nc" id="L287">        return _rs.getBinaryStream(a);</span>
+    }
+
+    @Override
+    public SQLWarning getWarnings() throws SQLException {
+<span class="nc" id="L292">        return _rs.getWarnings();</span>
+    }
+
+    @Override
+    public void clearWarnings() throws SQLException {
+<span class="nc" id="L297">        _rs.clearWarnings();</span>
+<span class="nc" id="L298">    }</span>
+
+    @Override
+    public String getCursorName() throws SQLException {
+<span class="nc" id="L302">        return _rs.getCursorName();</span>
+    }
+
+    @Override
+    public ResultSetMetaData getMetaData() throws SQLException {
+<span class="nc" id="L307">        return _rs.getMetaData();</span>
+    }
+
+    @Override
+    public Object getObject(int a) throws SQLException {
+<span class="nc" id="L312">        return _rs.getObject(a);</span>
+    }
+
+    @Override
+    public Object getObject(String a) throws SQLException {
+<span class="nc" id="L317">        return _rs.getObject(a);</span>
+    }
+
+    @Override
+    public int findColumn(String a) throws SQLException {
+<span class="nc" id="L322">        return _rs.findColumn(a);</span>
+    }
+
+    @Override
+    public Reader getCharacterStream(int a) throws SQLException {
+<span class="nc" id="L327">        return _rs.getCharacterStream(a);</span>
+    }
+
+    @Override
+    public Reader getCharacterStream(String a) throws SQLException {
+<span class="nc" id="L332">        return _rs.getCharacterStream(a);</span>
+    }
+
+    @Override
+    public BigDecimal getBigDecimal(int a) throws SQLException {
+<span class="nc" id="L337">        return _rs.getBigDecimal(a);</span>
+    }
+
+    @Override
+    public BigDecimal getBigDecimal(String a) throws SQLException {
+<span class="nc" id="L342">        return _rs.getBigDecimal(a);</span>
+    }
+
+    @Override
+    public boolean isBeforeFirst() throws SQLException {
+<span class="nc" id="L347">        return _rs.isBeforeFirst();</span>
+    }
+
+    @Override
+    public boolean isAfterLast() throws SQLException {
+<span class="nc" id="L352">        return _rs.isAfterLast();</span>
+    }
+
+    @Override
+    public boolean isFirst() throws SQLException {
+<span class="nc" id="L357">        return _rs.isFirst();</span>
+    }
+
+    @Override
+    public boolean isLast() throws SQLException {
+<span class="nc" id="L362">        return _rs.isLast();</span>
+    }
+
+    @Override
+    public void beforeFirst() throws SQLException {
+<span class="nc" id="L367">        _rs.beforeFirst();</span>
+<span class="nc" id="L368">    }</span>
+
+    @Override
+    public void afterLast() throws SQLException {
+<span class="nc" id="L372">        _rs.afterLast();</span>
+<span class="nc" id="L373">    }</span>
+
+    @Override
+    public boolean first() throws SQLException {
+<span class="nc" id="L377">        return _rs.first();</span>
+    }
+
+    @Override
+    public boolean last() throws SQLException {
+<span class="nc" id="L382">        return _rs.last();</span>
+    }
+
+    @Override
+    public int getRow() throws SQLException {
+<span class="nc" id="L387">        return _rs.getRow();</span>
+    }
+
+    @Override
+    public boolean absolute(int a) throws SQLException {
+<span class="nc" id="L392">        return _rs.absolute(a);</span>
+    }
+
+    @Override
+    public boolean relative(int a) throws SQLException {
+<span class="nc" id="L397">        return _rs.relative(a);</span>
+    }
+
+    @Override
+    public boolean previous() throws SQLException {
+<span class="nc" id="L402">        return _rs.previous();</span>
+    }
+
+    @Override
+    public void setFetchDirection(int a) throws SQLException {
+<span class="nc" id="L407">        _rs.setFetchDirection(a);</span>
+<span class="nc" id="L408">    }</span>
+
+    @Override
+    public int getFetchDirection() throws SQLException {
+<span class="nc" id="L412">        return _rs.getFetchDirection();</span>
+    }
+
+    @Override
+    public void setFetchSize(int a) throws SQLException {
+<span class="nc" id="L417">        _rs.setFetchSize(a);</span>
+<span class="nc" id="L418">    }</span>
+
+    @Override
+    public int getFetchSize() throws SQLException {
+<span class="nc" id="L422">        return _rs.getFetchSize();</span>
+    }
+
+    @Override
+    public int getType() throws SQLException {
+<span class="nc" id="L427">        return _rs.getType();</span>
+    }
+
+    @Override
+    public int getConcurrency() throws SQLException {
+<span class="nc" id="L432">        return _rs.getConcurrency();</span>
+    }
+
+    @Override
+    public boolean rowUpdated() throws SQLException {
+<span class="nc" id="L437">        return _rs.rowUpdated();</span>
+    }
+
+    @Override
+    public boolean rowInserted() throws SQLException {
+<span class="nc" id="L442">        return _rs.rowInserted();</span>
+    }
+
+    @Override
+    public boolean rowDeleted() throws SQLException {
+<span class="nc" id="L447">        return _rs.rowDeleted();</span>
+    }
+
+    @Override
+    public void updateNull(int a) throws SQLException {
+<span class="nc" id="L452">        _rs.updateNull(a);</span>
+<span class="nc" id="L453">    }</span>
+
+    @Override
+    public void updateBoolean(int a, boolean b) throws SQLException {
+<span class="nc" id="L457">        _rs.updateBoolean(a, b);</span>
+<span class="nc" id="L458">    }</span>
+
+    @Override
+    public void updateByte(int a, byte b) throws SQLException {
+<span class="nc" id="L462">        _rs.updateByte(a, b);</span>
+<span class="nc" id="L463">    }</span>
+
+    @Override
+    public void updateShort(int a, short b) throws SQLException {
+<span class="nc" id="L467">        _rs.updateShort(a, b);</span>
+<span class="nc" id="L468">    }</span>
+
+    @Override
+    public void updateInt(int a, int b) throws SQLException {
+<span class="nc" id="L472">        _rs.updateInt(a, b);</span>
+<span class="nc" id="L473">    }</span>
+
+    @Override
+    public void updateLong(int a, long b) throws SQLException {
+<span class="nc" id="L477">        _rs.updateLong(a, b);</span>
+<span class="nc" id="L478">    }</span>
+
+    @Override
+    public void updateFloat(int a, float b) throws SQLException {
+<span class="nc" id="L482">        _rs.updateFloat(a, b);</span>
+<span class="nc" id="L483">    }</span>
+
+    @Override
+    public void updateDouble(int a, double b) throws SQLException {
+<span class="nc" id="L487">        _rs.updateDouble(a, b);</span>
+<span class="nc" id="L488">    }</span>
+
+    @Override
+    public void updateBigDecimal(int a, BigDecimal b) throws SQLException {
+<span class="nc" id="L492">        _rs.updateBigDecimal(a, b);</span>
+<span class="nc" id="L493">    }</span>
+
+    @Override
+    public void updateString(int a, String b) throws SQLException {
+<span class="nc" id="L497">        _rs.updateString(a, b);</span>
+<span class="nc" id="L498">    }</span>
+
+    @Override
+    public void updateBytes(int a, byte[] b) throws SQLException {
+<span class="nc" id="L502">        _rs.updateBytes(a, b);</span>
+<span class="nc" id="L503">    }</span>
+
+    @Override
+    public void updateDate(int a, Date b) throws SQLException {
+<span class="nc" id="L507">        _rs.updateDate(a, b);</span>
+<span class="nc" id="L508">    }</span>
+
+    @Override
+    public void updateTime(int a, Time b) throws SQLException {
+<span class="nc" id="L512">        _rs.updateTime(a, b);</span>
+<span class="nc" id="L513">    }</span>
+
+    @Override
+    public void updateTimestamp(int a, Timestamp b) throws SQLException {
+<span class="nc" id="L517">        _rs.updateTimestamp(a, b);</span>
+<span class="nc" id="L518">    }</span>
+
+    @Override
+    public void updateAsciiStream(int a, InputStream in, int b)
+        throws SQLException {
+<span class="nc" id="L523">        _rs.updateAsciiStream(a, in, b);</span>
+<span class="nc" id="L524">    }</span>
+
+    @Override
+    public void updateBinaryStream(int a, InputStream in, int b)
+        throws SQLException {
+<span class="nc" id="L529">        _rs.updateBinaryStream(a, in, b);</span>
+<span class="nc" id="L530">    }</span>
+
+    @Override
+    public void updateBlob(int a, Blob blob) throws SQLException {
+<span class="nc" id="L534">        _rs.updateBlob(a, blob);</span>
+<span class="nc" id="L535">    }</span>
+
+    @Override
+    public void updateCharacterStream(int a, Reader reader, int b)
+        throws SQLException {
+<span class="nc" id="L540">        _rs.updateCharacterStream(a, reader, b);</span>
+<span class="nc" id="L541">    }</span>
+
+    @Override
+    public void updateClob(int a, Clob clob) throws SQLException {
+<span class="nc" id="L545">       _rs.updateClob(a, clob);</span>
+<span class="nc" id="L546">    }</span>
+
+    @Override
+    public void updateObject(int a, Object ob, int b) throws SQLException {
+<span class="nc" id="L550">        _rs.updateObject(a, ob, b);</span>
+<span class="nc" id="L551">    }</span>
+
+    @Override
+    public void updateObject(int a, Object ob) throws SQLException {
+<span class="nc" id="L555">        _rs.updateObject(a, ob);</span>
+<span class="nc" id="L556">    }</span>
+
+    @Override
+    public void updateNull(String a) throws SQLException {
+<span class="nc" id="L560">        _rs.updateNull(a);</span>
+<span class="nc" id="L561">    }</span>
+
+    @Override
+    public void updateBoolean(String a, boolean b) throws SQLException {
+<span class="nc" id="L565">        _rs.updateBoolean(a, b);</span>
+<span class="nc" id="L566">    }</span>
+
+    @Override
+    public void updateByte(String a, byte b) throws SQLException {
+<span class="nc" id="L570">        _rs.updateByte(a, b);</span>
+<span class="nc" id="L571">    }</span>
+
+    @Override
+    public void updateShort(String a, short b) throws SQLException {
+<span class="nc" id="L575">        _rs.updateShort(a, b);</span>
+<span class="nc" id="L576">    }</span>
+
+    @Override
+    public void updateInt(String a, int b) throws SQLException {
+<span class="nc" id="L580">        _rs.updateInt(a, b);</span>
+<span class="nc" id="L581">    }</span>
+
+    @Override
+    public void updateLong(String a, long b) throws SQLException {
+<span class="nc" id="L585">        _rs.updateLong(a, b);</span>
+<span class="nc" id="L586">    }</span>
+
+    @Override
+    public void updateFloat(String a, float b) throws SQLException {
+<span class="nc" id="L590">        _rs.updateFloat(a, b);</span>
+<span class="nc" id="L591">    }</span>
+
+    @Override
+    public void updateDouble(String a, double b) throws SQLException {
+<span class="nc" id="L595">        _rs.updateDouble(a, b);</span>
+<span class="nc" id="L596">    }</span>
+
+    @Override
+    public void updateBigDecimal(String a, BigDecimal b) throws SQLException {
+<span class="nc" id="L600">        _rs.updateBigDecimal(a, b);</span>
+<span class="nc" id="L601">    }</span>
+
+    @Override
+    public void updateString(String a, String b) throws SQLException {
+<span class="nc" id="L605">        _rs.updateString(a, b);</span>
+<span class="nc" id="L606">    }</span>
+
+    @Override
+    public void updateBytes(String a, byte[] b) throws SQLException {
+<span class="nc" id="L610">        _rs.updateBytes(a, b);</span>
+<span class="nc" id="L611">    }</span>
+
+    @Override
+    public void updateDate(String a, Date b) throws SQLException {
+<span class="nc" id="L615">        _rs.updateDate(a, b);</span>
+<span class="nc" id="L616">    }</span>
+
+    @Override
+    public void updateTime(String a, Time b) throws SQLException {
+<span class="nc" id="L620">        _rs.updateTime(a, b);</span>
+<span class="nc" id="L621">    }</span>
+
+    @Override
+    public void updateTimestamp(String a, Timestamp b) throws SQLException {
+<span class="nc" id="L625">        _rs.updateTimestamp(a, b);</span>
+<span class="nc" id="L626">    }</span>
+
+    @Override
+    public void updateAsciiStream(String a, InputStream in, int b)
+        throws SQLException {
+<span class="nc" id="L631">        _rs.updateAsciiStream(a, in, b);</span>
+<span class="nc" id="L632">    }</span>
+
+    @Override
+    public void updateBinaryStream(String a, InputStream in, int b)
+        throws SQLException {
+<span class="nc" id="L637">        _rs.updateBinaryStream(a, in, b);</span>
+<span class="nc" id="L638">    }</span>
+
+    @Override
+    public void updateCharacterStream(String a, Reader reader, int b)
+        throws SQLException {
+<span class="nc" id="L643">        _rs.updateCharacterStream(a, reader, b);</span>
+<span class="nc" id="L644">    }</span>
+
+    @Override
+    public void updateObject(String a, Object ob, int b) throws SQLException {
+<span class="nc" id="L648">        _rs.updateObject(a, ob, b);</span>
+<span class="nc" id="L649">    }</span>
+
+    @Override
+    public void updateObject(String a, Object b) throws SQLException {
+<span class="nc" id="L653">        _rs.updateObject(a, b);</span>
+<span class="nc" id="L654">    }</span>
+
+    @Override
+    public void insertRow() throws SQLException {
+<span class="nc" id="L658">        _rs.insertRow();</span>
+<span class="nc" id="L659">    }</span>
+
+    @Override
+    public void updateRow() throws SQLException {
+<span class="nc" id="L663">        _rs.updateRow();</span>
+<span class="nc" id="L664">    }</span>
+
+    @Override
+    public void deleteRow() throws SQLException {
+<span class="nc" id="L668">        _rs.deleteRow();</span>
+<span class="nc" id="L669">    }</span>
+
+    @Override
+    public void refreshRow() throws SQLException {
+<span class="nc" id="L673">        _rs.refreshRow();</span>
+<span class="nc" id="L674">    }</span>
+
+    @Override
+    public void cancelRowUpdates() throws SQLException {
+<span class="nc" id="L678">        _rs.cancelRowUpdates();</span>
+<span class="nc" id="L679">    }</span>
+
+    @Override
+    public void moveToInsertRow() throws SQLException {
+<span class="nc" id="L683">        _rs.moveToInsertRow();</span>
+<span class="nc" id="L684">    }</span>
+
+    @Override
+    public void moveToCurrentRow() throws SQLException {
+<span class="nc" id="L688">        _rs.moveToCurrentRow();</span>
+<span class="nc" id="L689">    }</span>
+
+    @Override
+    public Statement getStatement() throws SQLException {
+<span class="nc" id="L693">        return _stmnt;</span>
+    }
+
+    @Override
+    public Object getObject(int a, Map&lt;String, Class&lt;?&gt;&gt; b) throws
+            SQLException {
+<span class="nc" id="L699">        return _rs.getObject(a, b);</span>
+    }
+
+    @Override
+    public Ref getRef(int a) throws SQLException {
+<span class="nc" id="L704">        return _rs.getRef(a);</span>
+    }
+
+    @Override
+    public Blob getBlob(int a) throws SQLException {
+<span class="nc" id="L709">        return _rs.getBlob(a);</span>
+    }
+
+    @Override
+    public Clob getClob(int a) throws SQLException {
+<span class="nc" id="L714">        return _rs.getClob(a);</span>
+    }
+
+    @Override
+    public Array getArray(int a) throws SQLException {
+<span class="nc" id="L719">        return _rs.getArray(a);</span>
+    }
+
+    @Override
+    public Object getObject(String a, Map&lt;String, Class&lt;?&gt;&gt; b) throws
+            SQLException {
+<span class="nc" id="L725">        return _rs.getObject(a, b);</span>
+    }
+
+    @Override
+    public Ref getRef(String a) throws SQLException {
+<span class="nc" id="L730">        return _rs.getRef(a);</span>
+    }
+
+    @Override
+    public Blob getBlob(String a) throws SQLException {
+<span class="nc" id="L735">        return _rs.getBlob(a);</span>
+    }
+
+    @Override
+    public Clob getClob(String a) throws SQLException {
+<span class="nc" id="L740">        return _rs.getClob(a);</span>
+    }
+
+    @Override
+    public Array getArray(String a) throws SQLException {
+<span class="nc" id="L745">        return _rs.getArray(a);</span>
+    }
+
+    @Override
+    public Date getDate(int a, Calendar b) throws SQLException {
+<span class="nc" id="L750">        return _rs.getDate(a, b);</span>
+    }
+
+    @Override
+    public Date getDate(String a, Calendar b) throws SQLException {
+<span class="nc" id="L755">        return _rs.getDate(a, b);</span>
+    }
+
+    @Override
+    public Time getTime(int a, Calendar b) throws SQLException {
+<span class="nc" id="L760">        return _rs.getTime(a, b);</span>
+    }
+
+    @Override
+    public Time getTime(String a, Calendar b) throws SQLException {
+<span class="nc" id="L765">        return _rs.getTime(a, b);</span>
+    }
+
+    @Override
+    public Timestamp getTimestamp(int a, Calendar b) throws SQLException {
+<span class="nc" id="L770">        return _rs.getTimestamp(a, b);</span>
+    }
+
+    @Override
+    public Timestamp getTimestamp(String a, Calendar b) throws SQLException {
+<span class="nc" id="L775">        return _rs.getTimestamp(a, b);</span>
+    }
+
+    // JDBC 3.0 methods follow.
+
+    @Override
+    public URL getURL(int column) throws SQLException {
+<span class="nc" id="L782">        return _rs.getURL(column);</span>
+    }
+
+    @Override
+    public URL getURL(String columnName) throws SQLException {
+<span class="nc" id="L787">        return _rs.getURL(columnName);</span>
+    }
+
+    @Override
+    public void updateRef(int column, Ref ref) throws SQLException {
+<span class="nc" id="L792">        _rs.updateRef(column, ref);</span>
+<span class="nc" id="L793">    }</span>
+
+    @Override
+    public void updateRef(String columnName, Ref ref) throws SQLException {
+<span class="nc" id="L797">        _rs.updateRef(columnName, ref);</span>
+<span class="nc" id="L798">    }</span>
+
+    @Override
+    public void updateBlob(String columnName, Blob blob) throws SQLException {
+<span class="nc" id="L802">        _rs.updateBlob(columnName, blob);</span>
+<span class="nc" id="L803">    }</span>
+
+    @Override
+    public void updateClob(String columnName, Clob clob) throws SQLException {
+<span class="nc" id="L807">        _rs.updateClob(columnName, clob);</span>
+<span class="nc" id="L808">    }</span>
+
+    @Override
+    public void updateArray(int column, Array array) throws SQLException {
+<span class="nc" id="L812">        _rs.updateArray(column, array);</span>
+<span class="nc" id="L813">    }</span>
+
+    @Override
+    public void updateArray(String columnName, Array array)
+        throws SQLException {
+<span class="nc" id="L818">        _rs.updateArray(columnName, array);</span>
+<span class="nc" id="L819">    }</span>
+
+    // JDBC 4.0 methods follow.
+
+    @Override
+    public boolean isWrapperFor(Class&lt;?&gt; iface) throws SQLException {
+<span class="nc" id="L825">        return iface.isAssignableFrom(getDelegate().getClass());</span>
+    }
+
+    @Override
+    public &lt;T&gt; T unwrap(Class&lt;T&gt; iface) throws SQLException {
+<span class="nc bnc" id="L830" title="All 2 branches missed.">        if (isWrapperFor(iface))</span>
+<span class="nc" id="L831">            return (T) getDelegate();</span>
+        else
+<span class="nc" id="L833">            return null;</span>
+    }
+
+    @Override
+    public int getHoldability() throws SQLException {
+<span class="nc" id="L838">        return _rs.getHoldability();</span>
+    }
+
+    @Override
+    public Reader getNCharacterStream(int columnIndex) throws SQLException {
+<span class="nc" id="L843">        return _rs.getNCharacterStream(columnIndex);</span>
+    }
+
+    @Override
+    public Reader getNCharacterStream(String columnLabel) throws SQLException {
+<span class="nc" id="L848">        return _rs.getNCharacterStream(columnLabel);</span>
+    }
+
+    @Override
+    public NClob getNClob(int columnIndex) throws SQLException {
+<span class="nc" id="L853">        return _rs.getNClob(columnIndex);</span>
+    }
+
+    @Override
+    public NClob getNClob(String columnLabel) throws SQLException {
+<span class="nc" id="L858">        return _rs.getNClob(columnLabel);</span>
+    }
+
+    @Override
+    public String getNString(int columnIndex) throws SQLException {
+<span class="nc" id="L863">        return _rs.getNString(columnIndex);</span>
+    }
+
+    @Override
+    public String getNString(String columnLabel) throws SQLException {
+<span class="nc" id="L868">        return _rs.getNString(columnLabel);</span>
+    }
+
+    @Override
+    public RowId getRowId(int columnIndex) throws SQLException {
+<span class="nc" id="L873">        return _rs.getRowId(columnIndex);</span>
+    }
+
+    @Override
+    public RowId getRowId(String columnLabel) throws SQLException {
+<span class="nc" id="L878">        return _rs.getRowId(columnLabel);</span>
+    }
+
+    @Override
+    public SQLXML getSQLXML(int columnIndex) throws SQLException {
+<span class="nc" id="L883">        return _rs.getSQLXML(columnIndex);</span>
+    }
+
+    @Override
+    public SQLXML getSQLXML(String columnLabel) throws SQLException {
+<span class="nc" id="L888">        return _rs.getSQLXML(columnLabel);</span>
+    }
+
+    @Override
+    public boolean isClosed() throws SQLException {
+<span class="nc" id="L893">        return _rs.isClosed();</span>
+    }
+
+    @Override
+    public void updateAsciiStream(int columnIndex, InputStream x, long length) throws SQLException {
+<span class="nc" id="L898">        _rs.updateAsciiStream(columnIndex, x, length);</span>
+<span class="nc" id="L899">    }</span>
+
+    @Override
+    public void updateAsciiStream(int columnIndex, InputStream x) throws SQLException {
+<span class="nc" id="L903">        _rs.updateAsciiStream(columnIndex, x);</span>
+<span class="nc" id="L904">    }</span>
+
+    @Override
+    public void updateAsciiStream(String columnLabel, InputStream x, long length) throws SQLException {
+<span class="nc" id="L908">        _rs.updateAsciiStream(columnLabel, x, length);</span>
+<span class="nc" id="L909">    }</span>
+
+    @Override
+    public void updateAsciiStream(String columnLabel, InputStream x) throws SQLException {
+<span class="nc" id="L913">        _rs.updateAsciiStream(columnLabel, x);</span>
+<span class="nc" id="L914">    }</span>
+
+    @Override
+    public void updateBinaryStream(int columnIndex, InputStream x, long length) throws SQLException {
+<span class="nc" id="L918">        _rs.updateBinaryStream(columnIndex, x, length);</span>
+<span class="nc" id="L919">    }</span>
+
+    @Override
+    public void updateBinaryStream(int columnIndex, InputStream x) throws SQLException {
+<span class="nc" id="L923">        _rs.updateBinaryStream(columnIndex, x);</span>
+<span class="nc" id="L924">    }</span>
+
+    @Override
+    public void updateBinaryStream(String columnLabel, InputStream x, long length) throws SQLException {
+<span class="nc" id="L928">        _rs.updateBinaryStream(columnLabel, x, length);</span>
+<span class="nc" id="L929">    }</span>
+
+    @Override
+    public void updateBinaryStream(String columnLabel, InputStream x) throws SQLException {
+<span class="nc" id="L933">        _rs.updateBinaryStream(columnLabel, x);</span>
+<span class="nc" id="L934">    }</span>
+
+    @Override
+    public void updateBlob(int columnIndex, InputStream inputStream, long length) throws SQLException {
+<span class="nc" id="L938">        _rs.updateBlob(columnIndex, inputStream, length);</span>
+<span class="nc" id="L939">    }</span>
+
+    @Override
+    public void updateBlob(int columnIndex, InputStream inputStream) throws SQLException {
+<span class="nc" id="L943">        _rs.updateBlob(columnIndex, inputStream);</span>
+<span class="nc" id="L944">    }</span>
+
+    @Override
+    public void updateBlob(String columnLabel, InputStream inputStream, long length) throws SQLException {
+<span class="nc" id="L948">        _rs.updateBlob(columnLabel, inputStream, length);</span>
+<span class="nc" id="L949">    }</span>
+
+    @Override
+    public void updateBlob(String columnLabel, InputStream inputStream) throws SQLException {
+<span class="nc" id="L953">        _rs.updateBlob(columnLabel, inputStream);</span>
+<span class="nc" id="L954">    }</span>
+
+    @Override
+    public void updateCharacterStream(int columnIndex, Reader x, long length) throws SQLException {
+<span class="nc" id="L958">        _rs.updateCharacterStream(columnIndex, x, length);</span>
+<span class="nc" id="L959">    }</span>
+
+    @Override
+    public void updateCharacterStream(int columnIndex, Reader x) throws SQLException {
+<span class="nc" id="L963">        _rs.updateCharacterStream(columnIndex, x);</span>
+<span class="nc" id="L964">    }</span>
+
+    @Override
+    public void updateCharacterStream(String columnLabel, Reader reader, long length) throws SQLException {
+<span class="nc" id="L968">        _rs.updateCharacterStream(columnLabel, reader, length);</span>
+<span class="nc" id="L969">    }</span>
+
+    @Override
+    public void updateCharacterStream(String columnLabel, Reader reader) throws SQLException {
+<span class="nc" id="L973">        _rs.updateCharacterStream(columnLabel, reader);</span>
+<span class="nc" id="L974">    }</span>
+
+    @Override
+    public void updateClob(int columnIndex, Reader reader, long length) throws SQLException {
+<span class="nc" id="L978">        _rs.updateClob(columnIndex, reader, length);</span>
+<span class="nc" id="L979">    }</span>
+
+    @Override
+    public void updateClob(int columnIndex, Reader reader) throws SQLException {
+<span class="nc" id="L983">        _rs.updateClob(columnIndex, reader);</span>
+<span class="nc" id="L984">    }</span>
+
+    @Override
+    public void updateClob(String columnLabel, Reader reader, long length) throws SQLException {
+<span class="nc" id="L988">        _rs.updateClob(columnLabel, reader, length);</span>
+<span class="nc" id="L989">    }</span>
+
+    @Override
+    public void updateClob(String columnLabel, Reader reader) throws SQLException {
+<span class="nc" id="L993">        _rs.updateClob(columnLabel, reader);</span>
+<span class="nc" id="L994">    }</span>
+
+    @Override
+    public void updateNCharacterStream(int columnIndex, Reader x, long length) throws SQLException {
+<span class="nc" id="L998">        _rs.updateNCharacterStream(columnIndex, x, length);</span>
+<span class="nc" id="L999">    }</span>
+
+    @Override
+    public void updateNCharacterStream(int columnIndex, Reader x) throws SQLException {
+<span class="nc" id="L1003">        _rs.updateNCharacterStream(columnIndex, x);</span>
+<span class="nc" id="L1004">    }</span>
+
+    @Override
+    public void updateNCharacterStream(String columnLabel, Reader reader, long length) throws SQLException {
+<span class="nc" id="L1008">        _rs.updateNCharacterStream(columnLabel, reader, length);</span>
+<span class="nc" id="L1009">    }</span>
+
+    @Override
+    public void updateNCharacterStream(String columnLabel, Reader reader) throws SQLException {
+<span class="nc" id="L1013">        _rs.updateNCharacterStream(columnLabel, reader);</span>
+<span class="nc" id="L1014">    }</span>
+
+    @Override
+    public void updateNClob(int columnIndex, NClob nClob) throws SQLException {
+<span class="nc" id="L1018">        _rs.updateNClob(columnIndex, nClob);</span>
+<span class="nc" id="L1019">    }</span>
+
+    @Override
+    public void updateNClob(int columnIndex, Reader reader, long length) throws SQLException {
+<span class="nc" id="L1023">        _rs.updateNClob(columnIndex, reader, length);</span>
+<span class="nc" id="L1024">    }</span>
+
+    @Override
+    public void updateNClob(int columnIndex, Reader reader) throws SQLException {
+<span class="nc" id="L1028">        _rs.updateNClob(columnIndex, reader);</span>
+<span class="nc" id="L1029">    }</span>
+
+    @Override
+    public void updateNClob(String columnLabel, NClob nClob) throws SQLException {
+<span class="nc" id="L1033">        _rs.updateNClob(columnLabel, nClob);</span>
+<span class="nc" id="L1034">    }</span>
+
+    @Override
+    public void updateNClob(String columnLabel, Reader reader, long length) throws SQLException {
+<span class="nc" id="L1038">        _rs.updateNClob(columnLabel, reader, length);</span>
+<span class="nc" id="L1039">    }</span>
+
+    @Override
+    public void updateNClob(String columnLabel, Reader reader) throws SQLException {
+<span class="nc" id="L1043">        _rs.updateNClob(columnLabel, reader);</span>
+<span class="nc" id="L1044">    }</span>
+
+    @Override
+    public void updateNString(int columnIndex, String nString) throws SQLException {
+<span class="nc" id="L1048">        _rs.updateNString(columnIndex, nString);</span>
+<span class="nc" id="L1049">    }</span>
+
+    @Override
+    public void updateNString(String columnLabel, String nString) throws SQLException {
+<span class="nc" id="L1053">        _rs.updateNString(columnLabel, nString);</span>
+<span class="nc" id="L1054">    }</span>
+
+    @Override
+    public void updateRowId(int columnIndex, RowId x) throws SQLException {
+<span class="nc" id="L1058">        _rs.updateRowId(columnIndex, x);</span>
+<span class="nc" id="L1059">    }</span>
+
+    @Override
+    public void updateRowId(String columnLabel, RowId x) throws SQLException {
+<span class="nc" id="L1063">        _rs.updateRowId(columnLabel, x);</span>
+<span class="nc" id="L1064">    }</span>
+
+    @Override
+    public void updateSQLXML(int columnIndex, SQLXML xmlObject) throws SQLException {
+<span class="nc" id="L1068">        _rs.updateSQLXML(columnIndex, xmlObject);</span>
+<span class="nc" id="L1069">    }</span>
+
+    @Override
+    public void updateSQLXML(String columnLabel, SQLXML xmlObject) throws SQLException {
+<span class="nc" id="L1073">        _rs.updateSQLXML(columnLabel, xmlObject);</span>
+<span class="nc" id="L1074">    }</span>
+
+    // Java 7 methods follow
+
+    @Override
+    public &lt;T&gt;T getObject(String columnLabel, Class&lt;T&gt; type) throws SQLException{
+<span class="nc" id="L1080">        return _rs.getObject(columnLabel, type);</span>
+    }
+
+    @Override
+    public &lt;T&gt;T getObject(int columnIndex, Class&lt;T&gt; type) throws SQLException{
+<span class="nc" id="L1085">        return _rs.getObject(columnIndex, type);</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

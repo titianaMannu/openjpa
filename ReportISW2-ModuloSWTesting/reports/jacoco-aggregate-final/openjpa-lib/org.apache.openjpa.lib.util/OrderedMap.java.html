@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>OrderedMap.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">OrderedMap.java</span></div><h1>OrderedMap.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * A Map with predictable iteration order.
+ *
+ * @author Pinaki Poddar
+ * @since 2.0.0
+ */
+public class OrderedMap&lt;K, V&gt; implements Map&lt;K, V&gt;, Serializable {
+    private static final long serialVersionUID = 1L;
+    private final LinkedHashMap&lt;K, V&gt; _del;
+
+    /**
+     * Construct with predictable insertion order.
+     */
+<span class="nc" id="L40">    public OrderedMap() {</span>
+<span class="nc" id="L41">        _del = new LinkedHashMap&lt;&gt;(6,0.1f,false);</span>
+<span class="nc" id="L42">    }</span>
+
+    /**
+     * Construct with predictable iteration order.
+     * @param lru if true the iterator order is based on last access, false for order of insertion.
+     */
+<span class="nc" id="L48">    public OrderedMap(boolean lru) {</span>
+<span class="nc" id="L49">        _del = new LinkedHashMap&lt;&gt;(6,0.1f,lru);</span>
+<span class="nc" id="L50">    }</span>
+
+    public int indexOf(Object key) {
+<span class="nc" id="L53">        int i = 0;</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        for (K k : _del.keySet()) {</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">            if (key.equals(k))</span>
+<span class="nc" id="L56">                return i;</span>
+<span class="nc" id="L57">            i++;</span>
+<span class="nc" id="L58">        }</span>
+<span class="nc" id="L59">        return -1;</span>
+    }
+
+    @Override
+    public void clear() {
+<span class="nc" id="L64">        _del.clear();</span>
+<span class="nc" id="L65">    }</span>
+
+
+    @Override
+    public boolean containsKey(Object key) {
+<span class="nc" id="L70">        return _del.containsKey(key);</span>
+    }
+
+
+    @Override
+    public boolean containsValue(Object value) {
+<span class="nc" id="L76">        return _del.containsValue(value);</span>
+    }
+
+
+    @Override
+    public Set&lt;java.util.Map.Entry&lt;K, V&gt;&gt; entrySet() {
+<span class="nc" id="L82">        return _del.entrySet();</span>
+    }
+
+
+    @Override
+    public V get(Object key) {
+<span class="nc" id="L88">        return _del.get(key);</span>
+    }
+
+
+    @Override
+    public boolean isEmpty() {
+<span class="nc" id="L94">        return _del.isEmpty();</span>
+    }
+
+
+    @Override
+    public Set&lt;K&gt; keySet() {
+<span class="nc" id="L100">        return _del.keySet();</span>
+    }
+
+
+    @Override
+    public V put(K key, V value) {
+<span class="nc" id="L106">        return _del.put(key, value);</span>
+    }
+
+
+    @Override
+    public void putAll(Map&lt;? extends K, ? extends V&gt; m) {
+<span class="nc" id="L112">        _del.putAll(m);</span>
+<span class="nc" id="L113">    }</span>
+
+
+    @Override
+    public V remove(Object key) {
+<span class="nc" id="L118">        return _del.remove(key);</span>
+    }
+
+
+    @Override
+    public int size() {
+<span class="nc" id="L124">        return _del.size();</span>
+    }
+
+
+    @Override
+    public Collection&lt;V&gt; values() {
+<span class="nc" id="L130">        return _del.values();</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

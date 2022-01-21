@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>StringDistance.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">StringDistance.java</span></div><h1>StringDistance.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+import java.util.Arrays;
+import java.util.Collection;
+
+/**
+ * Utilities for calculating string distance.
+ *
+ * @author Marc Prud'hommeaux
+ */
+<span class="nc" id="L29">public class StringDistance {</span>
+
+    /**
+     * Returns the candidate string with the closest Levenshtein distance
+     * to the given string.
+     *
+     * @see #getClosestLevenshteinDistance(String,Collection,int)
+     */
+    public static String getClosestLevenshteinDistance(String str,
+        String[] candidates) {
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        if (candidates == null)</span>
+<span class="nc" id="L40">            return null;</span>
+<span class="nc" id="L41">        return getClosestLevenshteinDistance(str, Arrays.asList(candidates));</span>
+    }
+
+    /**
+     * Returns the candidate string with the closest Levenshtein distance
+     * to the given string.
+     *
+     * @see #getClosestLevenshteinDistance(String,Collection,int)
+     */
+    public static String getClosestLevenshteinDistance(String str,
+        Collection candidates) {
+<span class="nc" id="L52">        return getClosestLevenshteinDistance(str, candidates,</span>
+            Integer.MAX_VALUE);
+    }
+
+    /**
+     * Returns the candidate string with the closest Levenshtein distance
+     * to the given string.
+     *
+     * @see #getClosestLevenshteinDistance(String,Collection,int)
+     */
+    public static String getClosestLevenshteinDistance(String str,
+        String[] candidates, int threshold) {
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        if (candidates == null)</span>
+<span class="nc" id="L65">            return null;</span>
+<span class="nc" id="L66">        return getClosestLevenshteinDistance(str, Arrays.asList(candidates),</span>
+            threshold);
+    }
+
+    /**
+     * Returns the candidate string with the closest Levenshtein distance
+     * to the given string and using the threshold as the specified
+     * percentage of the length of the candidate string(0.0f-1.0f).
+     *
+     * @see #getClosestLevenshteinDistance(String,Collection,int)
+     */
+    public static String getClosestLevenshteinDistance(String str,
+        String[] candidates, float thresholdPercentage) {
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (candidates == null)</span>
+<span class="nc" id="L80">            return null;</span>
+
+<span class="nc" id="L82">        return getClosestLevenshteinDistance(str, Arrays.asList(candidates),</span>
+            thresholdPercentage);
+    }
+
+    /**
+     * Returns the candidate string with the closest Levenshtein distance
+     * to the given string and using the threshold as the specified
+     * percentage of the length of the candidate string(0.0f-1.0f).
+     *
+     * @see #getClosestLevenshteinDistance(String,Collection,int)
+     */
+    public static String getClosestLevenshteinDistance(String str,
+        Collection candidates, float thresholdPercentage) {
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (str == null)</span>
+<span class="nc" id="L96">            return null;</span>
+
+<span class="nc" id="L98">        thresholdPercentage = Math.min(thresholdPercentage, 1.0f);</span>
+<span class="nc" id="L99">        thresholdPercentage = Math.max(thresholdPercentage, 0.0f);</span>
+
+<span class="nc" id="L101">        return getClosestLevenshteinDistance(str, candidates,</span>
+<span class="nc" id="L102">            (int) (str.length() * thresholdPercentage));</span>
+    }
+
+    /**
+     * Returns the candidate string with the closest Levenshtein distance
+     * to the given string.
+     *
+     * @param str the string to check
+     * @param candidates the list of strings to test against
+     * @param threshold the threshold distance a candidate must meet
+     * @see #getLevenshteinDistance
+     */
+    public static String getClosestLevenshteinDistance(String str,
+        Collection&lt;String&gt; candidates, int threshold) {
+<span class="nc bnc" id="L116" title="All 4 branches missed.">        if (candidates == null || candidates.isEmpty())</span>
+<span class="nc" id="L117">            return null;</span>
+
+<span class="nc" id="L119">        String minString = null;</span>
+<span class="nc" id="L120">        int minValue = Integer.MAX_VALUE;</span>
+
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        for(String candidate : candidates) {</span>
+<span class="nc" id="L123">            int distance = getLevenshteinDistance(str, candidate);</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">            if (distance &lt; minValue) {</span>
+<span class="nc" id="L125">                minValue = distance;</span>
+<span class="nc" id="L126">                minString = candidate;</span>
+            }
+<span class="nc" id="L128">        }</span>
+
+        // return the lowest close string only if we surpass the threshhold
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        if (minValue &lt;= threshold)</span>
+<span class="nc" id="L132">            return minString;</span>
+        else
+<span class="nc" id="L134">            return null;</span>
+    }
+
+    /**
+     * Returns the Levenshtein distance between the two strings.
+     * The distance is the minimum number of changes that need to be
+     * applied to the first string in order to get to the second
+     * string. For details of the algorithm, see
+     * &lt;a href=&quot;http://en.wikipedia.org/wiki/Levenshtein_distance&quot;&gt;
+     * http://en.wikipedia.org/wiki/Levenshtein_distance&lt;/a&gt;.
+     */
+    public static int getLevenshteinDistance(String s, String t) {
+<span class="nc" id="L146">        int n = s.length();</span>
+<span class="nc" id="L147">        int m = t.length();</span>
+
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        if (n == 0)</span>
+<span class="nc" id="L150">            return m;</span>
+
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        if (m == 0)</span>
+<span class="nc" id="L153">            return n;</span>
+
+<span class="nc" id="L155">        int[][] matrix = new int[n + 1][m + 1];</span>
+
+<span class="nc bnc" id="L157" title="All 2 branches missed.">        for (int i = 0; i &lt;= n; i++)</span>
+<span class="nc" id="L158">            matrix[i][0] = i;</span>
+
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        for (int j = 0; j &lt;= m; j++)</span>
+<span class="nc" id="L161">            matrix[0][j] = j;</span>
+
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        for (int i = 1; i &lt;= n; i++) {</span>
+<span class="nc" id="L164">            int si = s.charAt(i - 1);</span>
+
+<span class="nc bnc" id="L166" title="All 2 branches missed.">            for (int j = 1; j &lt;= m; j++) {</span>
+<span class="nc" id="L167">                int tj = t.charAt(j - 1);</span>
+
+                int cost;
+
+<span class="nc bnc" id="L171" title="All 2 branches missed.">                if (si == tj)</span>
+<span class="nc" id="L172">                    cost = 0;</span>
+                else
+<span class="nc" id="L174">                    cost = 1;</span>
+
+<span class="nc" id="L176">                matrix[i][j] = min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1,</span>
+                    matrix[i - 1][j - 1] + cost);
+            }
+        }
+
+<span class="nc" id="L181">        return matrix[n][m];</span>
+    }
+
+    private static int min(int a, int b, int c) {
+<span class="nc" id="L185">        int mi = a;</span>
+
+<span class="nc bnc" id="L187" title="All 2 branches missed.">        if (b &lt; mi)</span>
+<span class="nc" id="L188">            mi = b;</span>
+
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        if (c &lt; mi)</span>
+<span class="nc" id="L191">            mi = c;</span>
+
+<span class="nc" id="L193">        return mi;</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

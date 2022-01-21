@@ -1,0 +1,727 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>FormatPreservingProperties.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">FormatPreservingProperties.java</span></div><h1>FormatPreservingProperties.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+import java.io.BufferedReader;
+import java.io.FilterInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.Serializable;
+import java.util.Calendar;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+
+/*
+ * ### things to add: - should probably be a SourceTracker
+ * - if an entry is removed, should there be an option to remove comments
+ * just before the entry(a la javadoc)?
+ * - should we have an option to clean up whitespace?
+ * - potentially would be interesting to add comments about each
+ * property that OpenJPA adds to this object. We'd want to make the
+ * automatic comment-removing code work first, though, so that if
+ * someone then removed the property, the comments would go away.
+ * - would be neat if DuplicateKeyException could report line numbers of
+ * offending entries.
+ * - putAll() with another FormatPreservingProperties should be smarter
+ */
+
+/**
+ * A specialization of {@link Properties} that stores its contents
+ * in the same order and with the same formatting as was used to read
+ * the contents from an input stream. This is useful because it means
+ * that a properties file loaded via this object and then written
+ * back out later on will only be different where changes or
+ * additions were made.
+ * By default, the {@link #store} method in this class does not
+ * behave the same as {@link Properties#store}. You can cause an
+ * instance to approximate the behavior of {@link Properties#store}
+ * by invoking {@link #setDefaultEntryDelimiter} with &lt;code&gt;=&lt;/code&gt;,
+ * {@link #setAddWhitespaceAfterDelimiter} with &lt;code&gt;false&lt;/code&gt;, and
+ * {@link #setAllowDuplicates} with &lt;code&gt;true&lt;/code&gt;. However, this
+ * will only influence how the instance will write new values, not how
+ * it will write existing key-value pairs that are modified.
+ * In conjunction with a conservative output writer, it is
+ * possible to only write to disk changes / additions.
+ * This implementation does not permit escaped ' ', '=', ':'
+ * characters in key names.
+ *
+ * @since 0.3.3
+ */
+public class FormatPreservingProperties extends Properties {
+
+    
+    private static final long serialVersionUID = 1L;
+
+<span class="nc" id="L84">    private static Localizer _loc = Localizer.forPackage</span>
+<span class="nc" id="L85">        (FormatPreservingProperties.class);</span>
+
+<span class="nc" id="L87">    private char defaultEntryDelimiter = ':';</span>
+<span class="nc" id="L88">    private boolean addWhitespaceAfterDelimiter = true;</span>
+<span class="nc" id="L89">    private boolean allowDuplicates = false;</span>
+<span class="nc" id="L90">    private boolean insertTimestamp = false;</span>
+
+    private PropertySource source;
+<span class="nc" id="L93">    private LinkedHashSet newKeys = new LinkedHashSet();</span>
+<span class="nc" id="L94">    private HashSet modifiedKeys = new HashSet();</span>
+
+    // marker that indicates that we're not deserializing
+<span class="nc" id="L97">    private transient boolean isNotDeserializing = true;</span>
+<span class="nc" id="L98">    private transient boolean isLoading = false;</span>
+
+    public FormatPreservingProperties() {
+<span class="nc" id="L101">        this(null);</span>
+<span class="nc" id="L102">    }</span>
+
+    public FormatPreservingProperties(Properties defaults) {
+<span class="nc" id="L105">        super(defaults);</span>
+<span class="nc" id="L106">    }</span>
+
+    /**
+     * The character to use as a delimiter between property keys and values.
+     *
+     * @param defaultEntryDelimiter either ':' or '='
+     */
+    public void setDefaultEntryDelimiter(char defaultEntryDelimiter) {
+<span class="nc" id="L114">        this.defaultEntryDelimiter = defaultEntryDelimiter;</span>
+<span class="nc" id="L115">    }</span>
+
+    /**
+     * See {@link #setDefaultEntryDelimiter}
+     */
+    public char getDefaultEntryDelimiter() {
+<span class="nc" id="L121">        return this.defaultEntryDelimiter;</span>
+    }
+
+    /**
+     * If set to &lt;code&gt;true&lt;/code&gt;, this properties object will add a
+     * space after the delimiter character(if the delimiter is not
+     * the space character). Else, this will not add a space.
+     * Default value: &lt;code&gt;true&lt;/code&gt;. Note that {@link
+     * Properties#store} never writes whitespace.
+     */
+    public void setAddWhitespaceAfterDelimiter(boolean add) {
+<span class="nc" id="L132">        this.addWhitespaceAfterDelimiter = add;</span>
+<span class="nc" id="L133">    }</span>
+
+    /**
+     * If set to &lt;code&gt;true&lt;/code&gt;, this properties object will add a
+     * space after the delimiter character(if the delimiter is not
+     * the space character). Else, this will not add a space.
+     * Default value: &lt;code&gt;true&lt;/code&gt;. Note that {@link
+     * Properties#store} never writes whitespace.
+     */
+    public boolean getAddWhitespaceAfterDelimiter() {
+<span class="nc" id="L143">        return this.addWhitespaceAfterDelimiter;</span>
+    }
+
+    /**
+     * If set to &lt;code&gt;true&lt;/code&gt;, this properties object will add a
+     * timestamp to the beginning of the file, just after the header
+     * (if any) is printed. Else, this will not add a timestamp.
+     * Default value: &lt;code&gt;false&lt;/code&gt;. Note that {@link
+     * Properties#store} always writes a timestamp.
+     */
+    public void setInsertTimestamp(boolean insertTimestamp) {
+<span class="nc" id="L154">        this.insertTimestamp = insertTimestamp;</span>
+<span class="nc" id="L155">    }</span>
+
+    /**
+     * If set to &lt;code&gt;true&lt;/code&gt;, this properties object will add a
+     * timestamp to the beginning of the file, just after the header
+     * (if any) is printed. Else, this will not add a timestamp.
+     * Default value: &lt;code&gt;false&lt;/code&gt;. Note that {@link
+     * Properties#store} always writes a timestamp.
+     */
+    public boolean getInsertTimestamp() {
+<span class="nc" id="L165">        return this.insertTimestamp;</span>
+    }
+
+    /**
+     * If set to &lt;code&gt;true&lt;/code&gt;, duplicate properties are allowed, and
+     * the last property setting in the input will overwrite any previous
+     * settings. If set to &lt;code&gt;false&lt;/code&gt;, duplicate property definitions
+     * in the input will cause an exception to be thrown during {@link #load}.
+     * Default value: &lt;code&gt;false&lt;/code&gt;. Note that {@link
+     * Properties#store} always allows duplicates.
+     */
+    public void setAllowDuplicates(boolean allowDuplicates) {
+<span class="nc" id="L177">        this.allowDuplicates = allowDuplicates;</span>
+<span class="nc" id="L178">    }</span>
+
+    /**
+     * If set to &lt;code&gt;true&lt;/code&gt;, duplicate properties are allowed, and
+     * the last property setting in the input will overwrite any previous
+     * settings. If set to &lt;code&gt;false&lt;/code&gt;, duplicate property definitions
+     * in the input will cause an exception to be thrown during {@link #load}.
+     * Default value: &lt;code&gt;false&lt;/code&gt;. Note that {@link
+     * Properties#store} always allows duplicates.
+     */
+    public boolean getAllowDuplicates() {
+<span class="nc" id="L189">        return this.allowDuplicates;</span>
+    }
+
+    @Override
+    public String getProperty(String key) {
+<span class="nc" id="L194">        return super.getProperty(key);</span>
+    }
+
+    @Override
+    public String getProperty(String key, String defaultValue) {
+<span class="nc" id="L199">        return super.getProperty(key, defaultValue);</span>
+    }
+
+    @Override
+    public Object setProperty(String key, String value) {
+<span class="nc" id="L204">        return put(key, value);</span>
+    }
+
+    /**
+     * Circumvents the superclass {@link #putAll} implementation,
+     * putting all the key-value pairs via {@link #put}.
+     */
+    @Override
+    public synchronized void putAll(Map m) {
+        Map.Entry e;
+<span class="nc bnc" id="L214" title="All 2 branches missed.">        for (Object o : m.entrySet()) {</span>
+<span class="nc" id="L215">            e = (Map.Entry) o;</span>
+<span class="nc" id="L216">            put(e.getKey(), e.getValue());</span>
+<span class="nc" id="L217">        }</span>
+<span class="nc" id="L218">    }</span>
+
+    /**
+     * Removes the key from the bookkeeping collectiotns as well.
+     */
+    @Override
+    public synchronized Object remove(Object key) {
+<span class="nc" id="L225">        newKeys.remove(key);</span>
+<span class="nc" id="L226">        return super.remove(key);</span>
+    }
+
+    @Override
+    public synchronized void clear() {
+<span class="nc" id="L231">        super.clear();</span>
+
+<span class="nc bnc" id="L233" title="All 2 branches missed.">        if (source != null)</span>
+<span class="nc" id="L234">            source.clear();</span>
+
+<span class="nc" id="L236">        newKeys.clear();</span>
+<span class="nc" id="L237">        modifiedKeys.clear();</span>
+<span class="nc" id="L238">    }</span>
+
+    @Override
+    public synchronized Object clone() {
+<span class="nc" id="L242">        FormatPreservingProperties c = (FormatPreservingProperties)</span>
+<span class="nc" id="L243">            super.clone();</span>
+
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        if (source != null)</span>
+<span class="nc" id="L246">            c.source = (PropertySource) source.clone();</span>
+
+<span class="nc bnc" id="L248" title="All 2 branches missed.">        if (modifiedKeys != null)</span>
+<span class="nc" id="L249">            c.modifiedKeys = (HashSet) modifiedKeys.clone();</span>
+
+<span class="nc bnc" id="L251" title="All 2 branches missed.">        if (newKeys != null) {</span>
+<span class="nc" id="L252">            c.newKeys = new LinkedHashSet();</span>
+<span class="nc" id="L253">            c.newKeys.addAll(newKeys);</span>
+        }
+
+<span class="nc" id="L256">        return c;</span>
+    }
+
+    private void writeObject(ObjectOutputStream out) throws IOException {
+<span class="nc" id="L260">        out.defaultWriteObject();</span>
+<span class="nc" id="L261">    }</span>
+
+    private void readObject(ObjectInputStream in)
+        throws IOException, ClassNotFoundException {
+<span class="nc" id="L265">        in.defaultReadObject();</span>
+
+<span class="nc" id="L267">        isNotDeserializing = true;</span>
+<span class="nc" id="L268">    }</span>
+
+    @Override
+    public synchronized Object put(Object key, Object val) {
+<span class="nc" id="L272">        Object o = super.put(key, val);</span>
+
+        // if we're no longer loading from properties and this put
+        // represents an actual change in value, mark the modification
+        // or addition in the bookkeeping collections.
+<span class="nc bnc" id="L277" title="All 6 branches missed.">        if (!isLoading &amp;&amp; isNotDeserializing &amp;&amp; !val.equals(o)) {</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">            if (o != null)</span>
+<span class="nc" id="L279">                modifiedKeys.add(key);</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">            else if (!newKeys.contains(key))</span>
+<span class="nc" id="L281">                newKeys.add(key);</span>
+        }
+<span class="nc" id="L283">        return o;</span>
+    }
+
+    /**
+     * Loads the properties in &lt;code&gt;in&lt;/code&gt;, according to the rules
+     * described in {@link Properties#load}. If {@link #getAllowDuplicates}
+     * returns &lt;code&gt;true&lt;/code&gt;, this will throw a {@link
+     * DuplicateKeyException} if duplicate property declarations are
+     * encountered.
+     *
+     * @see Properties#load
+     */
+    @Override
+    public synchronized void load(InputStream in) throws IOException {
+<span class="nc" id="L297">        isLoading = true;</span>
+        try {
+<span class="nc" id="L299">            loadProperties(in);</span>
+        } finally {
+<span class="nc" id="L301">            isLoading = false;</span>
+        }
+<span class="nc" id="L303">    }</span>
+
+    private void loadProperties(InputStream in) throws IOException {
+<span class="nc" id="L306">        source = new PropertySource();</span>
+
+<span class="nc" id="L308">        PropertyLineReader reader = new PropertyLineReader(in, source);</span>
+
+<span class="nc" id="L310">        Set loadedKeys = new HashSet();</span>
+
+        for (PropertyLine l;
+<span class="nc bnc" id="L313" title="All 4 branches missed.">            (l = reader.readPropertyLine()) != null &amp;&amp; source.add(l);) {</span>
+<span class="nc" id="L314">            String line = l.line.toString();</span>
+
+<span class="nc" id="L316">            char c = 0;</span>
+<span class="nc" id="L317">            int pos = 0;</span>
+
+<span class="nc bnc" id="L319" title="All 4 branches missed.">            while (pos &lt; line.length() &amp;&amp; isSpace(c = line.charAt(pos)))</span>
+<span class="nc" id="L320">                pos++;</span>
+
+<span class="nc bnc" id="L322" title="All 2 branches missed.">            if ((line.length() - pos) == 0</span>
+<span class="nc bnc" id="L323" title="All 4 branches missed.">                || line.charAt(pos) == '#' || line.charAt(pos) == '!')</span>
+<span class="nc" id="L324">                continue;</span>
+
+<span class="nc" id="L326">            StringBuilder key = new StringBuilder();</span>
+<span class="nc bnc" id="L327" title="All 8 branches missed.">            while (pos &lt; line.length() &amp;&amp; !isSpace(c = line.charAt(pos++))</span>
+                &amp;&amp; c != '=' &amp;&amp; c != ':') {
+<span class="nc bnc" id="L329" title="All 2 branches missed.">                if (c == '\\') {</span>
+<span class="nc bnc" id="L330" title="All 2 branches missed.">                    if (pos == line.length()) {</span>
+<span class="nc" id="L331">                        l.append(line = reader.readLine());</span>
+<span class="nc" id="L332">                        pos = 0;</span>
+<span class="nc bnc" id="L333" title="All 2 branches missed.">                        while (pos &lt; line.length()</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">                            &amp;&amp; isSpace(c = line.charAt(pos)))</span>
+<span class="nc" id="L335">                            pos++;</span>
+                    } else {
+<span class="nc" id="L337">                        pos = readEscape(line, pos, key);</span>
+                    }
+                } else {
+<span class="nc" id="L340">                    key.append(c);</span>
+                }
+            }
+
+<span class="nc bnc" id="L344" title="All 4 branches missed.">            boolean isDelim = (c == ':' || c == '=');</span>
+
+<span class="nc bnc" id="L346" title="All 2 branches missed.">            for (; pos &lt; line.length()</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">                &amp;&amp; isSpace(c = line.charAt(pos)); pos++)</span>
+                ;
+
+<span class="nc bnc" id="L350" title="All 6 branches missed.">            if (!isDelim &amp;&amp; (c == ':' || c == '=')) {</span>
+<span class="nc" id="L351">                pos++;</span>
+<span class="nc bnc" id="L352" title="All 4 branches missed.">                while (pos &lt; line.length() &amp;&amp; isSpace(c = line.charAt(pos)))</span>
+<span class="nc" id="L353">                    pos++;</span>
+            }
+
+<span class="nc" id="L356">            StringBuilder element = new StringBuilder(line.length() - pos);</span>
+
+<span class="nc bnc" id="L358" title="All 2 branches missed.">            while (pos &lt; line.length()) {</span>
+<span class="nc" id="L359">                c = line.charAt(pos++);</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">                if (c == '\\') {</span>
+<span class="nc bnc" id="L361" title="All 2 branches missed.">                    if (pos == line.length()) {</span>
+<span class="nc" id="L362">                        l.append(line = reader.readLine());</span>
+
+<span class="nc bnc" id="L364" title="All 2 branches missed.">                        if (line == null)</span>
+<span class="nc" id="L365">                            break;</span>
+
+<span class="nc" id="L367">                        pos = 0;</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">                        while (pos &lt; line.length()</span>
+<span class="nc bnc" id="L369" title="All 2 branches missed.">                            &amp;&amp; isSpace(c = line.charAt(pos)))</span>
+<span class="nc" id="L370">                            pos++;</span>
+<span class="nc" id="L371">                        element.ensureCapacity(line.length() - pos +</span>
+<span class="nc" id="L372">                            element.length());</span>
+                    } else {
+<span class="nc" id="L374">                        pos = readEscape(line, pos, element);</span>
+                    }
+                } else
+<span class="nc" id="L377">                    element.append(c);</span>
+            }
+
+<span class="nc bnc" id="L380" title="All 4 branches missed.">            if (!loadedKeys.add(key.toString()) &amp;&amp; !allowDuplicates)</span>
+<span class="nc" id="L381">                throw new DuplicateKeyException(key.toString(),</span>
+<span class="nc" id="L382">                    getProperty(key.toString()), element.toString());</span>
+
+<span class="nc" id="L384">            l.setPropertyKey(key.toString());</span>
+<span class="nc" id="L385">            l.setPropertyValue(element.toString());</span>
+<span class="nc" id="L386">            put(key.toString(), element.toString());</span>
+<span class="nc" id="L387">        }</span>
+<span class="nc" id="L388">    }</span>
+
+    /**
+     * Read the next escaped character: handle newlines, tabs, returns, and
+     * form feeds with the appropriate escaped character, then try to
+     * decode unicode characters. Finally, just add the character explicitly.
+     *
+     * @param source the source of the characters
+     * @param pos the position at which to start reading
+     * @param value the value we are appending to
+     * @return the position after the reading is done
+     */
+    private static int readEscape(String source, int pos, StringBuilder value) {
+<span class="nc" id="L401">        char c = source.charAt(pos++);</span>
+<span class="nc bnc" id="L402" title="All 6 branches missed.">        switch (c) {</span>
+            case 'n':
+<span class="nc" id="L404">                value.append('\n');</span>
+<span class="nc" id="L405">                break;</span>
+            case 't':
+<span class="nc" id="L407">                value.append('\t');</span>
+<span class="nc" id="L408">                break;</span>
+            case 'f':
+<span class="nc" id="L410">                value.append('\f');</span>
+<span class="nc" id="L411">                break;</span>
+            case 'r':
+<span class="nc" id="L413">                value.append('\r');</span>
+<span class="nc" id="L414">                break;</span>
+            case 'u':
+<span class="nc bnc" id="L416" title="All 2 branches missed.">                if (pos + 4 &lt;= source.length()) {</span>
+<span class="nc" id="L417">                    char uni = (char) Integer.parseInt</span>
+<span class="nc" id="L418">                        (source.substring(pos, pos + 4), 16);</span>
+<span class="nc" id="L419">                    value.append(uni);</span>
+<span class="nc" id="L420">                    pos += 4;</span>
+<span class="nc" id="L421">                }</span>
+                break;
+            default:
+<span class="nc" id="L424">                value.append(c);</span>
+                break;
+        }
+
+<span class="nc" id="L428">        return pos;</span>
+    }
+
+    private static boolean isSpace(char ch) {
+<span class="nc" id="L432">        return Character.isWhitespace(ch);</span>
+    }
+
+    @Override
+    public void save(OutputStream out, String header) {
+        try {
+<span class="nc" id="L438">            store(out, header);</span>
+<span class="nc" id="L439">        } catch (IOException ex) {</span>
+<span class="nc" id="L440">        }</span>
+<span class="nc" id="L441">    }</span>
+
+    @Override
+    public void store(OutputStream out, String header) throws IOException {
+<span class="nc bnc" id="L445" title="All 4 branches missed.">        boolean endWithNewline = source != null &amp;&amp; source.endsInNewline;</span>
+
+        // Must be ISO-8859-1 ecoding according to Properties.load javadoc
+<span class="nc" id="L448">        PrintWriter writer = new PrintWriter</span>
+            (new OutputStreamWriter(out, &quot;ISO-8859-1&quot;), false);
+
+<span class="nc bnc" id="L451" title="All 2 branches missed.">        if (header != null)</span>
+<span class="nc" id="L452">            writer.println(&quot;#&quot; + header);</span>
+
+<span class="nc bnc" id="L454" title="All 2 branches missed.">        if (insertTimestamp)</span>
+<span class="nc" id="L455">            writer.println(&quot;#&quot; + Calendar.getInstance().getTime());</span>
+
+<span class="nc" id="L457">        List lines = new LinkedList();</span>
+        // first write all the existing props as they were initially read
+<span class="nc bnc" id="L459" title="All 2 branches missed.">        if (source != null)</span>
+<span class="nc" id="L460">            lines.addAll(source);</span>
+
+        // next write out new keys, then the rest of the keys
+<span class="nc" id="L463">        LinkedHashSet keys = new LinkedHashSet();</span>
+<span class="nc" id="L464">        keys.addAll(newKeys);</span>
+<span class="nc" id="L465">        keys.addAll(keySet());</span>
+
+<span class="nc" id="L467">        lines.addAll(keys);</span>
+
+<span class="nc" id="L469">        keys.remove(null);</span>
+
+<span class="nc" id="L471">        boolean needsNewline = false;</span>
+
+<span class="nc bnc" id="L473" title="All 2 branches missed.">        for (Iterator i = lines.iterator(); i.hasNext();) {</span>
+<span class="nc" id="L474">            Object next = i.next();</span>
+
+<span class="nc bnc" id="L476" title="All 2 branches missed.">            if (next instanceof PropertyLine) {</span>
+<span class="nc bnc" id="L477" title="All 2 branches missed.">                if (((PropertyLine) next).write(writer, keys, needsNewline))</span>
+<span class="nc" id="L478">                    needsNewline = i.hasNext();</span>
+<span class="nc bnc" id="L479" title="All 2 branches missed.">            } else if (next instanceof String) {</span>
+<span class="nc" id="L480">                String key = (String) next;</span>
+<span class="nc bnc" id="L481" title="All 2 branches missed.">                if (keys.remove(key)) {</span>
+<span class="nc bnc" id="L482" title="All 2 branches missed.">                    if (writeProperty(key, writer, needsNewline)) {</span>
+<span class="nc bnc" id="L483" title="All 4 branches missed.">                        needsNewline = i.hasNext() &amp;&amp; keys.size() &gt; 0;</span>
+
+                        // any new or modified properties will cause
+                        // the file to end with a newline
+<span class="nc" id="L487">                        endWithNewline = true;</span>
+                    }
+                }
+            }
+<span class="nc" id="L491">        }</span>
+
+        // make sure we end in a newline if the source ended in it
+<span class="nc bnc" id="L494" title="All 2 branches missed.">        if (endWithNewline)</span>
+<span class="nc" id="L495">            writer.println();</span>
+
+<span class="nc" id="L497">        writer.flush();</span>
+<span class="nc" id="L498">    }</span>
+
+    private boolean writeProperty(String key, PrintWriter writer,
+        boolean needsNewline) {
+<span class="nc" id="L502">        StringBuilder s = new StringBuilder();</span>
+
+<span class="nc bnc" id="L504" title="All 2 branches missed.">        if (key == null)</span>
+<span class="nc" id="L505">            return false;</span>
+
+<span class="nc" id="L507">        String val = getProperty(key);</span>
+<span class="nc bnc" id="L508" title="All 2 branches missed.">        if (val == null)</span>
+<span class="nc" id="L509">            return false;</span>
+
+<span class="nc" id="L511">        formatValue(key, s, true);</span>
+<span class="nc" id="L512">        s.append(defaultEntryDelimiter);</span>
+<span class="nc bnc" id="L513" title="All 2 branches missed.">        if (addWhitespaceAfterDelimiter)</span>
+<span class="nc" id="L514">            s.append(' ');</span>
+<span class="nc" id="L515">        formatValue(val, s, false);</span>
+
+<span class="nc bnc" id="L517" title="All 2 branches missed.">        if (needsNewline)</span>
+<span class="nc" id="L518">            writer.println();</span>
+
+<span class="nc" id="L520">        writer.print(s);</span>
+
+<span class="nc" id="L522">        return true;</span>
+    }
+
+    /**
+     * Format the given string as an encoded value for storage. This will
+     * perform any necessary escaping of special characters.
+     *
+     * @param str the value to encode
+     * @param buf the buffer to which to append the encoded value
+     * @param isKey if true, then the string is a Property key, otherwise
+     * it is a value
+     */
+    private static void formatValue(String str, StringBuilder buf,
+        boolean isKey) {
+<span class="nc bnc" id="L536" title="All 2 branches missed.">        if (isKey) {</span>
+<span class="nc" id="L537">            buf.setLength(0);</span>
+<span class="nc" id="L538">            buf.ensureCapacity(str.length());</span>
+        } else {
+<span class="nc" id="L540">            buf.ensureCapacity(buf.length() + str.length());</span>
+        }
+
+<span class="nc" id="L543">        boolean escapeSpace = true;</span>
+<span class="nc" id="L544">        int size = str.length();</span>
+
+<span class="nc bnc" id="L546" title="All 2 branches missed.">        for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L547">            char c = str.charAt(i);</span>
+
+<span class="nc bnc" id="L549" title="All 2 branches missed.">            if (c == '\n')</span>
+<span class="nc" id="L550">                buf.append(&quot;\\n&quot;);</span>
+<span class="nc bnc" id="L551" title="All 2 branches missed.">            else if (c == '\r')</span>
+<span class="nc" id="L552">                buf.append(&quot;\\r&quot;);</span>
+<span class="nc bnc" id="L553" title="All 2 branches missed.">            else if (c == '\t')</span>
+<span class="nc" id="L554">                buf.append(&quot;\\t&quot;);</span>
+<span class="nc bnc" id="L555" title="All 2 branches missed.">            else if (c == '\f')</span>
+<span class="nc" id="L556">                buf.append(&quot;\\f&quot;);</span>
+<span class="nc bnc" id="L557" title="All 2 branches missed.">            else if (c == ' ')</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">                buf.append(escapeSpace ? &quot;\\ &quot; : &quot; &quot;);</span>
+<span class="nc bnc" id="L559" title="All 10 branches missed.">            else if (c == '\\' || c == '!' || c == '#' || c == '=' || c == ':')</span>
+<span class="nc" id="L560">                buf.append('\\').append(c);</span>
+<span class="nc bnc" id="L561" title="All 4 branches missed.">            else if (c &lt; ' ' || c &gt; '~')</span>
+<span class="nc" id="L562">                buf.append(&quot;\\u0000&quot;.substring(0, 6 - Integer.toHexString(c).</span>
+<span class="nc" id="L563">                    length())).append(Integer.toHexString(c));</span>
+            else
+<span class="nc" id="L565">                buf.append(c);</span>
+
+<span class="nc bnc" id="L567" title="All 2 branches missed.">            if (c != ' ')</span>
+<span class="nc" id="L568">                escapeSpace = isKey;</span>
+        }
+<span class="nc" id="L570">    }</span>
+
+    public static class DuplicateKeyException extends RuntimeException {
+
+        
+        private static final long serialVersionUID = 1L;
+
+        public DuplicateKeyException(String key, Object firstVal,
+            String secondVal) {
+<span class="nc" id="L579">            super(_loc.get(&quot;dup-key&quot;, key, firstVal, secondVal).getMessage());</span>
+<span class="nc" id="L580">        }</span>
+    }
+
+    /**
+     * Contains the original line of the properties file: can be a
+     * proper key/value pair, or a comment, or just whitespace.
+     */
+    private class PropertyLine implements Serializable {
+
+        
+        private static final long serialVersionUID = 1L;
+<span class="nc" id="L591">        private final StringBuilder line = new StringBuilder();</span>
+        private String propertyKey;
+        private String propertyValue;
+
+<span class="nc" id="L595">        public PropertyLine(String line) {</span>
+<span class="nc" id="L596">            this.line.append(line);</span>
+<span class="nc" id="L597">        }</span>
+
+        public void append(String newline) {
+<span class="nc" id="L600">            line.append(J2DoPrivHelper.getLineSeparator());</span>
+<span class="nc" id="L601">            line.append(newline);</span>
+<span class="nc" id="L602">        }</span>
+
+        public void setPropertyKey(String propertyKey) {
+<span class="nc" id="L605">            this.propertyKey = propertyKey;</span>
+<span class="nc" id="L606">        }</span>
+
+        public String getPropertyKey() {
+<span class="nc" id="L609">            return this.propertyKey;</span>
+        }
+
+        public void setPropertyValue(String propertyValue) {
+<span class="nc" id="L613">            this.propertyValue = propertyValue;</span>
+<span class="nc" id="L614">        }</span>
+
+        public String getPropertyValue() {
+<span class="nc" id="L617">            return this.propertyValue;</span>
+        }
+
+        /**
+         * Write the given line. It will only be written if the line is a
+         * comment, or if it is a property and its value is unchanged
+         * from the original.
+         *
+         * @param pw the PrintWriter to which the write
+         * @return whether or not this was a known key
+         */
+        public boolean write(PrintWriter pw, Collection keys,
+            boolean needsNewline) {
+            // no property? It may be a comment or just whitespace
+<span class="nc bnc" id="L631" title="All 2 branches missed.">            if (propertyKey == null) {</span>
+<span class="nc bnc" id="L632" title="All 2 branches missed.">                if (needsNewline)</span>
+<span class="nc" id="L633">                    pw.println();</span>
+<span class="nc" id="L634">                pw.print(line.toString());</span>
+<span class="nc" id="L635">                return true;</span>
+            }
+
+            // check to see if we are the same value we initially read:
+            // if so, then just write it back exactly as it was read
+<span class="nc bnc" id="L640" title="All 4 branches missed.">            if (propertyValue != null &amp;&amp; containsKey(propertyKey) &amp;&amp;</span>
+<span class="nc bnc" id="L641" title="All 2 branches missed.">                (propertyValue.equals(getProperty(propertyKey)) ||</span>
+<span class="nc bnc" id="L642" title="All 2 branches missed.">                    (!newKeys.contains(propertyKey) &amp;&amp;</span>
+<span class="nc bnc" id="L643" title="All 2 branches missed.">                        !modifiedKeys.contains(propertyKey)))) {</span>
+<span class="nc bnc" id="L644" title="All 2 branches missed.">                if (needsNewline)</span>
+<span class="nc" id="L645">                    pw.println();</span>
+<span class="nc" id="L646">                pw.print(line.toString());</span>
+
+<span class="nc" id="L648">                keys.remove(propertyKey);</span>
+
+<span class="nc" id="L650">                return true;</span>
+            }
+
+            // if we have modified or added the specified key, then write
+            // it back to the same location in the file from which it
+            // was originally read, so that it will be in the proximity
+            // to the comment
+<span class="nc bnc" id="L657" title="All 2 branches missed.">            if (containsKey(propertyKey) &amp;&amp;</span>
+<span class="nc bnc" id="L658" title="All 2 branches missed.">                (modifiedKeys.contains(propertyKey) ||</span>
+<span class="nc bnc" id="L659" title="All 2 branches missed.">                    newKeys.contains(propertyKey))) {</span>
+<span class="nc bnc" id="L660" title="All 2 branches missed.">                while (keys.remove(propertyKey)) ;</span>
+<span class="nc" id="L661">                return writeProperty(propertyKey, pw, needsNewline);</span>
+            }
+
+            // this is a new or changed property: don't do anything
+<span class="nc" id="L665">            return false;</span>
+        }
+    }
+
+    private class PropertyLineReader extends BufferedReader {
+
+        public PropertyLineReader(InputStream in, PropertySource source)
+<span class="nc" id="L672">            throws IOException {</span>
+            // Must be ISO-8859-1 ecoding according to Properties.load javadoc
+<span class="nc" id="L674">            super(new InputStreamReader(new LineEndingStream(in, source),</span>
+                &quot;ISO-8859-1&quot;));
+<span class="nc" id="L676">        }</span>
+
+        public PropertyLine readPropertyLine() throws IOException {
+<span class="nc" id="L679">            String l = readLine();</span>
+<span class="nc bnc" id="L680" title="All 2 branches missed.">            if (l == null)</span>
+<span class="nc" id="L681">                return null;</span>
+
+<span class="nc" id="L683">            PropertyLine pl = new PropertyLine(l);</span>
+<span class="nc" id="L684">            return pl;</span>
+        }
+    }
+
+    /**
+     * Simple FilterInputStream that merely remembers if the last
+     * character that it read was a newline or not.
+     */
+    private static class LineEndingStream extends FilterInputStream {
+
+        private final PropertySource source;
+
+        LineEndingStream(InputStream in, PropertySource source) {
+<span class="nc" id="L697">            super(in);</span>
+
+<span class="nc" id="L699">            this.source = source;</span>
+<span class="nc" id="L700">        }</span>
+
+        @Override
+        public int read() throws IOException {
+<span class="nc" id="L704">            int c = super.read();</span>
+<span class="nc bnc" id="L705" title="All 4 branches missed.">            source.endsInNewline = (c == '\n' || c == '\r');</span>
+<span class="nc" id="L706">            return c;</span>
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+<span class="nc" id="L711">            int n = super.read(b, off, len);</span>
+<span class="nc bnc" id="L712" title="All 2 branches missed.">            if (n &gt; 0)</span>
+<span class="nc bnc" id="L713" title="All 4 branches missed.">                source.endsInNewline =</span>
+                    (b[n + off - 1] == '\n' || b[n + off - 1] == '\r');
+<span class="nc" id="L715">            return n;</span>
+        }
+    }
+
+<span class="nc" id="L719">    static class PropertySource extends LinkedList</span>
+        implements Cloneable, Serializable {
+
+        
+        private static final long serialVersionUID = 1L;
+<span class="nc" id="L724">        private boolean endsInNewline = false;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

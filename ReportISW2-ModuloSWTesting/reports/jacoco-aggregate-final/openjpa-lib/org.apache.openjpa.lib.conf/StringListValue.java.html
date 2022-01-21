@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>StringListValue.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.conf</a> &gt; <span class="el_source">StringListValue.java</span></div><h1>StringListValue.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.conf;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.lib.util.ParseException;
+import org.apache.openjpa.lib.util.StringUtil;
+
+/**
+ * A comma-separated list of string values.
+ *
+ * @author Abe White
+ */
+public class StringListValue extends Value {
+
+<span class="nc" id="L36">    public static final String[] EMPTY = new String[0];</span>
+<span class="nc" id="L37">    private static final Localizer s_loc = Localizer.forPackage</span>
+<span class="nc" id="L38">        (StringListValue.class);</span>
+
+<span class="nc" id="L40">    private String[] _values = EMPTY;</span>
+
+    public StringListValue(String prop) {
+<span class="nc" id="L43">        super(prop);</span>
+<span class="nc" id="L44">    }</span>
+
+    /**
+     * The internal value.
+     */
+    public void set(String[] values) {
+<span class="nc" id="L50">        assertChangeable();</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        _values = (values == null) ? EMPTY : values;</span>
+<span class="nc" id="L52">        valueChanged();</span>
+<span class="nc" id="L53">    }</span>
+
+    /**
+     * The internal value.
+     */
+    @Override
+    public String[] get() {
+<span class="nc" id="L60">        return _values;</span>
+    }
+
+    @Override
+    public Class&lt;String []&gt; getValueType() {
+<span class="nc" id="L65">        return String[].class;</span>
+    }
+
+    /**
+     * Unalias the value list.  This method defers to super.unalias()
+     * UNLESS the string passed is a list of values for a property that
+     * has aliases.
+     */
+    @Override
+    public String unalias(String str) {
+
+        // defer to super.unalias
+<span class="nc" id="L77">        String[] aliases = getAliases();</span>
+<span class="nc bnc" id="L78" title="All 4 branches missed.">        if (aliases.length &lt;= 0 || str == null)</span>
+<span class="nc" id="L79">            return super.unalias(str);</span>
+<span class="nc" id="L80">        str = str.trim();</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (str.length() &lt;= 0)</span>
+<span class="nc" id="L82">            return super.unalias(str);</span>
+
+        // snag this case early as it only causes problems
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (str.equals(&quot;,&quot;))</span>
+<span class="nc" id="L86">            throw new ParseException(s_loc.get(&quot;invalid-list-config&quot;,</span>
+<span class="nc" id="L87">                getProperty(), str, getAliasList()));</span>
+
+        // unalias the list and concatenate the list of
+        // canonical values.  Also, catch any bad aliases.
+        boolean found;
+        String iString;
+<span class="nc" id="L93">        StringBuilder retv = new StringBuilder();</span>
+<span class="nc" id="L94">        String[] vals = str.split(&quot;,&quot;, 0);</span>
+
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        for (int i = 0; i &lt; vals.length; i++) {</span>
+<span class="nc" id="L97">            iString = vals[i] = vals[i].trim();</span>
+
+<span class="nc" id="L99">            found = false;</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            if (i &gt; 0)</span>
+<span class="nc" id="L101">                retv.append(',');</span>
+
+<span class="nc bnc" id="L103" title="All 2 branches missed.">            for (int x = 0; x &lt; aliases.length; x += 2)</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">                if (Objects.equals(iString, aliases[x])</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">                    || Objects.equals(iString, aliases[x + 1])) {</span>
+<span class="nc" id="L106">                    retv.append(aliases[x + 1]);</span>
+<span class="nc" id="L107">                    found = true;</span>
+<span class="nc" id="L108">                    break;</span>
+                }
+
+            // If the alias list is not comprehensive, add any unknown
+            // values back onto the list
+<span class="nc bnc" id="L113" title="All 2 branches missed.">            if (!found) {</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">                if (isAliasListComprehensive())</span>
+<span class="nc" id="L115">                    throw new ParseException(s_loc.get(&quot;invalid-list-config&quot;,</span>
+<span class="nc" id="L116">                        getProperty(), str, getAliasList()));</span>
+                else
+<span class="nc" id="L118">                    retv.append(iString);</span>
+            }
+        }
+<span class="nc" id="L121">        return retv.toString();</span>
+    }
+
+    @Override
+    protected String getInternalString() {
+<span class="nc" id="L126">        return StringUtil.join(_values, &quot;, &quot;);</span>
+    }
+
+    @Override
+    protected void setInternalString(String val) {
+<span class="nc" id="L131">        String[] vals = StringUtil.split(val, &quot;,&quot;, 0);</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (vals != null) {</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">            for (int i = 0; i &lt; vals.length; i++)</span>
+<span class="nc" id="L134">                vals[i] = vals[i].trim();</span>
+        }
+
+<span class="nc" id="L137">        set(vals);</span>
+<span class="nc" id="L138">    }</span>
+
+    @Override
+    protected void setInternalObject(Object obj) {
+<span class="nc" id="L142">        set((String[]) obj);</span>
+<span class="nc" id="L143">    }</span>
+
+    protected List&lt;String&gt; getAliasList() {
+<span class="nc" id="L146">        return Arrays.asList(getAliases());</span>
+    }
+
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

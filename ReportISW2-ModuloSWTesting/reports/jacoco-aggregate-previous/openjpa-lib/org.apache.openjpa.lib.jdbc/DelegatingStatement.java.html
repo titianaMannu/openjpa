@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>DelegatingStatement.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.jdbc</a> &gt; <span class="el_source">DelegatingStatement.java</span></div><h1>DelegatingStatement.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.jdbc;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLWarning;
+import java.sql.Statement;
+
+import org.apache.openjpa.lib.util.Closeable;
+
+/**
+ * Wrapper around an existing statement. Subclasses can override the
+ * methods whose behavior they mean to change. The &lt;code&gt;equals&lt;/code&gt; and
+ * &lt;code&gt;hashCode&lt;/code&gt; methods pass through to the base underlying data
+ * store statement.
+ *
+ * @author Abe White
+ */
+public class DelegatingStatement implements Statement, Closeable {
+
+    private Statement _stmnt;
+    private DelegatingStatement _del;
+    private Connection _conn;
+
+<span class="nc" id="L43">    public DelegatingStatement(Statement stmnt, Connection conn) {</span>
+<span class="nc" id="L44">    	initialize(stmnt, conn);</span>
+<span class="nc" id="L45">    }</span>
+
+    public void initialize(Statement stmnt, Connection conn) {
+<span class="nc" id="L48">        _conn = conn;</span>
+<span class="nc" id="L49">        _stmnt = stmnt;</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        if (stmnt instanceof DelegatingStatement)</span>
+<span class="nc" id="L51">            _del = (DelegatingStatement) stmnt;</span>
+        else
+<span class="nc" id="L53">            _del = null;</span>
+<span class="nc" id="L54">    }</span>
+
+    protected ResultSet wrapResult(ResultSet rs, boolean wrap) {
+<span class="nc bnc" id="L57" title="All 4 branches missed.">        if (!wrap || rs == null)</span>
+<span class="nc" id="L58">            return rs;</span>
+<span class="nc" id="L59">        return new DelegatingResultSet(rs, this);</span>
+    }
+
+    /**
+     * Return the wrapped statement.
+     */
+    public Statement getDelegate() {
+<span class="nc" id="L66">        return _stmnt;</span>
+    }
+
+    /**
+     * Return the base underlying data store statement.
+     */
+    public Statement getInnermostDelegate() {
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        return (_del == null) ? _stmnt : _del.getInnermostDelegate();</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L78">        return getInnermostDelegate().hashCode();</span>
+    }
+
+    @Override
+    public boolean equals(Object other) {
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (other == this)</span>
+<span class="nc" id="L84">            return true;</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (other instanceof DelegatingStatement)</span>
+<span class="nc" id="L86">            other = ((DelegatingStatement) other).getInnermostDelegate();</span>
+<span class="nc" id="L87">        return getInnermostDelegate().equals(other);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L92">        StringBuffer buf = new StringBuffer(&quot;stmnt &quot;).append(hashCode());</span>
+<span class="nc" id="L93">        appendInfo(buf);</span>
+<span class="nc" id="L94">        return buf.toString();</span>
+    }
+
+    protected void appendInfo(StringBuffer buf) {
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        if (_del != null)</span>
+<span class="nc" id="L99">            _del.appendInfo(buf);</span>
+<span class="nc" id="L100">    }</span>
+
+    @Override
+    public ResultSet executeQuery(String str) throws SQLException {
+<span class="nc" id="L104">        return executeQuery(str, true);</span>
+    }
+
+    /**
+     * Execute the query, with the option of not wrapping it in a
+     * {@link DelegatingResultSet}, which is the default.
+     */
+    protected ResultSet executeQuery(String sql, boolean wrap)
+        throws SQLException {
+        ResultSet rs;
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        if (_del != null)</span>
+<span class="nc" id="L115">            rs = _del.executeQuery(sql, false);</span>
+        else
+<span class="nc" id="L117">            rs = _stmnt.executeQuery(sql);</span>
+<span class="nc" id="L118">        return wrapResult(rs, wrap);</span>
+    }
+
+    @Override
+    public int executeUpdate(String str) throws SQLException {
+<span class="nc" id="L123">        return _stmnt.executeUpdate(str);</span>
+    }
+
+    @Override
+    public boolean execute(String str) throws SQLException {
+<span class="nc" id="L128">        return _stmnt.execute(str);</span>
+    }
+
+    @Override
+    public void close() throws SQLException {
+<span class="nc" id="L133">        _stmnt.close();</span>
+<span class="nc" id="L134">    }</span>
+
+    @Override
+    public int getMaxFieldSize() throws SQLException {
+<span class="nc" id="L138">        return _stmnt.getMaxFieldSize();</span>
+    }
+
+    @Override
+    public void setMaxFieldSize(int i) throws SQLException {
+<span class="nc" id="L143">        _stmnt.setMaxFieldSize(i);</span>
+<span class="nc" id="L144">    }</span>
+
+    @Override
+    public int getMaxRows() throws SQLException {
+<span class="nc" id="L148">        return _stmnt.getMaxRows();</span>
+    }
+
+    @Override
+    public void setMaxRows(int i) throws SQLException {
+<span class="nc" id="L153">        _stmnt.setMaxRows(i);</span>
+<span class="nc" id="L154">    }</span>
+
+    @Override
+    public void setEscapeProcessing(boolean bool) throws SQLException {
+<span class="nc" id="L158">        _stmnt.setEscapeProcessing(bool);</span>
+<span class="nc" id="L159">    }</span>
+
+    @Override
+    public int getQueryTimeout() throws SQLException {
+<span class="nc" id="L163">        return _stmnt.getQueryTimeout();</span>
+    }
+
+    @Override
+    public void setQueryTimeout(int i) throws SQLException {
+<span class="nc" id="L168">        _stmnt.setQueryTimeout(i);</span>
+<span class="nc" id="L169">    }</span>
+
+    @Override
+    public void cancel() throws SQLException {
+<span class="nc" id="L173">        _stmnt.cancel();</span>
+<span class="nc" id="L174">    }</span>
+
+    @Override
+    public SQLWarning getWarnings() throws SQLException {
+<span class="nc" id="L178">        return _stmnt.getWarnings();</span>
+    }
+
+    @Override
+    public void clearWarnings() throws SQLException {
+<span class="nc" id="L183">        _stmnt.clearWarnings();</span>
+<span class="nc" id="L184">    }</span>
+
+    @Override
+    public void setCursorName(String str) throws SQLException {
+<span class="nc" id="L188">        _stmnt.setCursorName(str);</span>
+<span class="nc" id="L189">    }</span>
+
+    @Override
+    public ResultSet getResultSet() throws SQLException {
+<span class="nc" id="L193">        return getResultSet(true);</span>
+    }
+
+    /**
+     * Get the last result set, with the option of not wrapping it in a
+     * {@link DelegatingResultSet}, which is the default.
+     */
+    protected ResultSet getResultSet(boolean wrap) throws SQLException {
+        ResultSet rs;
+<span class="nc bnc" id="L202" title="All 2 branches missed.">        if (_del != null)</span>
+<span class="nc" id="L203">            rs = _del.getResultSet(false);</span>
+        else
+<span class="nc" id="L205">            rs = _stmnt.getResultSet();</span>
+<span class="nc" id="L206">        return wrapResult(rs, wrap);</span>
+    }
+
+    @Override
+    public int getUpdateCount() throws SQLException {
+<span class="nc" id="L211">        return _stmnt.getUpdateCount();</span>
+    }
+
+    @Override
+    public boolean getMoreResults() throws SQLException {
+<span class="nc" id="L216">        return _stmnt.getMoreResults();</span>
+    }
+
+    @Override
+    public void setFetchDirection(int i) throws SQLException {
+<span class="nc" id="L221">        _stmnt.setFetchDirection(i);</span>
+<span class="nc" id="L222">    }</span>
+
+    @Override
+    public int getFetchDirection() throws SQLException {
+<span class="nc" id="L226">        return _stmnt.getFetchDirection();</span>
+    }
+
+    @Override
+    public void setFetchSize(int i) throws SQLException {
+<span class="nc" id="L231">        _stmnt.setFetchSize(i);</span>
+<span class="nc" id="L232">    }</span>
+
+    @Override
+    public int getFetchSize() throws SQLException {
+<span class="nc" id="L236">        return _stmnt.getFetchSize();</span>
+    }
+
+    @Override
+    public int getResultSetConcurrency() throws SQLException {
+<span class="nc" id="L241">        return _stmnt.getResultSetConcurrency();</span>
+    }
+
+    @Override
+    public int getResultSetType() throws SQLException {
+<span class="nc" id="L246">        return _stmnt.getResultSetType();</span>
+    }
+
+    @Override
+    public void addBatch(String str) throws SQLException {
+<span class="nc" id="L251">        _stmnt.addBatch(str);</span>
+<span class="nc" id="L252">    }</span>
+
+    @Override
+    public void clearBatch() throws SQLException {
+<span class="nc" id="L256">        _stmnt.clearBatch();</span>
+<span class="nc" id="L257">    }</span>
+
+    @Override
+    public int[] executeBatch() throws SQLException {
+<span class="nc" id="L261">        return _stmnt.executeBatch();</span>
+    }
+
+    @Override
+    public Connection getConnection() throws SQLException {
+<span class="nc" id="L266">        return _conn;</span>
+    }
+
+    // JDBC 3 methods follow.
+
+    @Override
+    public boolean getMoreResults(int i) throws SQLException {
+<span class="nc" id="L273">        return _stmnt.getMoreResults(i);</span>
+    }
+
+    @Override
+    public ResultSet getGeneratedKeys() throws SQLException {
+<span class="nc" id="L278">        return _stmnt.getGeneratedKeys();</span>
+    }
+
+    @Override
+    public int executeUpdate(String s, int i) throws SQLException {
+<span class="nc" id="L283">        return _stmnt.executeUpdate(s, i);</span>
+    }
+
+    @Override
+    public int executeUpdate(String s, int[] ia) throws SQLException {
+<span class="nc" id="L288">        return _stmnt.executeUpdate(s, ia);</span>
+    }
+
+    @Override
+    public int executeUpdate(String s, String[] sa) throws SQLException {
+<span class="nc" id="L293">        return _stmnt.executeUpdate(s, sa);</span>
+    }
+
+    @Override
+    public boolean execute(String s, int i) throws SQLException {
+<span class="nc" id="L298">        return _stmnt.execute(s, i);</span>
+    }
+
+    @Override
+    public boolean execute(String s, int[] ia) throws SQLException {
+<span class="nc" id="L303">        return _stmnt.execute(s, ia);</span>
+    }
+
+    @Override
+    public boolean execute(String s, String[] sa) throws SQLException {
+<span class="nc" id="L308">        return _stmnt.execute(s, sa);</span>
+    }
+
+    @Override
+    public int getResultSetHoldability() throws SQLException {
+<span class="nc" id="L313">        return _stmnt.getResultSetHoldability();</span>
+    }
+
+    // JDBC 4 methods follow.
+
+    @Override
+    public boolean isWrapperFor(Class&lt;?&gt; iface) throws SQLException {
+<span class="nc" id="L320">        return iface.isAssignableFrom(getDelegate().getClass());</span>
+    }
+
+    @Override
+    public &lt;T&gt; T unwrap(Class&lt;T&gt; iface) throws SQLException {
+<span class="nc bnc" id="L325" title="All 2 branches missed.">        if (isWrapperFor(iface))</span>
+<span class="nc" id="L326">            return (T) getDelegate();</span>
+        else
+<span class="nc" id="L328">            return null;</span>
+    }
+
+    @Override
+    public boolean isClosed() throws SQLException {
+<span class="nc" id="L333">        return _stmnt.isClosed();</span>
+    }
+
+    @Override
+    public void setPoolable(boolean b) throws SQLException {
+<span class="nc" id="L338">        _stmnt.setPoolable(b);</span>
+<span class="nc" id="L339">    }</span>
+
+    @Override
+    public boolean isPoolable() throws SQLException {
+<span class="nc" id="L343">        return _stmnt.isPoolable();</span>
+    }
+
+    // Java 7 methods follow
+
+    @Override
+    public boolean isCloseOnCompletion() throws SQLException{
+<span class="nc" id="L350">    	throw new UnsupportedOperationException();</span>
+    }
+
+    @Override
+    public void closeOnCompletion() throws SQLException{
+<span class="nc" id="L355">    	throw new UnsupportedOperationException();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

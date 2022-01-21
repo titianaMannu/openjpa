@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>Localizer.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">Localizer.java</span></div><h1>Localizer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+import java.security.AccessController;
+import java.text.MessageFormat;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Locale;
+import java.util.Map;
+import java.util.MissingResourceException;
+import java.util.Properties;
+import java.util.ResourceBundle;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
+
+/**
+ * The Localizer provides convenient access to localized
+ * strings. It inlcudes built-in support for parameter substitution through
+ * the use of the {@link MessageFormat} utility.
+ * Strings are stored in per-package {@link Properties} files.
+ * The property file for the default locale must be named
+ * &lt;code&gt;localizer.properties&lt;/code&gt;. Additional locales can be supported
+ * through additional property files using the naming conventions specified
+ * in the {@link ResourceBundle} class. For example, the german locale
+ * could be supported through a &lt;code&gt;localizer_de_DE.properties&lt;/code&gt; file.
+ *
+ * @author Abe White
+ */
+public class Localizer {
+
+    // static cache of package+loc name to localizer mappings
+<span class="fc" id="L50">    private static final Map&lt;String,Localizer&gt; _localizers = new ConcurrentHashMap&lt;&gt;();</span>
+
+    // list of resource providers to delegate to when locating resources
+<span class="fc" id="L53">    private static final Collection&lt;ResourceBundleProvider&gt; _providers =</span>
+        new CopyOnWriteArraySet&lt;&gt;
+<span class="fc" id="L55">        (Arrays.asList(new ResourceBundleProvider[]{</span>
+            new SimpleResourceBundleProvider(),
+            new StreamResourceBundleProvider(),
+            new ZipResourceBundleProvider(), }));
+
+    /**
+     * Return a Localizer instance that will access the properties file
+     * in the package of the given class using the system default locale.
+     *
+     * @see #forPackage(Class,Locale)
+     */
+    public static Localizer forPackage(Class&lt;?&gt; cls) {
+<span class="fc" id="L67">        return forPackage(cls, null);</span>
+    }
+
+    /**
+     * Return a Localizer instance that will access the properties file
+     * in the package of the given class using the given locale.
+     *
+     * @param cls the class whose package to check for the localized
+     * properties file; if null, the system will check for
+     * a top-level properties file
+     * @param locale the locale to which strings should be localized; if
+     * null, the system default will be assumed
+     */
+    public static Localizer forPackage(Class&lt;?&gt; cls, Locale locale) {
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">        if (locale == null)</span>
+<span class="fc" id="L82">            locale = Locale.getDefault();</span>
+
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">        int dot = (cls == null) ? -1 : cls.getName().lastIndexOf('.');</span>
+        String pkg;
+        String file;
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        if (dot == -1) {</span>
+<span class="nc" id="L88">            pkg = &quot;&quot;;</span>
+<span class="nc" id="L89">            file = &quot;localizer&quot;;</span>
+        } else {
+<span class="fc" id="L91">            pkg = cls.getName().substring(0, dot);</span>
+<span class="fc" id="L92">            file = pkg + &quot;.localizer&quot;;</span>
+        }
+<span class="fc" id="L94">        String key = file + locale.toString();</span>
+
+        // no locking; ok if bundle created multiple times
+        // check for cached version
+<span class="fc" id="L98">        Localizer loc = (Localizer) _localizers.get(key);</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        if (loc != null)</span>
+<span class="nc" id="L100">            return loc;</span>
+        else {
+<span class="pc bpc" id="L102" title="1 of 2 branches missed.">            loc = new Localizer(pkg, file, locale,</span>
+<span class="fc" id="L103">                cls == null ? null:AccessController.doPrivileged(</span>
+<span class="fc" id="L104">                    J2DoPrivHelper.getClassLoaderAction(cls)));</span>
+<span class="fc" id="L105">            _localizers.put(key, loc);</span>
+<span class="fc" id="L106">            return loc;</span>
+        }
+    }
+
+    /**
+     * Register a resource provider.
+     */
+    public static void addProvider(ResourceBundleProvider provider) {
+<span class="nc" id="L114">        _providers.add(provider);</span>
+<span class="nc" id="L115">    }</span>
+
+    /**
+     * Remove a resource provider.
+     */
+    public static boolean removeProvider(ResourceBundleProvider provider) {
+<span class="nc" id="L121">        return _providers.remove(provider);</span>
+    }
+
+    private String _file;
+    private String _pkg;
+<span class="fc" id="L126">    private ResourceBundle _bundle = null;</span>
+    private Locale _locale;
+    private ClassLoader _loader;
+
+<span class="fc" id="L130">    private Localizer(String pkg, String f, Locale locale, ClassLoader loader) {</span>
+<span class="fc" id="L131">        _pkg = pkg;</span>
+<span class="fc" id="L132">        _file = f;</span>
+<span class="fc" id="L133">        _locale = locale;</span>
+<span class="fc" id="L134">        _loader = loader;</span>
+<span class="fc" id="L135">    }</span>
+
+    private ResourceBundle getBundle() {
+        // no locking; it's ok to create multiple bundles
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (_bundle == null) {</span>
+            // find resource bundle
+<span class="nc" id="L141">            for (Iterator&lt;ResourceBundleProvider&gt; itr = _providers.iterator();</span>
+<span class="nc bnc" id="L142" title="All 4 branches missed.">                itr.hasNext() &amp;&amp; _bundle == null; ) {</span>
+<span class="nc" id="L143">                _bundle = itr.next().findResource(_file, _locale, _loader);</span>
+            }
+        }
+<span class="nc" id="L146">        return _bundle;</span>
+    }
+
+    /**
+     * Return the localized string matching the given key.
+     */
+    public Message get(String key) {
+<span class="nc" id="L153">        return get(key, null);</span>
+    }
+
+    /**
+     * Return the localized string matching the given key.
+     */
+    public Message getFatal(String key) {
+<span class="nc" id="L160">        return getFatal(key, null);</span>
+    }
+
+    /**
+     * Return the localized string matching the given key. The given
+     * &lt;code&gt;sub&lt;/code&gt; object will be packed into an array and substituted
+     * into the found string according to the rules of the
+     * {@link MessageFormat} class.
+     *
+     * @see #get(String)
+     */
+    public Message get(String key, Object sub) {
+<span class="nc" id="L172">        return get(key, new Object[]{ sub });</span>
+    }
+
+    /**
+     * Return the localized string matching the given key. The given
+     * &lt;code&gt;sub&lt;/code&gt; object will be packed into an array and substituted
+     * into the found string according to the rules of the
+     * {@link MessageFormat} class.
+     *
+     * @see #getFatal(String)
+     */
+    public Message getFatal(String key, Object sub) {
+<span class="nc" id="L184">        return getFatal(key, new Object[]{ sub });</span>
+    }
+
+    /**
+     * Return the localized string for the given key.
+     *
+     * @see #get(String,Object)
+     */
+    public Message get(String key, Object sub1, Object sub2) {
+<span class="nc" id="L193">        return get(key, new Object[]{ sub1, sub2 });</span>
+    }
+
+    /**
+     * Return the localized string for the given key.
+     *
+     * @see #getFatal(String,Object)
+     */
+    public Message getFatal(String key, Object sub1, Object sub2) {
+<span class="nc" id="L202">        return getFatal(key, new Object[]{ sub1, sub2 });</span>
+    }
+
+    /**
+     * Return the localized string for the given key.
+     *
+     * @see #get(String,Object)
+     */
+    public Message get(String key, Object sub1, Object sub2, Object sub3) {
+<span class="nc" id="L211">        return get(key, new Object[]{ sub1, sub2, sub3 });</span>
+    }
+
+    /**
+     * Return the localized string matching the given key. The given
+     * &lt;code&gt;subs&lt;/code&gt; objects will be substituted
+     * into the found string according to the rules of the
+     * {@link MessageFormat} class.
+     *
+     * @see #get(String)
+     */
+    public Message get(String key, Object[] subs) {
+<span class="nc" id="L223">        return new Message(_pkg, getBundle(), key, subs, false);</span>
+    }
+
+    /**
+     * Return the localized string matching the given key. The given
+     * &lt;code&gt;subs&lt;/code&gt; objects will be substituted
+     * into the found string according to the rules of the
+     * {@link MessageFormat} class.
+     *
+     * @see #getFatal(String)
+     */
+    public Message getFatal(String key, Object[] subs) {
+<span class="nc" id="L235">        return new Message(_pkg, getBundle(), key, subs, true);</span>
+    }
+
+    /**
+     * A &lt;code&gt;Message&lt;/code&gt; can provide a localized message via the
+     * {@link #getMessage} method call, and can also provide the original key,
+     * package, and substitution array that were used to assemble the message.
+     */
+    public static class Message {
+
+        private final String _pkg;
+        private final String _key;
+        private final Object[] _subs;
+        private final String _localizedMessage;
+        private boolean _localizedMessageFound;
+
+        private Message(String packageName, ResourceBundle bundle, String key,
+<span class="nc" id="L252">            Object[] subs, boolean fatal) {</span>
+<span class="nc bnc" id="L253" title="All 4 branches missed.">            if (bundle == null &amp;&amp; fatal)</span>
+<span class="nc" id="L254">                throw new MissingResourceException(key, key, key);</span>
+
+<span class="nc" id="L256">            _pkg = packageName;</span>
+<span class="nc" id="L257">            _key = key;</span>
+<span class="nc" id="L258">            _subs = subs;</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">            if (bundle == null) {</span>
+<span class="nc" id="L260">                _localizedMessage = key;</span>
+<span class="nc" id="L261">                _localizedMessageFound = false;</span>
+            } else {
+<span class="nc" id="L263">                String localized = null;</span>
+                try {
+<span class="nc" id="L265">                    localized = bundle.getString(key);</span>
+<span class="nc" id="L266">                    _localizedMessageFound = true;</span>
+<span class="nc" id="L267">                } catch (MissingResourceException mre) {</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">                    if (fatal)</span>
+<span class="nc" id="L269">                        throw mre;</span>
+<span class="nc" id="L270">                    _localizedMessageFound = false;</span>
+<span class="nc" id="L271">                }</span>
+<span class="nc bnc" id="L272" title="All 2 branches missed.">                _localizedMessage = (localized == null) ? key : localized;</span>
+            }
+<span class="nc" id="L274">        }</span>
+
+        /**
+         * The localized message.
+         */
+        public String getMessage() {
+<span class="nc bnc" id="L280" title="All 2 branches missed.">            if (_localizedMessageFound)</span>
+<span class="nc" id="L281">                return MessageFormat.format(_localizedMessage, _subs);</span>
+<span class="nc bnc" id="L282" title="All 4 branches missed.">            else if (_subs == null || _subs.length == 0)</span>
+<span class="nc" id="L283">                return &quot;localized message key: &quot; + _localizedMessage;</span>
+            else
+<span class="nc" id="L285">                return &quot;localized message key: &quot; + _localizedMessage</span>
+<span class="nc" id="L286">                    + &quot;; substitutions: &quot; + Arrays.asList(_subs).toString();</span>
+        }
+
+        /**
+         * The unique key for the localized message.
+         */
+        public String getKey() {
+<span class="nc" id="L293">            return _key;</span>
+        }
+
+        /**
+         * Substitutions inserted into the message.
+         */
+        public Object[] getSubstitutions() {
+<span class="nc" id="L300">            return _subs;</span>
+        }
+
+        public String getPackageName() {
+<span class="nc" id="L304">            return _pkg;</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L309">            return getMessage();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

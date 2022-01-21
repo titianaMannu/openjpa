@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>JDBCEvent.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.jdbc</a> &gt; <span class="el_source">JDBCEvent.java</span></div><h1>JDBCEvent.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.jdbc;
+
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.EventObject;
+
+/**
+ * A JDBC event. The event source will be the connection.
+ *
+ * @author Marc Prud'hommeaux
+ * @author Abe White
+ * @see JDBCListener
+ */
+public class JDBCEvent extends EventObject {
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * Type code indicating that a {@link Statement} is being prepared.
+     */
+    public static final short BEFORE_PREPARE_STATEMENT = 1;
+
+    /**
+     * Type code indicating that a {@link Statement} is being prepared.
+     */
+    public static final short AFTER_PREPARE_STATEMENT = 2;
+
+    /**
+     * Type code indicating that a {@link Statement} is being created.
+     */
+    public static final short BEFORE_CREATE_STATEMENT = 3;
+
+    /**
+     * Type code indicating that a {@link Statement} is being created.
+     */
+    public static final short AFTER_CREATE_STATEMENT = 4;
+
+    /**
+     * Type code indicating that a {@link Statement} is about to be executed.
+     */
+    public static final short BEFORE_EXECUTE_STATEMENT = 5;
+
+    /**
+     * Type code indicating that a {@link Statement} completed execution.
+     */
+    public static final short AFTER_EXECUTE_STATEMENT = 6;
+
+    /**
+     * Type code indicating that a {@link Connection} is about to be committed.
+     */
+    public static final short BEFORE_COMMIT = 7;
+
+    /**
+     * Type code indicating that a {@link Connection} was just committed.
+     */
+    public static final short AFTER_COMMIT = 8;
+
+    /**
+     * Type code indicating that a rollback is about to occur.
+     */
+    public static final short BEFORE_ROLLBACK = 9;
+
+    /**
+     * Type code indicating that a rollback just occured.
+     */
+    public static final short AFTER_ROLLBACK = 10;
+
+    /**
+     * Type code indicating that a connection was obtained. This does
+     * not necessarily mean that the connection is new if pooling is enabled.
+     */
+    public static final short AFTER_CONNECT = 11;
+
+    /**
+     * Type code indicating that a connection was closed. This does
+     * not necessarily mean that the underlying database connection was
+     * severed if pooling is enabled.
+     */
+    public static final short BEFORE_CLOSE = 12;
+
+    private final short type;
+    private final long time;
+    private final String sql;
+    private final JDBCEvent associatedEvent;
+    private final transient Statement statement;
+
+    /**
+     * Constructor.
+     */
+    public JDBCEvent(Connection source, short type, JDBCEvent associatedEvent,
+        Statement statement, String sql) {
+<span class="nc" id="L109">        super(source);</span>
+<span class="nc" id="L110">        this.type = type;</span>
+<span class="nc" id="L111">        this.time = System.currentTimeMillis();</span>
+<span class="nc" id="L112">        this.associatedEvent = associatedEvent;</span>
+<span class="nc" id="L113">        this.sql = sql;</span>
+<span class="nc" id="L114">        this.statement = statement;</span>
+<span class="nc" id="L115">    }</span>
+
+    /**
+     * Return the event's type code.
+     */
+    public final short getType() {
+<span class="nc" id="L121">        return type;</span>
+    }
+
+    /**
+     * Return the Connection for this event.
+     */
+    public final Connection getConnection() {
+<span class="nc" id="L128">        return (Connection) getSource();</span>
+    }
+
+    /**
+     * Return the time the event was constructed.
+     */
+    public final long getTime() {
+<span class="nc" id="L135">        return time;</span>
+    }
+
+    /**
+     * Return the associated {@link JDBCEvent} for this event.
+     * For AFTER_XXX events, this will typically be the JDBCEvent
+     * that was created in the BEFORE_XXX stage. This may be null when
+     * an association is not appropriate for the event.
+     */
+    public final JDBCEvent getAssociatedEvent() {
+<span class="nc" id="L145">        return associatedEvent;</span>
+    }
+
+    /**
+     * Return the SQL associated with this event; may be null.
+     */
+    public final String getSQL() {
+<span class="nc" id="L152">        return sql;</span>
+    }
+
+    /**
+     * Return the Statement for this event, may be null for events
+     * unrelated to Statement execution.
+     */
+    public final Statement getStatement() {
+<span class="nc" id="L160">        return statement;</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

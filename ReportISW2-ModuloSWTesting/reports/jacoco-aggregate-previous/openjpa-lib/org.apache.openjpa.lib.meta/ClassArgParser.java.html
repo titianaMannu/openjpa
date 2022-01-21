@@ -1,0 +1,624 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ClassArgParser.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.meta</a> &gt; <span class="el_source">ClassArgParser.java</span></div><h1>ClassArgParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.meta;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.openjpa.lib.util.ClassUtil;
+import org.apache.openjpa.lib.util.Files;
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+import org.apache.openjpa.lib.util.Localizer;
+
+import serp.bytecode.lowlevel.ConstantPoolTable;
+
+/**
+ * Parser used to resolve arguments into java classes.
+ * Interprets command-line args as either class names, .class files or
+ * resources, .java files or resources, or metadata files or resources
+ * conforming to the common format defined by {@link CFMetaDataParser}.
+ * Transforms the information in these args into {@link Class} instances.
+ * Note that when parsing .java files, only the main class in the file
+ * is detected. Other classes defined in the file, such as inner classes,
+ * are not added to the returned classes list.
+ *
+ * @author Abe White
+ */
+<span class="nc" id="L58">public class ClassArgParser {</span>
+
+    private static final int TOKEN_EOF = -1;
+    private static final int TOKEN_NONE = 0;
+    private static final int TOKEN_PACKAGE = 1;
+    private static final int TOKEN_CLASS = 2;
+    private static final int TOKEN_PACKAGE_NOATTR = 3;
+    private static final int TOKEN_CLASS_NOATTR = 4;
+
+<span class="nc" id="L67">    private static final Localizer _loc = Localizer.forPackage</span>
+<span class="nc" id="L68">        (ClassArgParser.class);</span>
+
+<span class="nc" id="L70">    private ClassLoader _loader = null;</span>
+<span class="nc" id="L71">    private char[] _packageAttr = &quot;name&quot;.toCharArray();</span>
+<span class="nc" id="L72">    private char[] _classAttr = &quot;name&quot;.toCharArray();</span>
+<span class="nc" id="L73">    private char[][] _beginElements = { { 'p' }, { 'c' } };</span>
+<span class="nc" id="L74">    private char[][] _endElements = { &quot;ackage&quot;.toCharArray(),</span>
+<span class="nc" id="L75">        &quot;lass&quot;.toCharArray() };</span>
+
+    /**
+     * The class loader with which to load parsed classes.
+     */
+    public ClassLoader getClassLoader() {
+<span class="nc" id="L81">        return _loader;</span>
+    }
+
+    /**
+     * The class loader with which to load parsed classes.
+     */
+    public void setClassLoader(ClassLoader loader) {
+<span class="nc" id="L88">        _loader = loader;</span>
+<span class="nc" id="L89">    }</span>
+
+    /**
+     * Set the the relevant metadata file structure so that metadata files
+     * containing class names can be parsed. Null attribute names indicate
+     * that the text content of the element contains the data.
+     */
+    public void setMetaDataStructure(String packageElementName,
+        String packageAttributeName, String[] classElementNames,
+        String classAttributeName) {
+        // calculate how many chars deep we have to go to identify each element
+        // name as unique.  this is extremely inefficient for large N, but
+        // should never be called for more than a few elements
+<span class="nc" id="L102">        char[] buf = new char[classElementNames.length + 1];</span>
+<span class="nc" id="L103">        int charIdx = 0;</span>
+<span class="nc" id="L104">        for (; true; charIdx++) {</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">            for (int i = 0; i &lt; buf.length; i++) {</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">                if (i == 0) {</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">                    if (charIdx == packageElementName.length())</span>
+<span class="nc" id="L108">                        throw new UnsupportedOperationException(_loc.get</span>
+<span class="nc" id="L109">                            (&quot;cant-diff-elems&quot;).getMessage());</span>
+<span class="nc" id="L110">                    buf[i] = packageElementName.charAt(charIdx);</span>
+                } else {
+<span class="nc bnc" id="L112" title="All 2 branches missed.">                    if (charIdx == classElementNames[i - 1].length())</span>
+<span class="nc" id="L113">                        throw new UnsupportedOperationException(_loc.get</span>
+<span class="nc" id="L114">                            (&quot;cant-diff-elems&quot;).getMessage());</span>
+<span class="nc" id="L115">                    buf[i] = classElementNames[i - 1].charAt(charIdx);</span>
+                }
+            }
+<span class="nc bnc" id="L118" title="All 2 branches missed.">            if (charsUnique(buf))</span>
+<span class="nc" id="L119">                break;</span>
+        }
+
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        _packageAttr = (packageAttributeName == null) ? null</span>
+<span class="nc" id="L123">            : packageAttributeName.toCharArray();</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">        _classAttr = (classAttributeName == null) ? null</span>
+<span class="nc" id="L125">            : classAttributeName.toCharArray();</span>
+<span class="nc" id="L126">        _beginElements = new char[classElementNames.length + 1][];</span>
+<span class="nc" id="L127">        _endElements = new char[classElementNames.length + 1][];</span>
+<span class="nc" id="L128">        _beginElements[0] = packageElementName.substring(0, charIdx + 1).</span>
+<span class="nc" id="L129">            toCharArray();</span>
+<span class="nc" id="L130">        _endElements[0] = packageElementName.substring(charIdx + 1).</span>
+<span class="nc" id="L131">            toCharArray();</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        for (int i = 0; i &lt; classElementNames.length; i++) {</span>
+<span class="nc" id="L133">            _beginElements[i + 1] = classElementNames[i].</span>
+<span class="nc" id="L134">                substring(0, charIdx + 1).toCharArray();</span>
+<span class="nc" id="L135">            _endElements[i + 1] = classElementNames[i].</span>
+<span class="nc" id="L136">                substring(charIdx + 1).toCharArray();</span>
+        }
+<span class="nc" id="L138">    }</span>
+
+    /**
+     * Return true if all characters in given buffer are unique.
+     */
+    private static boolean charsUnique(char[] buf) {
+<span class="nc bnc" id="L144" title="All 2 branches missed.">        for (int i = buf.length - 1; i &gt;= 0; i--)</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">            for (int j = 0; j &lt; i; j++)</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">                if (buf[j] == buf[i])</span>
+<span class="nc" id="L147">                    return false;</span>
+<span class="nc" id="L148">        return true;</span>
+    }
+
+    /**
+     * Return the {@link Class} representation of the class(es) named in the
+     * given arg.
+     *
+     * @param arg a class name, .java file, .class file, or metadata
+     * file naming the type(s) to act on
+     */
+    public Class&lt;?&gt;[] parseTypes(String arg) {
+<span class="nc" id="L159">        String[] names = parseTypeNames(arg);</span>
+<span class="nc" id="L160">        Class&lt;?&gt;[] objs = new Class[names.length];</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        for (int i = 0; i &lt; names.length; i++)</span>
+<span class="nc" id="L162">            objs[i] = ClassUtil.toClass(names[i], _loader);</span>
+<span class="nc" id="L163">        return objs;</span>
+    }
+
+    /**
+     * Return the {@link Class} representation of the class(es) named in the
+     * given metadatas.
+     */
+    public Class&lt;?&gt;[] parseTypes(MetaDataIterator itr) {
+<span class="nc" id="L171">        String[] names = parseTypeNames(itr);</span>
+<span class="nc" id="L172">        Class&lt;?&gt;[] objs = new Class[names.length];</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        for (int i = 0; i &lt; names.length; i++)</span>
+<span class="nc" id="L174">            objs[i] = ClassUtil.toClass(names[i], _loader);</span>
+<span class="nc" id="L175">        return objs;</span>
+    }
+
+    /**
+     * Return a mapping of each metadata resource to an array of its
+     * contained classes.
+     */
+    public Map&lt;Object, Class&lt;?&gt;[]&gt; mapTypes(MetaDataIterator itr) {
+<span class="nc" id="L183">        Map&lt;Object, String[]&gt; map = mapTypeNames(itr);</span>
+<span class="nc" id="L184">        Map&lt;Object, Class&lt;?&gt;[]&gt; rval = new HashMap&lt;&gt;();</span>
+        Map.Entry&lt;Object, String[]&gt; entry;
+        String[] names;
+        Class&lt;?&gt;[] objs;
+<span class="nc bnc" id="L188" title="All 2 branches missed.">        for (Map.Entry&lt;Object, String[]&gt; objectEntry : map.entrySet()) {</span>
+<span class="nc" id="L189">            entry = objectEntry;</span>
+<span class="nc" id="L190">            names = entry.getValue();</span>
+<span class="nc" id="L191">            objs = new Class[names.length];</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">            for (int j = 0; j &lt; names.length; j++) {</span>
+<span class="nc" id="L193">                objs[j] = ClassUtil.toClass(names[j], _loader);</span>
+            }
+<span class="nc" id="L195">            rval.put(entry.getKey(), objs);</span>
+<span class="nc" id="L196">        }</span>
+<span class="nc" id="L197">        return rval;</span>
+    }
+
+    /**
+     * Return the names of the class(es) from the given arg.
+     *
+     * @param arg a class name, .java file, .class file, or metadata
+     * file naming the type(s) to act on
+     * @throws IllegalArgumentException with appropriate message on error
+     */
+    public String[] parseTypeNames(String arg) {
+<span class="nc bnc" id="L208" title="All 2 branches missed.">        if (arg == null)</span>
+<span class="nc" id="L209">            return new String[0];</span>
+
+        try {
+<span class="nc" id="L212">            File file = Files.getFile(arg, _loader);</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">            if (arg.endsWith(&quot;.class&quot;))</span>
+<span class="nc" id="L214">                return new String[]{ getFromClassFile(file) };</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">            if (arg.endsWith(&quot;.java&quot;))</span>
+<span class="nc" id="L216">                return new String[]{ getFromJavaFile(file) };</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">            if (AccessController.doPrivileged(</span>
+<span class="nc" id="L218">                    J2DoPrivHelper.existsAction(file))) {</span>
+<span class="nc" id="L219">                Collection&lt;String&gt; col = getFromMetaDataFile(file);</span>
+<span class="nc" id="L220">                return col.toArray(new String[col.size()]);</span>
+            }
+<span class="nc" id="L222">        } catch (Exception e) {</span>
+<span class="nc" id="L223">            throw new RuntimeException(</span>
+<span class="nc" id="L224">                _loc.get(&quot;class-arg&quot;, arg).getMessage(), e);</span>
+<span class="nc" id="L225">        }</span>
+
+        // must be a class name
+<span class="nc" id="L228">        return new String[]{ arg };</span>
+    }
+
+    /**
+     * Return the names of the class(es) from the given metadatas.
+     */
+    public String[] parseTypeNames(MetaDataIterator itr) {
+<span class="nc bnc" id="L235" title="All 2 branches missed.">        if (itr == null)</span>
+<span class="nc" id="L236">            return new String[0];</span>
+
+<span class="nc" id="L238">        List&lt;String&gt; names = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L239">        Object source = null;</span>
+        try {
+<span class="nc bnc" id="L241" title="All 2 branches missed.">            while (itr.hasNext()) {</span>
+<span class="nc" id="L242">                source = itr.next();</span>
+<span class="nc" id="L243">                appendTypeNames(source, itr.getInputStream(), names);</span>
+            }
+<span class="nc" id="L245">        } catch (Exception e) {</span>
+<span class="nc" id="L246">            throw new RuntimeException(</span>
+<span class="nc" id="L247">                _loc.get(&quot;class-arg&quot;, source).getMessage(), e);</span>
+<span class="nc" id="L248">        }</span>
+<span class="nc" id="L249">        return names.toArray(new String[names.size()]);</span>
+    }
+
+    /**
+     * Parse the names in the given metadata iterator stream, closing the
+     * stream on completion.
+     */
+    private void appendTypeNames(Object source, InputStream in,
+        List&lt;String&gt; names) throws IOException {
+        try {
+<span class="nc bnc" id="L259" title="All 2 branches missed.">            if (source.toString().endsWith(&quot;.class&quot;))</span>
+<span class="nc" id="L260">                names.add(getFromClass(in));</span>
+<span class="nc" id="L261">            names.addAll(getFromMetaData(new InputStreamReader(in)));</span>
+        } finally {
+            try {
+<span class="nc" id="L264">                in.close();</span>
+<span class="nc" id="L265">            } catch (IOException ioe) {</span>
+<span class="nc" id="L266">            }</span>
+        }
+<span class="nc" id="L268">    }</span>
+
+    /**
+     * Return a mapping of each metadata resource to an array of its contained
+     * class names.
+     */
+    public Map&lt;Object, String[]&gt; mapTypeNames(MetaDataIterator itr) {
+<span class="nc bnc" id="L275" title="All 2 branches missed.">        if (itr == null)</span>
+<span class="nc" id="L276">            return Collections.emptyMap();</span>
+
+<span class="nc" id="L278">        Map&lt;Object, String []&gt; map = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L279">        Object source = null;</span>
+<span class="nc" id="L280">        List&lt;String&gt; names = new ArrayList&lt;&gt;();</span>
+        try {
+<span class="nc bnc" id="L282" title="All 2 branches missed.">            while (itr.hasNext()) {</span>
+<span class="nc" id="L283">                source = itr.next();</span>
+<span class="nc" id="L284">                appendTypeNames(source, itr.getInputStream(), names);</span>
+<span class="nc bnc" id="L285" title="All 2 branches missed.">                if (!names.isEmpty()) {</span>
+<span class="nc" id="L286">                    map.put(source, names.toArray(new String[names.size()]));</span>
+                }
+<span class="nc" id="L288">                names.clear();</span>
+            }
+<span class="nc" id="L290">        } catch (Exception e) {</span>
+<span class="nc" id="L291">            throw new RuntimeException(</span>
+<span class="nc" id="L292">                _loc.get(&quot;class-arg&quot;, source).getMessage(), e);</span>
+<span class="nc" id="L293">        }</span>
+<span class="nc" id="L294">        return map;</span>
+    }
+
+    /**
+     * Returns the class named in the given .class file.
+     */
+    private String getFromClassFile(File file) throws IOException {
+<span class="nc" id="L301">        FileInputStream fin = null;</span>
+        try {
+<span class="nc" id="L303">            fin = AccessController.doPrivileged(</span>
+<span class="nc" id="L304">                J2DoPrivHelper.newFileInputStreamAction(file));</span>
+<span class="nc" id="L305">            return getFromClass(fin);</span>
+<span class="nc" id="L306">        } catch (PrivilegedActionException pae) {</span>
+<span class="nc" id="L307">            throw (FileNotFoundException) pae.getException();</span>
+        } finally {
+<span class="nc bnc" id="L309" title="All 2 branches missed.">            if (fin != null)</span>
+                try {
+<span class="nc" id="L311">                    fin.close();</span>
+<span class="nc" id="L312">                } catch (IOException ioe) {</span>
+<span class="nc" id="L313">                }</span>
+        }
+    }
+
+    /**
+     * Returns the class name in the given .class bytecode.
+     */
+    private String getFromClass(InputStream in) throws IOException {
+<span class="nc" id="L321">        ConstantPoolTable table = new ConstantPoolTable(in);</span>
+<span class="nc" id="L322">        int idx = table.getEndIndex();</span>
+<span class="nc" id="L323">        idx += 2; // access flags</span>
+<span class="nc" id="L324">        int clsEntry = table.readUnsignedShort(idx);</span>
+<span class="nc" id="L325">        int utfEntry = table.readUnsignedShort(table.get(clsEntry));</span>
+<span class="nc" id="L326">        return table.readString(table.get(utfEntry)).replace('/', '.');</span>
+    }
+
+    /**
+     * Returns the class named in the given .java file.
+     */
+    private String getFromJavaFile(File file) throws IOException {
+<span class="nc" id="L333">        BufferedReader in = null;</span>
+        try {
+            // find the line with the package declaration
+<span class="nc" id="L336">            in = new BufferedReader(new FileReader(file));</span>
+            String line;
+<span class="nc" id="L338">            StringBuilder pack = null;</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">            while ((line = in.readLine()) != null) {</span>
+<span class="nc" id="L340">                line = line.trim();</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">                if (line.startsWith(&quot;package &quot;)) {</span>
+<span class="nc" id="L342">                    line = line.substring(8).trim();</span>
+
+                    // strip off anything beyond the package declaration
+<span class="nc" id="L345">                    pack = new StringBuilder();</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">                    for (int i = 0; i &lt; line.length(); i++) {</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">                        if (Character.isJavaIdentifierPart(line.charAt(i))</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">                            || line.charAt(i) == '.')</span>
+<span class="nc" id="L349">                            pack.append(line.charAt(i));</span>
+                        else
+                            break;
+                    }
+<span class="nc" id="L353">                    break;</span>
+                }
+            }
+
+            // strip '.java'
+<span class="nc" id="L358">            String clsName = file.getName();</span>
+<span class="nc" id="L359">            clsName = clsName.substring(0, clsName.length() - 5);</span>
+
+            // prefix with package
+<span class="nc bnc" id="L362" title="All 4 branches missed.">            if (pack != null &amp;&amp; pack.length() &gt; 0)</span>
+<span class="nc" id="L363">                clsName = pack + &quot;.&quot; + clsName;</span>
+
+<span class="nc" id="L365">            return clsName;</span>
+        } finally {
+<span class="nc bnc" id="L367" title="All 2 branches missed.">            if (in != null)</span>
+<span class="nc" id="L368">                try { in.close(); } catch (IOException ioe) {}</span>
+        }
+    }
+
+    /**
+     * Returns the classes named in the given common format metadata file.
+     */
+    private Collection&lt;String&gt; getFromMetaDataFile(File file)
+        throws IOException {
+<span class="nc" id="L377">        FileReader in = null;</span>
+        try {
+<span class="nc" id="L379">            in = new FileReader(file);</span>
+<span class="nc" id="L380">            return getFromMetaData(in);</span>
+        } finally {
+<span class="nc bnc" id="L382" title="All 2 branches missed.">            if (in != null)</span>
+                try {
+<span class="nc" id="L384">                    in.close();</span>
+<span class="nc" id="L385">                } catch (IOException ioe) {</span>
+<span class="nc" id="L386">                }</span>
+        }
+    }
+
+    /**
+     * Returns the classes named in the given common format metadata stream.
+     */
+    private Collection&lt;String&gt; getFromMetaData(Reader xml) throws IOException {
+<span class="nc" id="L394">        Collection&lt;String&gt; names = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L395">        BufferedReader in = new BufferedReader(xml);</span>
+
+<span class="nc" id="L397">        boolean comment = false;</span>
+<span class="nc" id="L398">        int token = TOKEN_NONE;</span>
+<span class="nc" id="L399">        String pkg = &quot;&quot;;</span>
+        String name;
+        read:
+<span class="nc" id="L402">        for (int ch = 0, last = 0, last2 = 0;</span>
+<span class="nc bnc" id="L403" title="All 4 branches missed.">            ch == '&lt;' || (ch = in.read()) != -1; last2 = last, last = ch) {</span>
+            // handle comments
+<span class="nc bnc" id="L405" title="All 8 branches missed.">            if (comment &amp;&amp; last2 == '-' &amp;&amp; last == '-' &amp;&amp; ch == '&gt;') {</span>
+<span class="nc" id="L406">                comment = false;</span>
+<span class="nc" id="L407">                continue;</span>
+            }
+<span class="nc bnc" id="L409" title="All 2 branches missed.">            if (comment) {</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">                if (ch == '&lt;') {</span>
+<span class="nc" id="L411">                    ch = in.read();</span>
+<span class="nc bnc" id="L412" title="All 2 branches missed.">                    if (ch == -1)</span>
+<span class="nc" id="L413">                        break read;</span>
+                }
+                continue;
+            }
+<span class="nc bnc" id="L417" title="All 6 branches missed.">            if (last2 == '&lt;' &amp;&amp; last == '!' &amp;&amp; ch == '-') {</span>
+<span class="nc" id="L418">                comment = true;</span>
+<span class="nc" id="L419">                continue;</span>
+            }
+
+            // if not an element start, skip it
+<span class="nc bnc" id="L423" title="All 2 branches missed.">            if (ch != '&lt;')</span>
+<span class="nc" id="L424">                continue;</span>
+<span class="nc" id="L425">            token = TOKEN_NONE; // reset token</span>
+<span class="nc" id="L426">            last = ch; // update needed for comment detection</span>
+<span class="nc" id="L427">            ch = readThroughWhitespace(in);</span>
+<span class="nc bnc" id="L428" title="All 6 branches missed.">            if (ch == '/' || ch == '!' || ch == '?')</span>
+<span class="nc" id="L429">                continue;</span>
+
+            // read element name; look for packages and classes
+<span class="nc" id="L432">            token = readElementToken(ch, in);</span>
+<span class="nc bnc" id="L433" title="All 6 branches missed.">            switch (token) {</span>
+                case TOKEN_EOF:
+<span class="nc" id="L435">                    break read;</span>
+                case TOKEN_PACKAGE:
+<span class="nc" id="L437">                    pkg = readAttribute(in, _packageAttr);</span>
+<span class="nc bnc" id="L438" title="All 2 branches missed.">                    if (pkg == null)</span>
+<span class="nc" id="L439">                        break read;</span>
+                    break;
+                case TOKEN_PACKAGE_NOATTR:
+<span class="nc" id="L442">                    pkg = readElementText(in);</span>
+<span class="nc bnc" id="L443" title="All 2 branches missed.">                    if (pkg == null)</span>
+<span class="nc" id="L444">                        break read;</span>
+<span class="nc" id="L445">                    ch = '&lt;'; // reading element text reads to next '&lt;'</span>
+<span class="nc" id="L446">                    break;</span>
+                case TOKEN_CLASS:
+<span class="nc" id="L448">                    name = readAttribute(in, _classAttr);</span>
+<span class="nc bnc" id="L449" title="All 2 branches missed.">                    if (name == null)</span>
+<span class="nc" id="L450">                        break read;</span>
+<span class="nc bnc" id="L451" title="All 4 branches missed.">                    if (pkg.length() &gt; 0 &amp;&amp; name.indexOf('.') == -1)</span>
+<span class="nc" id="L452">                        names.add(pkg + &quot;.&quot; + name);</span>
+                    else
+<span class="nc" id="L454">                        names.add(name);</span>
+<span class="nc" id="L455">                    break;</span>
+                case TOKEN_CLASS_NOATTR:
+<span class="nc" id="L457">                    name = readElementText(in);</span>
+<span class="nc bnc" id="L458" title="All 2 branches missed.">                    if (name == null)</span>
+<span class="nc" id="L459">                        break read;</span>
+<span class="nc" id="L460">                    ch = '&lt;'; // reading element text reads to next '&lt;'</span>
+<span class="nc bnc" id="L461" title="All 4 branches missed.">                    if (pkg.length() &gt; 0 &amp;&amp; name.indexOf('.') == -1)</span>
+<span class="nc" id="L462">                        names.add(pkg + &quot;.&quot; + name);</span>
+                    else
+<span class="nc" id="L464">                        names.add(name);</span>
+                    break;
+            }
+        }
+<span class="nc" id="L468">        return names;</span>
+    }
+
+    /**
+     * Read the name of the current XML element and return the matching token.
+     */
+    private int readElementToken(int ch, Reader in) throws IOException {
+        // look through the beginning element names to find what element this
+        // might be(if any)
+<span class="nc" id="L477">        int matchIdx = -1;</span>
+<span class="nc" id="L478">        int matched = 0;</span>
+<span class="nc" id="L479">        int dq = 0;</span>
+<span class="nc bnc" id="L480" title="All 2 branches missed.">        for (int beginIdx = 0; beginIdx &lt; _beginElements[0].length; beginIdx++)</span>
+        {
+<span class="nc bnc" id="L482" title="All 2 branches missed.">            if (beginIdx != 0)</span>
+<span class="nc" id="L483">                ch = in.read();</span>
+<span class="nc bnc" id="L484" title="All 2 branches missed.">            if (ch == -1)</span>
+<span class="nc" id="L485">                return TOKEN_EOF;</span>
+
+<span class="nc" id="L487">            matched = 0;</span>
+<span class="nc bnc" id="L488" title="All 2 branches missed.">            for (int i = 0; i &lt; _beginElements.length; i++) {</span>
+<span class="nc bnc" id="L489" title="All 2 branches missed.">                if ((dq &amp; (2 &lt;&lt; i)) != 0)</span>
+<span class="nc" id="L490">                    continue;</span>
+
+<span class="nc bnc" id="L492" title="All 2 branches missed.">                if (ch == _beginElements[i][beginIdx]) {</span>
+<span class="nc" id="L493">                    matchIdx = i;</span>
+<span class="nc" id="L494">                    matched++;</span>
+                } else
+<span class="nc" id="L496">                    dq |= 2 &lt;&lt; i;</span>
+            }
+
+<span class="nc bnc" id="L499" title="All 2 branches missed.">            if (matched == 0)</span>
+<span class="nc" id="L500">                break;</span>
+        }
+<span class="nc bnc" id="L502" title="All 2 branches missed.">        if (matched != 1)</span>
+<span class="nc" id="L503">            return TOKEN_NONE;</span>
+
+        // make sure the rest of the element name matches
+<span class="nc" id="L506">        char[] match = _endElements[matchIdx];</span>
+<span class="nc bnc" id="L507" title="All 2 branches missed.">        for (char c : match) {</span>
+<span class="nc" id="L508">            ch = in.read();</span>
+<span class="nc bnc" id="L509" title="All 2 branches missed.">            if (ch == -1)</span>
+<span class="nc" id="L510">                return TOKEN_EOF;</span>
+<span class="nc bnc" id="L511" title="All 2 branches missed.">            if (ch != c)</span>
+<span class="nc" id="L512">                return TOKEN_NONE;</span>
+        }
+
+        // read the next char to make sure we finished the element name
+<span class="nc" id="L516">        ch = in.read();</span>
+<span class="nc bnc" id="L517" title="All 2 branches missed.">        if (ch == -1)</span>
+<span class="nc" id="L518">            return TOKEN_EOF;</span>
+<span class="nc bnc" id="L519" title="All 2 branches missed.">        if (ch == '&gt;') {</span>
+<span class="nc bnc" id="L520" title="All 4 branches missed.">            if (matchIdx == 0 &amp;&amp; _packageAttr == null)</span>
+<span class="nc" id="L521">                return TOKEN_PACKAGE_NOATTR;</span>
+<span class="nc bnc" id="L522" title="All 4 branches missed.">            if (matchIdx != 0 &amp;&amp; _classAttr == null)</span>
+<span class="nc" id="L523">                return TOKEN_CLASS_NOATTR;</span>
+<span class="nc bnc" id="L524" title="All 2 branches missed.">        } else if (Character.isWhitespace((char) ch)) {</span>
+<span class="nc bnc" id="L525" title="All 4 branches missed.">            if (matchIdx == 0 &amp;&amp; _packageAttr != null)</span>
+<span class="nc" id="L526">                return TOKEN_PACKAGE;</span>
+<span class="nc bnc" id="L527" title="All 4 branches missed.">            if (matchIdx != 0 &amp;&amp; _classAttr != null)</span>
+<span class="nc" id="L528">                return TOKEN_CLASS;</span>
+        }
+<span class="nc" id="L530">        return TOKEN_NONE;</span>
+    }
+
+    /**
+     * Read the attribute with the given name in chars of the current XML
+     * element.
+     */
+    private String readAttribute(Reader in, char[] name) throws IOException {
+<span class="nc" id="L538">        int expected = 0;</span>
+<span class="nc" id="L539">        for (int ch, last = 0; true; last = ch) {</span>
+<span class="nc" id="L540">            ch = in.read();</span>
+<span class="nc bnc" id="L541" title="All 2 branches missed.">            if (ch == -1)</span>
+<span class="nc" id="L542">                return null;</span>
+<span class="nc bnc" id="L543" title="All 2 branches missed.">            if (ch == '&gt;')</span>
+<span class="nc" id="L544">                return &quot;&quot;;</span>
+
+            // if not expected char or still looking for 'n' and previous
+            // char is not whitespace, keep looking
+<span class="nc bnc" id="L548" title="All 6 branches missed.">            if (ch != name[expected] || (expected == 0 &amp;&amp; last != 0</span>
+<span class="nc bnc" id="L549" title="All 2 branches missed.">                &amp;&amp; !Character.isWhitespace((char) last))) {</span>
+<span class="nc" id="L550">                expected = 0;</span>
+<span class="nc" id="L551">                continue;</span>
+            }
+
+            // found expected char; have we found the whole &quot;name&quot;?
+<span class="nc" id="L555">            expected++;</span>
+<span class="nc bnc" id="L556" title="All 2 branches missed.">            if (expected == name.length) {</span>
+                // make sure the next char is '='
+<span class="nc" id="L558">                ch = readThroughWhitespace(in);</span>
+<span class="nc bnc" id="L559" title="All 2 branches missed.">                if (ch == -1)</span>
+<span class="nc" id="L560">                    return null;</span>
+<span class="nc bnc" id="L561" title="All 2 branches missed.">                if (ch != '=') {</span>
+<span class="nc" id="L562">                    expected = 0;</span>
+<span class="nc" id="L563">                    continue;</span>
+                }
+
+                // toss out any subsequent whitespace and the next char, which
+                // is the opening quote for the attr value, then read until the
+                // closing quote
+<span class="nc" id="L569">                readThroughWhitespace(in);</span>
+<span class="nc" id="L570">                return readAttributeValue(in);</span>
+            }
+        }
+    }
+
+    /**
+     * Read the current text value until the next element.
+     */
+    private String readElementText(Reader in) throws IOException {
+<span class="nc" id="L579">        StringBuilder buf = null;</span>
+        int ch;
+        while (true) {
+<span class="nc" id="L582">            ch = in.read();</span>
+<span class="nc bnc" id="L583" title="All 2 branches missed.">            if (ch == -1)</span>
+<span class="nc" id="L584">                return null;</span>
+<span class="nc bnc" id="L585" title="All 2 branches missed.">            if (ch == '&lt;')</span>
+<span class="nc" id="L586">                break;</span>
+<span class="nc bnc" id="L587" title="All 2 branches missed.">            if (Character.isWhitespace((char) ch))</span>
+<span class="nc" id="L588">                continue;</span>
+<span class="nc bnc" id="L589" title="All 2 branches missed.">            if (buf == null)</span>
+<span class="nc" id="L590">                buf = new StringBuilder();</span>
+<span class="nc" id="L591">            buf.append((char) ch);</span>
+        }
+<span class="nc bnc" id="L593" title="All 2 branches missed.">        return (buf == null) ? &quot;&quot; : buf.toString();</span>
+    }
+
+    /**
+     * Read until the next non-whitespace character.
+     */
+    private int readThroughWhitespace(Reader in) throws IOException {
+        int ch;
+        while (true) {
+<span class="nc" id="L602">            ch = in.read();</span>
+<span class="nc bnc" id="L603" title="All 4 branches missed.">            if (ch == -1 || !Character.isWhitespace((char) ch))</span>
+<span class="nc" id="L604">                return ch;</span>
+        }
+    }
+
+    /**
+     * Return the current attribute value.
+     */
+    private String readAttributeValue(Reader in) throws IOException {
+<span class="nc" id="L612">        StringBuilder buf = new StringBuilder();</span>
+        int ch;
+        while (true) {
+<span class="nc" id="L615">            ch = in.read();</span>
+<span class="nc bnc" id="L616" title="All 2 branches missed.">            if (ch == -1)</span>
+<span class="nc" id="L617">                return null;</span>
+<span class="nc bnc" id="L618" title="All 4 branches missed.">            if (ch == '\'' || ch == '&quot;')</span>
+<span class="nc" id="L619">                return buf.toString();</span>
+<span class="nc" id="L620">            buf.append((char) ch);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>AbstractConcurrentEventManager.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util.concurrent</a> &gt; <span class="el_source">AbstractConcurrentEventManager.java</span></div><h1>AbstractConcurrentEventManager.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util.concurrent;
+
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import org.apache.openjpa.lib.util.EventManager;
+
+/**
+ * Base event manager that handles adding/removing listeners
+ * and firing events. Meant for high concurrency. This class is
+ * reentrant-safe; listeners can be added and removed by other listeners when
+ * they receive events. The changes will not be visible until the event fire
+ * that initiated the recursive sequence of calls completes, however.
+ *
+ * @author Abe White
+ */
+public abstract class AbstractConcurrentEventManager
+    implements EventManager, Serializable {
+
+    
+    private static final long serialVersionUID = 1L;
+
+<span class="nc" id="L46">    private static final Exception[] EMPTY_EXCEPTIONS = new Exception[0];</span>
+
+    protected final Collection _listeners;
+<span class="nc" id="L49">    private boolean _failFast = false;</span>
+
+    /**
+     * Default constructor.
+     */
+<span class="nc" id="L54">    public AbstractConcurrentEventManager() {</span>
+<span class="nc" id="L55">        _listeners = newListenerCollection();</span>
+<span class="nc" id="L56">    }</span>
+
+    /**
+     * Whether to fail after the first exception thrown by any listener.
+     */
+    public boolean isFailFast() {
+<span class="nc" id="L62">        return _failFast;</span>
+    }
+
+    /**
+     * Whether to fail after the first exception thrown by any listener.
+     */
+    public void setFailFast(boolean failFast) {
+<span class="nc" id="L69">        _failFast = failFast;</span>
+<span class="nc" id="L70">    }</span>
+
+    /**
+     * Register an event listener.
+     */
+    @Override
+    public void addListener(Object listener) {
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        if (listener != null)</span>
+<span class="nc" id="L78">            _listeners.add(listener);</span>
+<span class="nc" id="L79">    }</span>
+
+    /**
+     * Remove an event listener.
+     */
+    @Override
+    public boolean removeListener(Object listener) {
+<span class="nc" id="L86">        return _listeners.remove(listener);</span>
+    }
+
+    /**
+     * Return whether the given instance is in the list of listeners.
+     */
+    @Override
+    public boolean hasListener(Object listener) {
+<span class="nc" id="L94">        return _listeners.contains(listener);</span>
+    }
+
+    /**
+     * Return true if there are any registered listeners.
+     */
+    @Override
+    public boolean hasListeners() {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        return !_listeners.isEmpty();</span>
+    }
+
+    /**
+     * Return a read-only list of listeners.
+     */
+    @Override
+    public Collection getListeners() {
+<span class="nc" id="L110">        return Collections.unmodifiableCollection(_listeners);</span>
+    }
+
+    /**
+     * Fire the given event to all listeners.
+     */
+    @Override
+    public Exception[] fireEvent(Object event) {
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        if (_listeners.isEmpty())</span>
+<span class="nc" id="L119">            return EMPTY_EXCEPTIONS;</span>
+
+<span class="nc" id="L121">        List exceptions = null;</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        for (Iterator itr = _listeners.iterator(); itr.hasNext();) {</span>
+            try {
+<span class="nc" id="L124">                fireEvent(event, itr.next());</span>
+<span class="nc" id="L125">            } catch (Exception e) {</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">                if (_failFast)</span>
+<span class="nc" id="L127">                    return new Exception[] { e };</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">                if (exceptions == null)</span>
+<span class="nc" id="L129">                    exceptions = new LinkedList();</span>
+<span class="nc" id="L130">                exceptions.add(e);</span>
+<span class="nc" id="L131">            }</span>
+        }
+
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        if (exceptions == null)</span>
+<span class="nc" id="L135">            return EMPTY_EXCEPTIONS;</span>
+<span class="nc" id="L136">        return (Exception[]) exceptions.toArray</span>
+<span class="nc" id="L137">            (new Exception[exceptions.size()]);</span>
+    }
+
+    /**
+     * Implement this method to fire the given event to the given listener.
+     */
+    protected abstract void fireEvent(Object event, Object listener)
+        throws Exception;
+
+    /**
+     * Return a new concurrent container for listeners. Uses a
+     * {@link CopyOnWriteArrayList} by default.
+     */
+    protected Collection newListenerCollection() {
+<span class="nc" id="L151">        return new CopyOnWriteArrayList();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

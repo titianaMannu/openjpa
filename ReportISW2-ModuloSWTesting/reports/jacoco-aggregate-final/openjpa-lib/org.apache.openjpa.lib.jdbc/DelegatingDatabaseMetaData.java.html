@@ -1,0 +1,1016 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>DelegatingDatabaseMetaData.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.jdbc</a> &gt; <span class="el_source">DelegatingDatabaseMetaData.java</span></div><h1>DelegatingDatabaseMetaData.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.jdbc;
+
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.RowIdLifetime;
+import java.sql.SQLException;
+
+/**
+ * Wrapper around a DatabaseMetaData instance.
+ *
+ * @author Marc Prud'hommeaux
+ */
+public class DelegatingDatabaseMetaData implements DatabaseMetaData {
+
+    private final DatabaseMetaData _metaData;
+    private final Connection _conn;
+
+    public DelegatingDatabaseMetaData(DatabaseMetaData metaData,
+<span class="nc" id="L38">        Connection conn) {</span>
+<span class="nc" id="L39">        _conn = conn;</span>
+<span class="nc" id="L40">        _metaData = metaData;</span>
+<span class="nc" id="L41">    }</span>
+
+    /**
+     * Return the base underlying database metadata.
+     */
+    public DatabaseMetaData getInnermostDelegate() {
+<span class="nc bnc" id="L47" title="All 2 branches missed.">        return _metaData instanceof DelegatingDatabaseMetaData ?</span>
+<span class="nc" id="L48">            ((DelegatingDatabaseMetaData) _metaData).getInnermostDelegate()</span>
+            : _metaData;
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L54">        return getInnermostDelegate().hashCode();</span>
+    }
+
+    @Override
+    public boolean equals(Object other) {
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        if (other == this)</span>
+<span class="nc" id="L60">            return true;</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        if (other instanceof DelegatingDatabaseMetaData)</span>
+<span class="nc" id="L62">            other = ((DelegatingDatabaseMetaData) other)</span>
+<span class="nc" id="L63">                .getInnermostDelegate();</span>
+<span class="nc" id="L64">        return getInnermostDelegate().equals(other);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L69">        StringBuilder buf = new StringBuilder(&quot;metadata &quot;).append(hashCode());</span>
+<span class="nc" id="L70">        buf.append(&quot;[&quot;).append(_metaData.toString()).append(&quot;]&quot;);</span>
+<span class="nc" id="L71">        return buf.toString();</span>
+    }
+
+    @Override
+    public boolean allProceduresAreCallable() throws SQLException {
+<span class="nc" id="L76">        return _metaData.allProceduresAreCallable();</span>
+    }
+
+    @Override
+    public boolean allTablesAreSelectable() throws SQLException {
+<span class="nc" id="L81">        return _metaData.allTablesAreSelectable();</span>
+    }
+
+    @Override
+    public boolean dataDefinitionCausesTransactionCommit() throws SQLException {
+<span class="nc" id="L86">        return _metaData.dataDefinitionCausesTransactionCommit();</span>
+    }
+
+    @Override
+    public boolean dataDefinitionIgnoredInTransactions() throws SQLException {
+<span class="nc" id="L91">        return _metaData.dataDefinitionIgnoredInTransactions();</span>
+    }
+
+    @Override
+    public boolean deletesAreDetected(int type) throws SQLException {
+<span class="nc" id="L96">        return _metaData.deletesAreDetected(type);</span>
+    }
+
+    @Override
+    public boolean doesMaxRowSizeIncludeBlobs() throws SQLException {
+<span class="nc" id="L101">        return _metaData.doesMaxRowSizeIncludeBlobs();</span>
+    }
+
+    @Override
+    public ResultSet getBestRowIdentifier(String catalog,
+        String schema, String table, int scope, boolean nullable)
+        throws SQLException {
+<span class="nc" id="L108">        return _metaData.getBestRowIdentifier(catalog, schema,</span>
+            table, scope, nullable);
+    }
+
+    @Override
+    public ResultSet getCatalogs() throws SQLException {
+<span class="nc" id="L114">        return _metaData.getCatalogs();</span>
+    }
+
+    @Override
+    public String getCatalogSeparator() throws SQLException {
+<span class="nc" id="L119">        return _metaData.getCatalogSeparator();</span>
+    }
+
+    @Override
+    public String getCatalogTerm() throws SQLException {
+<span class="nc" id="L124">        return _metaData.getCatalogTerm();</span>
+    }
+
+    @Override
+    public ResultSet getColumnPrivileges(String catalog, String schema,
+        String table, String columnNamePattern) throws SQLException {
+<span class="nc" id="L130">        return _metaData.getColumnPrivileges(catalog, schema,</span>
+            table, columnNamePattern);
+    }
+
+    @Override
+    public ResultSet getColumns(String catalog, String schemaPattern,
+        String tableNamePattern, String columnNamePattern) throws SQLException {
+<span class="nc" id="L137">        return _metaData.getColumns(catalog, schemaPattern,</span>
+            tableNamePattern, columnNamePattern);
+    }
+
+    @Override
+    public Connection getConnection() throws SQLException {
+<span class="nc" id="L143">        return _conn;</span>
+    }
+
+    @Override
+    public ResultSet getCrossReference(String primaryCatalog,
+        String primarySchema, String primaryTable, String foreignCatalog,
+        String foreignSchema, String foreignTable) throws SQLException {
+<span class="nc" id="L150">        return _metaData.getCrossReference(primaryCatalog, primarySchema,</span>
+            primaryTable, foreignCatalog, foreignSchema, foreignTable);
+    }
+
+    @Override
+    public String getDatabaseProductName() throws SQLException {
+<span class="nc" id="L156">        return _metaData.getDatabaseProductName();</span>
+    }
+
+    @Override
+    public String getDatabaseProductVersion() throws SQLException {
+<span class="nc" id="L161">        return _metaData.getDatabaseProductVersion();</span>
+    }
+
+    @Override
+    public int getDefaultTransactionIsolation() throws SQLException {
+<span class="nc" id="L166">        return _metaData.getDefaultTransactionIsolation();</span>
+    }
+
+    @Override
+    public int getDriverMajorVersion() {
+<span class="nc" id="L171">        return _metaData.getDriverMajorVersion();</span>
+    }
+
+    @Override
+    public int getDriverMinorVersion() {
+<span class="nc" id="L176">        return _metaData.getDriverMinorVersion();</span>
+    }
+
+    @Override
+    public String getDriverName() throws SQLException {
+<span class="nc" id="L181">        return _metaData.getDriverName();</span>
+    }
+
+    @Override
+    public String getDriverVersion() throws SQLException {
+<span class="nc" id="L186">        return _metaData.getDriverVersion();</span>
+    }
+
+    @Override
+    public ResultSet getExportedKeys(String catalog, String schema,
+        String table) throws SQLException {
+<span class="nc" id="L192">        return _metaData.getExportedKeys(catalog, schema, table);</span>
+    }
+
+    @Override
+    public String getExtraNameCharacters() throws SQLException {
+<span class="nc" id="L197">        return _metaData.getExtraNameCharacters();</span>
+    }
+
+    @Override
+    public String getIdentifierQuoteString() throws SQLException {
+<span class="nc" id="L202">        return _metaData.getIdentifierQuoteString();</span>
+    }
+
+    @Override
+    public ResultSet getImportedKeys(String catalog, String schema,
+        String table) throws SQLException {
+<span class="nc" id="L208">        return _metaData.getImportedKeys(catalog, schema, table);</span>
+    }
+
+    @Override
+    public ResultSet getIndexInfo(String catalog, String schema,
+        String table, boolean unique, boolean approximate) throws SQLException {
+<span class="nc" id="L214">        return _metaData.getIndexInfo(catalog, schema, table, unique,</span>
+            approximate);
+    }
+
+    @Override
+    public int getMaxBinaryLiteralLength() throws SQLException {
+<span class="nc" id="L220">        return _metaData.getMaxBinaryLiteralLength();</span>
+    }
+
+    @Override
+    public int getMaxCatalogNameLength() throws SQLException {
+<span class="nc" id="L225">        return _metaData.getMaxCatalogNameLength();</span>
+    }
+
+    @Override
+    public int getMaxCharLiteralLength() throws SQLException {
+<span class="nc" id="L230">        return _metaData.getMaxCharLiteralLength();</span>
+    }
+
+    @Override
+    public int getMaxColumnNameLength() throws SQLException {
+<span class="nc" id="L235">        return _metaData.getMaxColumnNameLength();</span>
+    }
+
+    @Override
+    public int getMaxColumnsInGroupBy() throws SQLException {
+<span class="nc" id="L240">        return _metaData.getMaxColumnsInGroupBy();</span>
+    }
+
+    @Override
+    public int getMaxColumnsInIndex() throws SQLException {
+<span class="nc" id="L245">        return _metaData.getMaxColumnsInIndex();</span>
+    }
+
+    @Override
+    public int getMaxColumnsInOrderBy() throws SQLException {
+<span class="nc" id="L250">        return _metaData.getMaxColumnsInOrderBy();</span>
+    }
+
+    @Override
+    public int getMaxColumnsInSelect() throws SQLException {
+<span class="nc" id="L255">        return _metaData.getMaxColumnsInSelect();</span>
+    }
+
+    @Override
+    public int getMaxColumnsInTable() throws SQLException {
+<span class="nc" id="L260">        return _metaData.getMaxColumnsInTable();</span>
+    }
+
+    @Override
+    public int getMaxConnections() throws SQLException {
+<span class="nc" id="L265">        return _metaData.getMaxConnections();</span>
+    }
+
+    @Override
+    public int getMaxCursorNameLength() throws SQLException {
+<span class="nc" id="L270">        return _metaData.getMaxCursorNameLength();</span>
+    }
+
+    @Override
+    public int getMaxIndexLength() throws SQLException {
+<span class="nc" id="L275">        return _metaData.getMaxIndexLength();</span>
+    }
+
+    @Override
+    public int getMaxProcedureNameLength() throws SQLException {
+<span class="nc" id="L280">        return _metaData.getMaxProcedureNameLength();</span>
+    }
+
+    @Override
+    public int getMaxRowSize() throws SQLException {
+<span class="nc" id="L285">        return _metaData.getMaxRowSize();</span>
+    }
+
+    @Override
+    public int getMaxSchemaNameLength() throws SQLException {
+<span class="nc" id="L290">        return _metaData.getMaxSchemaNameLength();</span>
+    }
+
+    @Override
+    public int getMaxStatementLength() throws SQLException {
+<span class="nc" id="L295">        return _metaData.getMaxStatementLength();</span>
+    }
+
+    @Override
+    public int getMaxStatements() throws SQLException {
+<span class="nc" id="L300">        return _metaData.getMaxStatements();</span>
+    }
+
+    @Override
+    public int getMaxTableNameLength() throws SQLException {
+<span class="nc" id="L305">        return _metaData.getMaxTableNameLength();</span>
+    }
+
+    @Override
+    public int getMaxTablesInSelect() throws SQLException {
+<span class="nc" id="L310">        return _metaData.getMaxTablesInSelect();</span>
+    }
+
+    @Override
+    public int getMaxUserNameLength() throws SQLException {
+<span class="nc" id="L315">        return _metaData.getMaxUserNameLength();</span>
+    }
+
+    @Override
+    public String getNumericFunctions() throws SQLException {
+<span class="nc" id="L320">        return _metaData.getNumericFunctions();</span>
+    }
+
+    @Override
+    public ResultSet getPrimaryKeys(String catalog, String schema, String table)
+        throws SQLException {
+<span class="nc" id="L326">        return _metaData.getPrimaryKeys(catalog, schema, table);</span>
+    }
+
+    @Override
+    public ResultSet getProcedureColumns(String catalog, String schemaPattern,
+        String procedureNamePattern, String columnNamePattern)
+        throws SQLException {
+<span class="nc" id="L333">        return _metaData.getProcedureColumns(catalog, schemaPattern,</span>
+            procedureNamePattern, columnNamePattern);
+    }
+
+    @Override
+    public ResultSet getProcedures(String catalog, String schemaPattern,
+        String procedureNamePattern) throws SQLException {
+<span class="nc" id="L340">        return _metaData.getProcedures(catalog, schemaPattern,</span>
+            procedureNamePattern);
+    }
+
+    @Override
+    public String getProcedureTerm() throws SQLException {
+<span class="nc" id="L346">        return _metaData.getProcedureTerm();</span>
+    }
+
+    @Override
+    public ResultSet getSchemas() throws SQLException {
+<span class="nc" id="L351">        return _metaData.getSchemas();</span>
+    }
+
+    @Override
+    public String getSchemaTerm() throws SQLException {
+<span class="nc" id="L356">        return _metaData.getSchemaTerm();</span>
+    }
+
+    @Override
+    public String getSearchStringEscape() throws SQLException {
+<span class="nc" id="L361">        return _metaData.getSearchStringEscape();</span>
+    }
+
+    @Override
+    public String getSQLKeywords() throws SQLException {
+<span class="nc" id="L366">        return _metaData.getSQLKeywords();</span>
+    }
+
+    @Override
+    public String getStringFunctions() throws SQLException {
+<span class="nc" id="L371">        return _metaData.getStringFunctions();</span>
+    }
+
+    @Override
+    public String getSystemFunctions() throws SQLException {
+<span class="nc" id="L376">        return _metaData.getSystemFunctions();</span>
+    }
+
+    @Override
+    public ResultSet getTablePrivileges(String catalog,
+        String schemaPattern, String tableNamePattern) throws SQLException {
+<span class="nc" id="L382">        return _metaData.getTablePrivileges(catalog, schemaPattern,</span>
+            tableNamePattern);
+    }
+
+    @Override
+    public ResultSet getTables(String catalog, String schemaPattern,
+        String tableNamePattern, String[] types) throws SQLException {
+<span class="nc" id="L389">        return _metaData.getTables(catalog, schemaPattern,</span>
+            tableNamePattern, types);
+    }
+
+    @Override
+    public ResultSet getTableTypes() throws SQLException {
+<span class="nc" id="L395">        return _metaData.getTableTypes();</span>
+    }
+
+    @Override
+    public String getTimeDateFunctions() throws SQLException {
+<span class="nc" id="L400">        return _metaData.getTimeDateFunctions();</span>
+    }
+
+    @Override
+    public ResultSet getTypeInfo() throws SQLException {
+<span class="nc" id="L405">        return _metaData.getTypeInfo();</span>
+    }
+
+    @Override
+    public ResultSet getUDTs(String catalog, String schemaPattern,
+        String typeNamePattern, int[] types) throws SQLException {
+<span class="nc" id="L411">        return _metaData.getUDTs(catalog, schemaPattern,</span>
+            typeNamePattern, types);
+    }
+
+    @Override
+    public String getURL() throws SQLException {
+<span class="nc" id="L417">        return _metaData.getURL();</span>
+    }
+
+    @Override
+    public String getUserName() throws SQLException {
+<span class="nc" id="L422">        return _metaData.getUserName();</span>
+    }
+
+    @Override
+    public ResultSet getVersionColumns(String catalog,
+        String schema, String table) throws SQLException {
+<span class="nc" id="L428">        return _metaData.getVersionColumns(catalog, schema, table);</span>
+    }
+
+    @Override
+    public boolean insertsAreDetected(int type) throws SQLException {
+<span class="nc" id="L433">        return _metaData.insertsAreDetected(type);</span>
+    }
+
+    @Override
+    public boolean isCatalogAtStart() throws SQLException {
+<span class="nc" id="L438">        return _metaData.isCatalogAtStart();</span>
+    }
+
+    @Override
+    public boolean isReadOnly() throws SQLException {
+<span class="nc" id="L443">        return _metaData.isReadOnly();</span>
+    }
+
+    @Override
+    public boolean nullPlusNonNullIsNull() throws SQLException {
+<span class="nc" id="L448">        return _metaData.nullPlusNonNullIsNull();</span>
+    }
+
+    @Override
+    public boolean nullsAreSortedAtEnd() throws SQLException {
+<span class="nc" id="L453">        return _metaData.nullsAreSortedAtEnd();</span>
+    }
+
+    @Override
+    public boolean nullsAreSortedAtStart() throws SQLException {
+<span class="nc" id="L458">        return _metaData.nullsAreSortedAtStart();</span>
+    }
+
+    @Override
+    public boolean nullsAreSortedHigh() throws SQLException {
+<span class="nc" id="L463">        return _metaData.nullsAreSortedHigh();</span>
+    }
+
+    @Override
+    public boolean nullsAreSortedLow() throws SQLException {
+<span class="nc" id="L468">        return _metaData.nullsAreSortedLow();</span>
+    }
+
+    @Override
+    public boolean othersDeletesAreVisible(int type) throws SQLException {
+<span class="nc" id="L473">        return _metaData.othersDeletesAreVisible(type);</span>
+    }
+
+    @Override
+    public boolean othersInsertsAreVisible(int type) throws SQLException {
+<span class="nc" id="L478">        return _metaData.othersInsertsAreVisible(type);</span>
+    }
+
+    @Override
+    public boolean othersUpdatesAreVisible(int type) throws SQLException {
+<span class="nc" id="L483">        return _metaData.othersUpdatesAreVisible(type);</span>
+    }
+
+    @Override
+    public boolean ownDeletesAreVisible(int type) throws SQLException {
+<span class="nc" id="L488">        return _metaData.ownDeletesAreVisible(type);</span>
+    }
+
+    @Override
+    public boolean ownInsertsAreVisible(int type) throws SQLException {
+<span class="nc" id="L493">        return _metaData.ownInsertsAreVisible(type);</span>
+    }
+
+    @Override
+    public boolean ownUpdatesAreVisible(int type) throws SQLException {
+<span class="nc" id="L498">        return _metaData.ownUpdatesAreVisible(type);</span>
+    }
+
+    @Override
+    public boolean storesLowerCaseIdentifiers() throws SQLException {
+<span class="nc" id="L503">        return _metaData.storesLowerCaseIdentifiers();</span>
+    }
+
+    @Override
+    public boolean storesLowerCaseQuotedIdentifiers() throws SQLException {
+<span class="nc" id="L508">        return _metaData.storesLowerCaseQuotedIdentifiers();</span>
+    }
+
+    @Override
+    public boolean storesMixedCaseIdentifiers() throws SQLException {
+<span class="nc" id="L513">        return _metaData.storesMixedCaseIdentifiers();</span>
+    }
+
+    @Override
+    public boolean storesMixedCaseQuotedIdentifiers() throws SQLException {
+<span class="nc" id="L518">        return _metaData.storesMixedCaseQuotedIdentifiers();</span>
+    }
+
+    @Override
+    public boolean storesUpperCaseIdentifiers() throws SQLException {
+<span class="nc" id="L523">        return _metaData.storesUpperCaseIdentifiers();</span>
+    }
+
+    @Override
+    public boolean storesUpperCaseQuotedIdentifiers() throws SQLException {
+<span class="nc" id="L528">        return _metaData.storesUpperCaseQuotedIdentifiers();</span>
+    }
+
+    @Override
+    public boolean supportsAlterTableWithAddColumn() throws SQLException {
+<span class="nc" id="L533">        return _metaData.supportsAlterTableWithAddColumn();</span>
+    }
+
+    @Override
+    public boolean supportsAlterTableWithDropColumn() throws SQLException {
+<span class="nc" id="L538">        return _metaData.supportsAlterTableWithDropColumn();</span>
+    }
+
+    @Override
+    public boolean supportsANSI92EntryLevelSQL() throws SQLException {
+<span class="nc" id="L543">        return _metaData.supportsANSI92EntryLevelSQL();</span>
+    }
+
+    @Override
+    public boolean supportsANSI92FullSQL() throws SQLException {
+<span class="nc" id="L548">        return _metaData.supportsANSI92FullSQL();</span>
+    }
+
+    @Override
+    public boolean supportsANSI92IntermediateSQL() throws SQLException {
+<span class="nc" id="L553">        return _metaData.supportsANSI92IntermediateSQL();</span>
+    }
+
+    @Override
+    public boolean supportsBatchUpdates() throws SQLException {
+<span class="nc" id="L558">        return _metaData.supportsBatchUpdates();</span>
+    }
+
+    @Override
+    public boolean supportsCatalogsInDataManipulation() throws SQLException {
+<span class="nc" id="L563">        return _metaData.supportsCatalogsInDataManipulation();</span>
+    }
+
+    @Override
+    public boolean supportsCatalogsInIndexDefinitions() throws SQLException {
+<span class="nc" id="L568">        return _metaData.supportsCatalogsInIndexDefinitions();</span>
+    }
+
+    @Override
+    public boolean supportsCatalogsInPrivilegeDefinitions()
+        throws SQLException {
+<span class="nc" id="L574">        return _metaData.supportsCatalogsInPrivilegeDefinitions();</span>
+    }
+
+    @Override
+    public boolean supportsCatalogsInProcedureCalls() throws SQLException {
+<span class="nc" id="L579">        return _metaData.supportsCatalogsInProcedureCalls();</span>
+    }
+
+    @Override
+    public boolean supportsCatalogsInTableDefinitions() throws SQLException {
+<span class="nc" id="L584">        return _metaData.supportsCatalogsInTableDefinitions();</span>
+    }
+
+    @Override
+    public boolean supportsColumnAliasing() throws SQLException {
+<span class="nc" id="L589">        return _metaData.supportsColumnAliasing();</span>
+    }
+
+    @Override
+    public boolean supportsConvert() throws SQLException {
+<span class="nc" id="L594">        return _metaData.supportsConvert();</span>
+    }
+
+    @Override
+    public boolean supportsConvert(int fromType, int toType)
+        throws SQLException {
+<span class="nc" id="L600">        return _metaData.supportsConvert(fromType, toType);</span>
+    }
+
+    @Override
+    public boolean supportsCoreSQLGrammar() throws SQLException {
+<span class="nc" id="L605">        return _metaData.supportsCoreSQLGrammar();</span>
+    }
+
+    @Override
+    public boolean supportsCorrelatedSubqueries() throws SQLException {
+<span class="nc" id="L610">        return _metaData.supportsCorrelatedSubqueries();</span>
+    }
+
+    @Override
+    public boolean supportsDataDefinitionAndDataManipulationTransactions()
+        throws SQLException {
+<span class="nc" id="L616">        return _metaData</span>
+<span class="nc" id="L617">            .supportsDataDefinitionAndDataManipulationTransactions();</span>
+    }
+
+    @Override
+    public boolean supportsDataManipulationTransactionsOnly()
+        throws SQLException {
+<span class="nc" id="L623">        return _metaData.supportsDataManipulationTransactionsOnly();</span>
+    }
+
+    @Override
+    public boolean supportsDifferentTableCorrelationNames()
+        throws SQLException {
+<span class="nc" id="L629">        return _metaData.supportsDifferentTableCorrelationNames();</span>
+    }
+
+    @Override
+    public boolean supportsExpressionsInOrderBy() throws SQLException {
+<span class="nc" id="L634">        return _metaData.supportsExpressionsInOrderBy();</span>
+    }
+
+    @Override
+    public boolean supportsExtendedSQLGrammar() throws SQLException {
+<span class="nc" id="L639">        return _metaData.supportsExtendedSQLGrammar();</span>
+    }
+
+    @Override
+    public boolean supportsFullOuterJoins() throws SQLException {
+<span class="nc" id="L644">        return _metaData.supportsFullOuterJoins();</span>
+    }
+
+    @Override
+    public boolean supportsGroupBy() throws SQLException {
+<span class="nc" id="L649">        return _metaData.supportsGroupBy();</span>
+    }
+
+    @Override
+    public boolean supportsGroupByBeyondSelect() throws SQLException {
+<span class="nc" id="L654">        return _metaData.supportsGroupByBeyondSelect();</span>
+    }
+
+    @Override
+    public boolean supportsGroupByUnrelated() throws SQLException {
+<span class="nc" id="L659">        return _metaData.supportsGroupByUnrelated();</span>
+    }
+
+    @Override
+    public boolean supportsIntegrityEnhancementFacility() throws SQLException {
+<span class="nc" id="L664">        return _metaData.supportsIntegrityEnhancementFacility();</span>
+    }
+
+    @Override
+    public boolean supportsLikeEscapeClause() throws SQLException {
+<span class="nc" id="L669">        return _metaData.supportsLikeEscapeClause();</span>
+    }
+
+    @Override
+    public boolean supportsLimitedOuterJoins() throws SQLException {
+<span class="nc" id="L674">        return _metaData.supportsLimitedOuterJoins();</span>
+    }
+
+    @Override
+    public boolean supportsMinimumSQLGrammar() throws SQLException {
+<span class="nc" id="L679">        return _metaData.supportsMinimumSQLGrammar();</span>
+    }
+
+    @Override
+    public boolean supportsMixedCaseIdentifiers() throws SQLException {
+<span class="nc" id="L684">        return _metaData.supportsMixedCaseIdentifiers();</span>
+    }
+
+    @Override
+    public boolean supportsMixedCaseQuotedIdentifiers() throws SQLException {
+<span class="nc" id="L689">        return _metaData.supportsMixedCaseQuotedIdentifiers();</span>
+    }
+
+    @Override
+    public boolean supportsMultipleResultSets() throws SQLException {
+<span class="nc" id="L694">        return _metaData.supportsMultipleResultSets();</span>
+    }
+
+    @Override
+    public boolean supportsMultipleTransactions() throws SQLException {
+<span class="nc" id="L699">        return _metaData.supportsMultipleTransactions();</span>
+    }
+
+    @Override
+    public boolean supportsNonNullableColumns() throws SQLException {
+<span class="nc" id="L704">        return _metaData.supportsNonNullableColumns();</span>
+    }
+
+    @Override
+    public boolean supportsOpenCursorsAcrossCommit() throws SQLException {
+<span class="nc" id="L709">        return _metaData.supportsOpenCursorsAcrossCommit();</span>
+    }
+
+    @Override
+    public boolean supportsOpenCursorsAcrossRollback() throws SQLException {
+<span class="nc" id="L714">        return _metaData.supportsOpenCursorsAcrossRollback();</span>
+    }
+
+    @Override
+    public boolean supportsOpenStatementsAcrossCommit() throws SQLException {
+<span class="nc" id="L719">        return _metaData.supportsOpenStatementsAcrossCommit();</span>
+    }
+
+    @Override
+    public boolean supportsOpenStatementsAcrossRollback() throws SQLException {
+<span class="nc" id="L724">        return _metaData.supportsOpenStatementsAcrossRollback();</span>
+    }
+
+    @Override
+    public boolean supportsOrderByUnrelated() throws SQLException {
+<span class="nc" id="L729">        return _metaData.supportsOrderByUnrelated();</span>
+    }
+
+    @Override
+    public boolean supportsOuterJoins() throws SQLException {
+<span class="nc" id="L734">        return _metaData.supportsOuterJoins();</span>
+    }
+
+    @Override
+    public boolean supportsPositionedDelete() throws SQLException {
+<span class="nc" id="L739">        return _metaData.supportsPositionedDelete();</span>
+    }
+
+    @Override
+    public boolean supportsPositionedUpdate() throws SQLException {
+<span class="nc" id="L744">        return _metaData.supportsPositionedUpdate();</span>
+    }
+
+    @Override
+    public boolean supportsResultSetConcurrency(int type, int concurrency)
+        throws SQLException {
+<span class="nc" id="L750">        return _metaData.supportsResultSetConcurrency(type, concurrency);</span>
+    }
+
+    @Override
+    public boolean supportsResultSetType(int type) throws SQLException {
+<span class="nc" id="L755">        return _metaData.supportsResultSetType(type);</span>
+    }
+
+    @Override
+    public boolean supportsSchemasInDataManipulation() throws SQLException {
+<span class="nc" id="L760">        return _metaData.supportsSchemasInDataManipulation();</span>
+    }
+
+    @Override
+    public boolean supportsSchemasInIndexDefinitions() throws SQLException {
+<span class="nc" id="L765">        return _metaData.supportsSchemasInIndexDefinitions();</span>
+    }
+
+    @Override
+    public boolean supportsSchemasInPrivilegeDefinitions() throws SQLException {
+<span class="nc" id="L770">        return _metaData.supportsSchemasInPrivilegeDefinitions();</span>
+    }
+
+    @Override
+    public boolean supportsSchemasInProcedureCalls() throws SQLException {
+<span class="nc" id="L775">        return _metaData.supportsSchemasInProcedureCalls();</span>
+    }
+
+    @Override
+    public boolean supportsSchemasInTableDefinitions() throws SQLException {
+<span class="nc" id="L780">        return _metaData.supportsSchemasInTableDefinitions();</span>
+    }
+
+    @Override
+    public boolean supportsSelectForUpdate() throws SQLException {
+<span class="nc" id="L785">        return _metaData.supportsSelectForUpdate();</span>
+    }
+
+    @Override
+    public boolean supportsStoredProcedures() throws SQLException {
+<span class="nc" id="L790">        return _metaData.supportsStoredProcedures();</span>
+    }
+
+    @Override
+    public boolean supportsSubqueriesInComparisons() throws SQLException {
+<span class="nc" id="L795">        return _metaData.supportsSubqueriesInComparisons();</span>
+    }
+
+    @Override
+    public boolean supportsSubqueriesInExists() throws SQLException {
+<span class="nc" id="L800">        return _metaData.supportsSubqueriesInExists();</span>
+    }
+
+    @Override
+    public boolean supportsSubqueriesInIns() throws SQLException {
+<span class="nc" id="L805">        return _metaData.supportsSubqueriesInIns();</span>
+    }
+
+    @Override
+    public boolean supportsSubqueriesInQuantifieds() throws SQLException {
+<span class="nc" id="L810">        return _metaData.supportsSubqueriesInQuantifieds();</span>
+    }
+
+    @Override
+    public boolean supportsTableCorrelationNames() throws SQLException {
+<span class="nc" id="L815">        return _metaData.supportsTableCorrelationNames();</span>
+    }
+
+    @Override
+    public boolean supportsTransactionIsolationLevel(int level)
+        throws SQLException {
+<span class="nc" id="L821">        return _metaData.supportsTransactionIsolationLevel(level);</span>
+    }
+
+    @Override
+    public boolean supportsTransactions() throws SQLException {
+<span class="nc" id="L826">        return _metaData.supportsTransactions();</span>
+    }
+
+    @Override
+    public boolean supportsUnion() throws SQLException {
+<span class="nc" id="L831">        return _metaData.supportsUnion();</span>
+    }
+
+    @Override
+    public boolean supportsUnionAll() throws SQLException {
+<span class="nc" id="L836">        return _metaData.supportsUnionAll();</span>
+    }
+
+    @Override
+    public boolean updatesAreDetected(int type) throws SQLException {
+<span class="nc" id="L841">        return _metaData.updatesAreDetected(type);</span>
+    }
+
+    @Override
+    public boolean usesLocalFilePerTable() throws SQLException {
+<span class="nc" id="L846">        return _metaData.usesLocalFilePerTable();</span>
+    }
+
+    @Override
+    public boolean usesLocalFiles() throws SQLException {
+<span class="nc" id="L851">        return _metaData.usesLocalFiles();</span>
+    }
+
+    // JDBC 3.0 methods follow.
+
+    @Override
+    public boolean supportsSavepoints() throws SQLException {
+<span class="nc" id="L858">        return _metaData.supportsSavepoints();</span>
+    }
+
+    @Override
+    public boolean supportsNamedParameters() throws SQLException {
+<span class="nc" id="L863">        return _metaData.supportsNamedParameters();</span>
+    }
+
+    @Override
+    public boolean supportsMultipleOpenResults() throws SQLException {
+<span class="nc" id="L868">        return _metaData.supportsMultipleOpenResults();</span>
+    }
+
+    @Override
+    public boolean supportsGetGeneratedKeys() throws SQLException {
+<span class="nc" id="L873">        return _metaData.supportsGetGeneratedKeys();</span>
+    }
+
+    @Override
+    public ResultSet getSuperTypes(String catalog, String schemaPattern,
+        String typeNamePattern) throws SQLException {
+<span class="nc" id="L879">        return _metaData.getSuperTypes(catalog, schemaPattern, typeNamePattern);</span>
+    }
+
+    @Override
+    public ResultSet getSuperTables(String catalog, String schemaPattern,
+        String tableNamePattern) throws SQLException {
+<span class="nc" id="L885">        return _metaData.getSuperTables(catalog, schemaPattern,</span>
+            tableNamePattern);
+    }
+
+    @Override
+    public ResultSet getAttributes(String catalog, String schemaPattern,
+        String typeNamePattern, String attributeNamePattern)
+        throws SQLException {
+<span class="nc" id="L893">        return _metaData.getAttributes(catalog, schemaPattern, typeNamePattern,</span>
+            attributeNamePattern);
+    }
+
+    @Override
+    public boolean supportsResultSetHoldability(int holdability)
+        throws SQLException {
+<span class="nc" id="L900">        return _metaData.supportsResultSetHoldability(holdability);</span>
+    }
+
+    @Override
+    public int getResultSetHoldability() throws SQLException {
+<span class="nc" id="L905">        return _metaData.getResultSetHoldability();</span>
+    }
+
+    @Override
+    public int getDatabaseMajorVersion() throws SQLException {
+<span class="nc" id="L910">        return _metaData.getDatabaseMajorVersion();</span>
+    }
+
+    @Override
+    public int getDatabaseMinorVersion() throws SQLException {
+<span class="nc" id="L915">        return _metaData.getDatabaseMinorVersion();</span>
+    }
+
+    @Override
+    public int getJDBCMajorVersion() throws SQLException {
+<span class="nc" id="L920">        return _metaData.getJDBCMajorVersion();</span>
+    }
+
+    @Override
+    public int getJDBCMinorVersion() throws SQLException {
+<span class="nc" id="L925">        return _metaData.getJDBCMinorVersion();</span>
+    }
+
+    @Override
+    public int getSQLStateType() throws SQLException {
+<span class="nc" id="L930">        return _metaData.getSQLStateType();</span>
+    }
+
+    @Override
+    public boolean locatorsUpdateCopy() throws SQLException {
+<span class="nc" id="L935">        return _metaData.locatorsUpdateCopy();</span>
+    }
+
+    @Override
+    public boolean supportsStatementPooling() throws SQLException {
+<span class="nc" id="L940">        return _metaData.supportsStatementPooling();</span>
+    }
+
+    /**
+     * Return the wrapped database metadata.
+     */
+    public DatabaseMetaData getDelegate() {
+<span class="nc" id="L947">        return _metaData;</span>
+    }
+
+    //  JDBC 4.0 methods follow.
+
+    @Override
+    public boolean isWrapperFor(Class&lt;?&gt; iface) throws SQLException {
+<span class="nc" id="L954">        return iface.isAssignableFrom(getDelegate().getClass());</span>
+    }
+
+    @Override
+    public &lt;T&gt; T unwrap(Class&lt;T&gt; iface) throws SQLException {
+<span class="nc bnc" id="L959" title="All 2 branches missed.">        if (isWrapperFor(iface))</span>
+<span class="nc" id="L960">            return (T) getDelegate();</span>
+        else
+<span class="nc" id="L962">            return null;</span>
+    }
+
+    @Override
+    public boolean autoCommitFailureClosesAllResultSets() throws SQLException {
+<span class="nc" id="L967">        return _metaData.autoCommitFailureClosesAllResultSets();</span>
+    }
+
+    @Override
+    public ResultSet getClientInfoProperties() throws SQLException {
+<span class="nc" id="L972">        return _metaData.getClientInfoProperties();</span>
+    }
+
+    @Override
+    public ResultSet getFunctionColumns(String catalog, String schemaPattern,
+            String functionNamePattern, String columnNamePattern)
+            throws SQLException {
+<span class="nc" id="L979">        return _metaData.getFunctionColumns(catalog, schemaPattern, functionNamePattern, columnNamePattern);</span>
+    }
+
+    @Override
+    public ResultSet getFunctions(String catalog, String schemaPattern,
+            String functionNamePattern) throws SQLException {
+<span class="nc" id="L985">        return _metaData.getFunctions(catalog, schemaPattern, functionNamePattern);</span>
+    }
+
+    @Override
+    public RowIdLifetime getRowIdLifetime() throws SQLException {
+<span class="nc" id="L990">        return _metaData.getRowIdLifetime();</span>
+    }
+
+    @Override
+    public ResultSet getSchemas(String catalog, String schemaPattern) throws SQLException {
+<span class="nc" id="L995">        return _metaData.getSchemas(catalog, schemaPattern);</span>
+    }
+
+    @Override
+    public boolean supportsStoredFunctionsUsingCallSyntax() throws SQLException {
+<span class="nc" id="L1000">        return _metaData.supportsStoredFunctionsUsingCallSyntax();</span>
+    }
+
+    // Java 7 methods follow
+
+    @Override
+    public boolean generatedKeyAlwaysReturned() throws SQLException {
+<span class="nc" id="L1007">        return _metaData.generatedKeyAlwaysReturned();</span>
+    }
+
+    @Override
+    public ResultSet getPseudoColumns(String catalog, String schemaPattern,
+            String tableNamepattern, String columnNamePattern) throws SQLException {
+<span class="nc" id="L1013">        return _metaData.getPseudoColumns(catalog, schemaPattern, tableNamepattern, columnNamePattern);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,601 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>Value.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.conf</a> &gt; <span class="el_source">Value.java</span></div><h1>Value.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.conf;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.lib.util.ParseException;
+
+/**
+ * A configuration value.
+ *
+ * @author Marc Prud'hommeaux
+ * @author Pinaki Poddar
+ */
+public abstract class Value implements Cloneable {
+
+<span class="nc" id="L41">    private static final String[] EMPTY_ALIASES = new String[0];</span>
+<span class="nc" id="L42">    private static final Localizer s_loc = Localizer.forPackage(Value.class);</span>
+    public static final String INVISIBLE = &quot;******&quot;;
+
+<span class="nc" id="L45">    private String prop = null;</span>
+<span class="nc" id="L46">    private String loadKey = null;</span>
+<span class="nc" id="L47">    private String def = null;</span>
+<span class="nc" id="L48">    private String[] aliases = null;</span>
+<span class="nc" id="L49">    private String getter = null;</span>
+<span class="nc" id="L50">    private List&lt;ValueListener&gt; listeners = null;</span>
+<span class="nc" id="L51">    private boolean aliasListComprehensive = false;</span>
+<span class="nc" id="L52">    private Class scope = null;</span>
+<span class="nc" id="L53">    private boolean isDynamic = false;</span>
+<span class="nc" id="L54">    private String originalValue = null;</span>
+<span class="nc" id="L55">    private Set&lt;String&gt; otherNames = null;</span>
+<span class="nc" id="L56">    private boolean _hidden  = false;</span>
+<span class="nc" id="L57">    private boolean _private = false;</span>
+
+    /**
+     * Default constructor.
+     */
+<span class="nc" id="L62">    public Value() {</span>
+<span class="nc" id="L63">    }</span>
+
+    /**
+     * Constructor. Supply the property name.
+     *
+     * @see #setProperty
+     */
+<span class="nc" id="L70">    public Value(String prop) {</span>
+<span class="nc" id="L71">        setProperty(prop);</span>
+<span class="nc" id="L72">    }</span>
+
+    /**
+     * The property name that will be used when setting or
+     * getting this value in a {@link Map}.
+     */
+    public String getProperty() {
+<span class="nc" id="L79">        return prop;</span>
+    }
+
+    /**
+     * The property name that will be used when setting or
+     * getting this value in a {@link Map}.
+     */
+    public void setProperty(String prop) {
+<span class="nc" id="L87">        this.prop = prop;</span>
+<span class="nc" id="L88">    }</span>
+
+    /**
+     * Adds a moniker that is equivalent to the original property key used
+     * during construction.
+     *
+     * @since 2.0.0
+     */
+    public void addEquivalentKey(String other) {
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        if (otherNames == null)</span>
+<span class="nc" id="L98">            otherNames = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L99">        otherNames.add(other);</span>
+<span class="nc" id="L100">    }</span>
+
+    /**
+     * Gets the unmodifiable view of the equivalent keys or an empty set if
+     * no equivalent key has been added.
+     *
+     * @since 2.0.0
+     */
+    public Set&lt;String&gt; getEquivalentKeys() {
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        return otherNames == null ? Collections.EMPTY_SET</span>
+<span class="nc" id="L110">            : Collections.unmodifiableSet(otherNames);</span>
+    }
+
+    /**
+     * Gets unmodifiable view of all the property keys set on this receiver.
+     * The 0-th element in the returned list is always the same as the original
+     * key returned by {@link #getProperty()} method.
+     *
+     * @since 2.0.0
+     */
+    public List&lt;String&gt; getPropertyKeys() {
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        List&lt;String&gt; result = new ArrayList&lt;&gt;(1 +</span>
+<span class="nc" id="L122">            (otherNames ==null ? 0 : otherNames.size()));</span>
+<span class="nc" id="L123">        result.add(getProperty());</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">        if (otherNames != null)</span>
+<span class="nc" id="L125">            result.addAll(otherNames);</span>
+<span class="nc" id="L126">        return Collections.unmodifiableList(result);</span>
+    }
+
+    /**
+     * Affirms if the given key matches the property (or any of its equivalent).
+     *
+     * @since 2.0.0
+     */
+    public boolean matches(String p) {
+<span class="nc bnc" id="L135" title="All 4 branches missed.">        return getProperty().equals(p) ||</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">          (otherNames != null &amp;&amp; otherNames.contains(p));</span>
+    }
+
+    /**
+     * The key under which this value was loaded, or null.
+     */
+    public String getLoadKey() {
+<span class="nc" id="L143">        return loadKey;</span>
+    }
+
+    /**
+     * Sets key under which this value was loaded.
+     * @exception if called with a non-null key which is different from an
+     * already loaded key.
+     */
+    public void setLoadKey(String key) {
+<span class="nc bnc" id="L152" title="All 6 branches missed.">        if (this.loadKey != null &amp;&amp; key != null &amp;&amp; !this.loadKey.equals(key))</span>
+<span class="nc" id="L153">            throw new ParseException(s_loc.get(&quot;multiple-load-key&quot;,</span>
+                loadKey, key));
+<span class="nc" id="L155">        loadKey = key;</span>
+<span class="nc" id="L156">    }</span>
+
+    /**
+     * Aliases for the value in the form key1, value1, key2, value2, ...
+     * All alias values must be in string form.
+     */
+    public String[] getAliases() {
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        return (aliases == null) ? EMPTY_ALIASES : aliases;</span>
+    }
+
+    /**
+     * Aliases for the value in the form key1, value1, key2, value2, ...
+     * All alias values must be in string form.
+     * &lt;p&gt;
+     * To avoid potential side-effects, this method copies the array passed in.
+     */
+    public void setAliases(String[] aliases) {
+<span class="nc" id="L173">        String [] aStrings = new String[aliases.length];</span>
+<span class="nc" id="L174">        System.arraycopy(aliases, 0, aStrings, 0, aStrings.length);</span>
+<span class="nc" id="L175">        this.aliases = aStrings;</span>
+<span class="nc" id="L176">    }</span>
+
+    /**
+     * Replaces an existing alias, or adds the given alias to the front of the
+     * alias list if it does not already exist. All alias values must be in
+     * string form.
+     */
+    public void setAlias(String key, String value) {
+<span class="nc" id="L184">        aliases = setAlias(key, value, aliases);</span>
+<span class="nc" id="L185">    }</span>
+
+    /**
+     * Set an alias into a current alias list, returning the new list.
+     */
+    protected String[] setAlias(String key, String value, String[] aliases) {
+<span class="nc bnc" id="L191" title="All 2 branches missed.">        if (aliases == null)</span>
+<span class="nc" id="L192">            aliases = EMPTY_ALIASES;</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        for (int i = 0; i &lt; aliases.length; i += 2) {</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">            if (key.equals(aliases[i])) {</span>
+<span class="nc" id="L195">                aliases[i + 1] = value;</span>
+<span class="nc" id="L196">                return aliases;</span>
+            }
+        }
+
+        // add as new alias
+<span class="nc" id="L201">        String[] newAliases = new String[aliases.length + 2];</span>
+<span class="nc" id="L202">        System.arraycopy(aliases, 0, newAliases, 2, aliases.length);</span>
+<span class="nc" id="L203">        newAliases[0] = key;</span>
+<span class="nc" id="L204">        newAliases[1] = value;</span>
+<span class="nc" id="L205">        return newAliases;</span>
+    }
+
+    /**
+     * Whether or not the alias list defines all possible settings for this
+     * value. If so, an error will be generated when attempting to invoke
+     * any method on this value with an unknown option.
+     */
+    public boolean isAliasListComprehensive() {
+<span class="nc" id="L214">        return aliasListComprehensive;</span>
+    }
+
+    /**
+     * Whether or not the alias list defines all possible settings for this
+     * value. If so, an error will be generated when attempting to invoke
+     * any method on this value with an unknown option.
+     */
+    public void setAliasListComprehensive(boolean aliasListIsComprehensive) {
+<span class="nc" id="L223">        this.aliasListComprehensive = aliasListIsComprehensive;</span>
+<span class="nc" id="L224">    }</span>
+
+    /**
+     * Alias the given setting.
+     */
+    public String alias(String str) {
+<span class="nc" id="L230">        return alias(str, aliases, false);</span>
+    }
+
+    /**
+     * Alias the given setting.
+     */
+    protected String alias(String str, String[] aliases, boolean nullNotFound) {
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        if (str != null)</span>
+<span class="nc" id="L238">            str = str.trim();</span>
+<span class="nc bnc" id="L239" title="All 4 branches missed.">        if (aliases == null || aliases.length == 0)</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">            return (nullNotFound) ? null : str;</span>
+
+<span class="nc bnc" id="L242" title="All 4 branches missed.">        boolean empty = str != null &amp;&amp; str.length() == 0;</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">        for (int i = 1; i &lt; aliases.length; i += 2)</span>
+<span class="nc bnc" id="L244" title="All 6 branches missed.">            if (Objects.equals(str, aliases[i])</span>
+                || (empty &amp;&amp; aliases[i] == null))
+<span class="nc" id="L246">                return aliases[i - 1];</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        return (nullNotFound) ? null : str;</span>
+    }
+
+    /**
+     * Unalias the given setting.
+     */
+    public String unalias(String str) {
+<span class="nc" id="L254">        return unalias(str, aliases, false);</span>
+    }
+
+    /**
+     * Unalias the given setting.
+     */
+    protected String unalias(String str, String[] aliases,
+        boolean nullNotFound) {
+<span class="nc bnc" id="L262" title="All 2 branches missed.">        if (str != null)</span>
+<span class="nc" id="L263">            str = str.trim();</span>
+
+<span class="nc bnc" id="L265" title="All 4 branches missed.">        boolean empty = str != null &amp;&amp; str.length() == 0;</span>
+<span class="nc bnc" id="L266" title="All 6 branches missed.">        if (str == null || (empty &amp;&amp; def != null))</span>
+<span class="nc" id="L267">            str = def;</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">        if (aliases != null)</span>
+<span class="nc bnc" id="L269" title="All 2 branches missed.">            for (int i = 0; i &lt; aliases.length; i += 2)</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">                if (Objects.equals(str, aliases[i])</span>
+<span class="nc bnc" id="L271" title="All 6 branches missed.">                    || Objects.equals(str, aliases[i + 1])</span>
+                    || (empty &amp;&amp; aliases[i] == null))
+<span class="nc" id="L273">                    return aliases[i + 1];</span>
+
+<span class="nc bnc" id="L275" title="All 4 branches missed.">        if (isAliasListComprehensive() &amp;&amp; aliases != null)</span>
+<span class="nc" id="L276">            throw new ParseException(s_loc.get(&quot;invalid-enumerated-config&quot;,</span>
+<span class="nc" id="L277">                getProperty(), str, Arrays.asList(aliases)));</span>
+
+<span class="nc bnc" id="L279" title="All 2 branches missed.">        return (nullNotFound) ? null : str;</span>
+    }
+
+    /**
+     * The default value for the property as a string.
+     */
+    public String getDefault() {
+<span class="nc" id="L286">        return def;</span>
+    }
+
+    /**
+     * The default value for the property as a string.
+     */
+    public void setDefault(String def) {
+<span class="nc" id="L293">        this.def = def;</span>
+<span class="nc" id="L294">    }</span>
+
+    /**
+     * The name of the getter method for the instantiated value of this
+     * property(as opposed to the string value)
+     */
+    public String getInstantiatingGetter() {
+<span class="nc" id="L301">        return getter;</span>
+    }
+
+    /**
+     * The name of the getter method for the instantiated value of this
+     * property(as opposed to the string value). If the string starts with
+     * &lt;code&gt;this.&lt;/code&gt;, then the getter will be looked up on the value
+     * instance itself. Otherwise, the getter will be looked up on the
+     * configuration instance.
+     */
+    public void setInstantiatingGetter(String getter) {
+<span class="nc" id="L312">        this.getter = getter;</span>
+<span class="nc" id="L313">    }</span>
+
+    /**
+     * A class defining the scope in which this value is defined. This will
+     * be used by the configuration framework to look up metadata about
+     * the value.
+     */
+    public Class getScope() {
+<span class="nc" id="L321">        return scope;</span>
+    }
+
+    /**
+     * A class defining the scope in which this value is defined. This will
+     * be used by the configuration framework to look up metadata about
+     * the value.
+     */
+    public void setScope(Class cls) {
+<span class="nc" id="L330">        scope = cls;</span>
+<span class="nc" id="L331">    }</span>
+
+    /**
+     * Return a stringified version of this value. If the current value has
+     * a short alias key, the alias key is returned.
+     */
+    public String getString() {
+<span class="nc" id="L338">        return alias(getInternalString());</span>
+    }
+
+    /**
+     * Set this value from the given string. If the given string is null or
+     * empty and a default is defined, the default is used. If the given
+     * string(or default) is an alias key, it will be converted to the
+     * corresponding value internally.
+     * &lt;br&gt;
+     * If this Value is being set to a non-default value for the first time
+     * (as designated by &lt;code&gt;originalString&lt;/code&gt; being null), then the
+     * value is remembered as &lt;em&gt;original&lt;/em&gt;. This original value is used
+     * for equality and hashCode computation if this Value is
+     * {@link #isDynamic() dynamic}.
+     *
+     */
+    public void setString(String val) {
+<span class="nc" id="L355">    	assertChangeable();</span>
+<span class="nc" id="L356">        String str = unalias(val);</span>
+        try {
+<span class="nc" id="L358">            setInternalString(str);</span>
+<span class="nc bnc" id="L359" title="All 6 branches missed.">            if (originalValue == null &amp;&amp; val != null &amp;&amp; !isDefault(val)) {</span>
+<span class="nc" id="L360">            	originalValue = getString();</span>
+            }
+<span class="nc" id="L362">        } catch (ParseException pe) {</span>
+<span class="nc" id="L363">            throw pe;</span>
+<span class="nc" id="L364">        } catch (RuntimeException re) {</span>
+<span class="nc" id="L365">            throw new ParseException(prop + &quot;: &quot; + val, re);</span>
+<span class="nc" id="L366">        }</span>
+<span class="nc" id="L367">    }</span>
+
+    /**
+     * Set this value as an object.
+     * &lt;br&gt;
+     * If this Value is being set to a non-default value for the first time
+     * (as designated by &lt;code&gt;originalString&lt;/code&gt; being null), then the
+     * value is remembered as &lt;em&gt;original&lt;/em&gt;. This original value is used
+     * for equality and hashCode computation if this Value is
+     * {@link #isDynamic() dynamic}.
+     *
+     */
+    public void setObject(Object obj) {
+        // if setting to null set as string to get defaults into play
+<span class="nc bnc" id="L381" title="All 4 branches missed.">        if (obj == null &amp;&amp; def != null)</span>
+<span class="nc" id="L382">            setString(null);</span>
+        else {
+            try {
+<span class="nc" id="L385">                setInternalObject(obj);</span>
+<span class="nc bnc" id="L386" title="All 6 branches missed.">                if (originalValue == null &amp;&amp; obj != null &amp;&amp; !isDefault(obj)) {</span>
+<span class="nc" id="L387">                	originalValue = getString();</span>
+                }
+<span class="nc" id="L389">            } catch (ParseException pe) {</span>
+<span class="nc" id="L390">                throw pe;</span>
+<span class="nc" id="L391">            } catch (RuntimeException re) {</span>
+<span class="nc" id="L392">                throw new ParseException(prop + &quot;: &quot; + obj, re);</span>
+<span class="nc" id="L393">            }</span>
+        }
+<span class="nc" id="L395">    }</span>
+
+    /**
+     * Gets the original value. Original value denotes the Stringified form of
+     * this Value, from which it has been set, if ever. If this Value has never
+     * been set to a non-default value, then returns the default value, which
+     * itself can be null.
+     *
+     * @since 1.1.0
+     */
+    public String getOriginalValue() {
+<span class="nc bnc" id="L406" title="All 2 branches missed.">    	return (originalValue == null) ? getDefault() : originalValue;</span>
+    }
+
+    boolean isDefault(Object val) {
+<span class="nc bnc" id="L410" title="All 4 branches missed.">    	return val != null &amp;&amp; val.toString().equals(getDefault());</span>
+    }
+
+    /**
+     * Returns the type of the property that this Value represents.
+     */
+    public abstract Class&lt;?&gt; getValueType();
+
+    /**
+     * Return the internal string form of this value.
+     */
+    protected abstract String getInternalString();
+
+    /**
+     * Set this value from the given string.
+     */
+    protected abstract void setInternalString(String str);
+
+    /**
+     * Set this value from an object.
+     */
+    protected abstract void setInternalObject(Object obj);
+
+    /**
+     * Gets unmodifable list of listeners for value changes.
+     */
+    public List&lt;ValueListener&gt; getListeners() {
+<span class="nc" id="L437">        return Collections.unmodifiableList(this.listeners);</span>
+    }
+
+    /**
+     * Listener for value changes.
+     */
+    public void addListener(ValueListener listener) {
+<span class="nc bnc" id="L444" title="All 2 branches missed.">    	if (listener == null)</span>
+<span class="nc" id="L445">    		return;</span>
+<span class="nc bnc" id="L446" title="All 2 branches missed.">    	if (listeners == null)</span>
+<span class="nc" id="L447">    		listeners = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L448">        listeners.add(listener);</span>
+<span class="nc" id="L449">    }</span>
+
+    public void removeListener(ValueListener listener) {
+<span class="nc bnc" id="L452" title="All 2 branches missed.">    	if (listener == null)</span>
+<span class="nc" id="L453">    		return;</span>
+<span class="nc" id="L454">        listeners.remove(listener);</span>
+<span class="nc" id="L455">    }</span>
+
+    /**
+     * Subclasses should call this method when their internal value changes.
+     */
+    public void valueChanged() {
+<span class="nc bnc" id="L461" title="All 2 branches missed.">        if (listeners == null)</span>
+<span class="nc" id="L462">        	return;</span>
+<span class="nc bnc" id="L463" title="All 2 branches missed.">        for (ValueListener listener : listeners) {</span>
+<span class="nc" id="L464">        	listener.valueChanged(this);</span>
+<span class="nc" id="L465">        }</span>
+<span class="nc" id="L466">    }</span>
+
+    /**
+     * Asserts if this receiver can be changed.
+     * Subclasses &lt;em&gt;must&lt;/em&gt; invoke this method before changing its
+     * internal state.
+     *
+     * This receiver can not be changed if all of the following is true
+     * &lt;LI&gt;this receiver is not dynamic
+     * &lt;LI&gt;ValueListener attached to this receiver is a Configuration
+     * &lt;LI&gt;Configuration is read-only
+     */
+    protected void assertChangeable() {
+<span class="nc bnc" id="L479" title="All 4 branches missed.">    	if (!isDynamic() &amp;&amp; containsReadOnlyConfigurationAsListener()) {</span>
+<span class="nc" id="L480">        	throw new RuntimeException(s_loc.get(&quot;veto-change&quot;,</span>
+<span class="nc" id="L481">        		this.getProperty()).toString());</span>
+       	}
+<span class="nc" id="L483">    }</span>
+
+    boolean containsReadOnlyConfigurationAsListener() {
+<span class="nc bnc" id="L486" title="All 2 branches missed.">    	if (listeners == null)</span>
+<span class="nc" id="L487">    		return false;</span>
+<span class="nc bnc" id="L488" title="All 2 branches missed.">    	for (ValueListener listener : listeners) {</span>
+<span class="nc bnc" id="L489" title="All 2 branches missed.">    		if (listener instanceof Configuration</span>
+<span class="nc bnc" id="L490" title="All 2 branches missed.">    		&amp;&amp; ((Configuration)listener).isReadOnly())</span>
+<span class="nc" id="L491">    			return true;</span>
+<span class="nc" id="L492">    	}</span>
+<span class="nc" id="L493">    	return false;</span>
+    }
+
+    /**
+     * Sets if this receiver can be mutated even when the configuration it
+     * belongs to has been {@link Configuration#isReadOnly() frozen}.
+     *
+     * @since 1.1.0
+     */
+    public void setDynamic(boolean flag) {
+<span class="nc" id="L503">    	isDynamic = flag;</span>
+<span class="nc" id="L504">    }</span>
+
+    /**
+     * Affirms if this receiver can be mutated even when the configuration it
+     * belongs to has been {@link Configuration#isReadOnly() frozen}.
+     *
+     * @since 1.1.0
+     */
+    public boolean isDynamic() {
+<span class="nc" id="L513">    	return isDynamic;</span>
+    }
+
+    /**
+     * Use {@link #getOriginalValue() original value} instead of
+     * {@link #getString() current value} because they are one and the same
+     * for non-dynamic Values and ensures that modifying dynamic Values do not
+     * impact equality or hashCode contract.
+     */
+    @Override
+    public int hashCode() {
+<span class="nc bnc" id="L524" title="All 2 branches missed.">        String str = (isDynamic()) ? getOriginalValue() : getString();</span>
+<span class="nc bnc" id="L525" title="All 2 branches missed.">        int strHash = (str == null) ? 0 : str.hashCode();</span>
+<span class="nc bnc" id="L526" title="All 2 branches missed.">        int propHash = (prop == null) ? 0 : prop.hashCode();</span>
+<span class="nc" id="L527">        return strHash ^ propHash;</span>
+    }
+
+    /**
+     * Use {@link #getOriginalValue() original value} instead of
+     * {@link #getString() current value} because they are one and the same
+     * for non-dynamic Values and ensures that modifying dynamic Values do not
+     * impact equality or hashCode contract.
+     */
+    @Override
+    public boolean equals(Object other) {
+<span class="nc bnc" id="L538" title="All 2 branches missed.">        if (other == this)</span>
+<span class="nc" id="L539">            return true;</span>
+<span class="nc bnc" id="L540" title="All 2 branches missed.">        if (!(other instanceof Value))</span>
+<span class="nc" id="L541">            return false;</span>
+
+<span class="nc" id="L543">        Value o = (Value) other;</span>
+<span class="nc bnc" id="L544" title="All 2 branches missed.">        String thisStr = (isDynamic()) ? getOriginalValue() : getString();</span>
+<span class="nc bnc" id="L545" title="All 2 branches missed.">        String thatStr = (isDynamic()) ? o.getOriginalValue() : o.getString();</span>
+<span class="nc bnc" id="L546" title="All 2 branches missed.">        return (isDynamic() == o.isDynamic())</span>
+<span class="nc bnc" id="L547" title="All 2 branches missed.">            &amp;&amp; Objects.equals(prop, o.getProperty())</span>
+<span class="nc bnc" id="L548" title="All 2 branches missed.">            &amp;&amp; Objects.equals(thisStr, thatStr);</span>
+    }
+
+    @Override
+    public Object clone() {
+        try {
+<span class="nc" id="L554">            return super.clone();</span>
+<span class="nc" id="L555">        } catch (CloneNotSupportedException cnse) {</span>
+<span class="nc" id="L556">            return null;</span>
+        }
+    }
+
+    /**
+     * Affirms if the value for this Value is visible.
+     * Certain sensitive value such as password can be made invisible
+     * so that it is not returned to the user code.
+     */
+    public boolean isHidden() {
+<span class="nc" id="L566">        return _hidden;</span>
+    }
+
+    /**
+     * Hides the value of this Value from being output to the caller.
+     */
+    public void hide() {
+<span class="nc" id="L573">        _hidden = true;</span>
+<span class="nc" id="L574">    }</span>
+
+    /**
+     * Affirms if this Value is used for internal purpose only and not exposed as a supported property.
+     * @see Configuration#getPropertyKeys()
+     */
+    public boolean isPrivate() {
+<span class="nc" id="L581">        return _private;</span>
+    }
+
+    /**
+     * Marks this Value for internal purpose only.
+     */
+    public void makePrivate() {
+<span class="nc" id="L588">        _private = true;</span>
+<span class="nc" id="L589">    }</span>
+
+    /**
+     * Get the actual data stored in this value.
+     */
+    public abstract Object get();
+
+    @Override
+    public String toString() {
+<span class="nc" id="L598">        return getProperty()+ &quot;:&quot; + get() + &quot;[&quot; + getValueType().getName() + &quot;]&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

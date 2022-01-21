@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>XMLMetaDataSerializer.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.meta</a> &gt; <span class="el_source">XMLMetaDataSerializer.java</span></div><h1>XMLMetaDataSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.meta;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import javax.xml.transform.Result;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.sax.SAXTransformerFactory;
+import javax.xml.transform.sax.TransformerHandler;
+import javax.xml.transform.stream.StreamResult;
+
+import org.apache.openjpa.lib.log.Log;
+import org.apache.openjpa.lib.util.Files;
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.lib.xml.Commentable;
+import org.apache.openjpa.lib.xml.XMLWriter;
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+import org.xml.sax.ext.LexicalHandler;
+import org.xml.sax.helpers.AttributesImpl;
+
+/**
+ * Abstract base type for serlializers that transfer groups of objects
+ * to XML. Includes a way of serializing objects back to the XML files
+ * they were parsed from. Serializers are not thread safe.
+ *
+ * @author Abe White
+ */
+<span class="nc" id="L60">public abstract class XMLMetaDataSerializer implements MetaDataSerializer {</span>
+
+<span class="nc" id="L62">    private static final Localizer _loc = Localizer.forPackage</span>
+<span class="nc" id="L63">        (XMLMetaDataSerializer.class);</span>
+<span class="nc" id="L64">    private static final SAXTransformerFactory _factory =</span>
+<span class="nc" id="L65">        (SAXTransformerFactory) TransformerFactory.newInstance();</span>
+
+<span class="nc" id="L67">    private Log _log = null;</span>
+
+    // current serialization state
+<span class="nc" id="L70">    private final AttributesImpl _attrs = new AttributesImpl();</span>
+<span class="nc" id="L71">    private ContentHandler _handler = null;</span>
+<span class="nc" id="L72">    private int _flags = 0;</span>
+<span class="nc" id="L73">    private File _backup = null;</span>
+
+    /**
+     * The log to write to.
+     */
+    public Log getLog() {
+<span class="nc" id="L79">        return _log;</span>
+    }
+
+    /**
+     * The log to write to.
+     */
+    public void setLog(Log log) {
+<span class="nc" id="L86">        _log = log;</span>
+<span class="nc" id="L87">    }</span>
+
+    @Override
+    public void serialize(int flags) throws IOException {
+<span class="nc" id="L91">        serialize((Map) null, flags);</span>
+<span class="nc" id="L92">    }</span>
+
+    @Override
+    public void serialize(Map output, int flags)
+        throws IOException {
+<span class="nc" id="L97">        Map&lt;File, Collection&lt;Object&gt;&gt; files = getFileMap();</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        if (files == null)</span>
+<span class="nc" id="L99">            return;</span>
+
+        // for each file, serialize objects
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        for (Entry&lt;File, Collection&lt;Object&gt;&gt; entry : files.entrySet()) {</span>
+<span class="nc" id="L103">            File file = entry.getKey();</span>
+<span class="nc" id="L104">            Collection&lt;Object&gt; fileObjs = entry.getValue();</span>
+<span class="nc bnc" id="L105" title="All 4 branches missed.">            if (_log != null &amp;&amp; _log.isInfoEnabled())</span>
+<span class="nc" id="L106">                _log.info(_loc.get(&quot;ser-file&quot;, file));</span>
+
+            try {
+<span class="nc" id="L109">                TransformerHandler trans = _factory.newTransformerHandler();</span>
+                Writer writer;
+<span class="nc bnc" id="L111" title="All 2 branches missed.">                if (output == null) {</span>
+<span class="nc" id="L112">                    _backup = prepareWrite(file);</span>
+<span class="nc" id="L113">                    writer = new FileWriter(file);</span>
+                } else
+<span class="nc" id="L115">                    writer = new StringWriter();</span>
+
+<span class="nc" id="L117">                Writer xml = writer;</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">                if ((flags &amp; PRETTY) &gt; 0)</span>
+<span class="nc" id="L119">                    xml = new XMLWriter(writer);</span>
+<span class="nc" id="L120">                trans.setResult(new StreamResult(xml));</span>
+<span class="nc" id="L121">                serialize(fileObjs, trans, flags);</span>
+
+<span class="nc bnc" id="L123" title="All 2 branches missed.">                if (output != null)</span>
+<span class="nc" id="L124">                    output.put(file, ((StringWriter) writer).toString());</span>
+<span class="nc" id="L125">            } catch (SAXException | TransformerConfigurationException se) {</span>
+<span class="nc" id="L126">                throw new IOException(se.toString());</span>
+<span class="nc" id="L127">            }</span>
+<span class="nc" id="L128">        }</span>
+<span class="nc" id="L129">    }</span>
+
+    /**
+     * Prepare to write to the given file. Back up the file and make sure the
+     * path to it is created.
+     */
+    protected File prepareWrite(File file) throws IOException {
+<span class="nc" id="L136">        File backup = Files.backup(file, false);</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        if (backup == null) {</span>
+<span class="nc" id="L138">            File parent = file.getParentFile();</span>
+<span class="nc bnc" id="L139" title="All 4 branches missed.">            if (parent != null &amp;&amp; !AccessController.doPrivileged(</span>
+<span class="nc" id="L140">                    J2DoPrivHelper.existsAction(parent)))</span>
+<span class="nc" id="L141">                AccessController.doPrivileged(</span>
+<span class="nc" id="L142">                    J2DoPrivHelper.mkdirsAction(parent));</span>
+        }
+<span class="nc" id="L144">        return backup;</span>
+    }
+
+    /**
+     * Returns a {@link Map} with keys of the {@link File} to be
+     * written to, and values of a {@link Collection} of
+     * {@link SourceTracker} instances.
+     */
+    protected Map&lt;File, Collection&lt;Object&gt;&gt; getFileMap() {
+<span class="nc" id="L153">        Collection&lt;Object&gt; objs = getObjects();</span>
+<span class="nc bnc" id="L154" title="All 4 branches missed.">        if (objs == null || objs.isEmpty())</span>
+<span class="nc" id="L155">            return null;</span>
+
+        // create a map of files to lists of objects
+<span class="nc" id="L158">        Map&lt;File, Collection&lt;Object&gt;&gt; files =</span>
+            new HashMap&lt;&gt;();
+        File file;
+        Collection&lt;Object&gt; fileObjs;
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        for(Object obj : objs) {</span>
+<span class="nc" id="L163">            file = getSourceFile(obj);</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">            if (file == null) {</span>
+<span class="nc bnc" id="L165" title="All 4 branches missed.">                if (_log != null &amp;&amp; _log.isTraceEnabled())</span>
+<span class="nc" id="L166">                    _log.trace(_loc.get(&quot;no-file&quot;, obj));</span>
+                continue;
+            }
+
+<span class="nc" id="L170">            fileObjs = (Collection&lt;Object&gt;) files.get(file);</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">            if (fileObjs == null) {</span>
+<span class="nc" id="L172">                fileObjs = new LinkedList&lt;&gt;();</span>
+<span class="nc" id="L173">                files.put(file, fileObjs);</span>
+            }
+<span class="nc" id="L175">            fileObjs.add(obj);</span>
+<span class="nc" id="L176">        }</span>
+
+<span class="nc" id="L178">        return files;</span>
+    }
+
+    /**
+     * Return the source file for the given instance. By default, checks
+     * to see if the instance implements {@link SourceTracker}.
+     */
+    protected File getSourceFile(Object obj) {
+<span class="nc bnc" id="L186" title="All 2 branches missed.">        if (obj instanceof SourceTracker)</span>
+<span class="nc" id="L187">            return ((SourceTracker) obj).getSourceFile();</span>
+<span class="nc" id="L188">        return null;</span>
+    }
+
+    @Override
+    public void serialize(File file, int flags) throws IOException {
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        if (_log != null)</span>
+<span class="nc" id="L194">            _log.info(_loc.get(&quot;ser-file&quot;, file));</span>
+
+<span class="nc" id="L196">        _backup = prepareWrite(file);</span>
+        try {
+<span class="nc" id="L198">            FileWriter out = new FileWriter(</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">                AccessController.doPrivileged(</span>
+<span class="nc" id="L200">                    J2DoPrivHelper.getCanonicalPathAction(file)),</span>
+                (flags &amp; APPEND) &gt; 0);
+<span class="nc" id="L202">            serialize(out, flags);</span>
+<span class="nc" id="L203">            out.close();</span>
+<span class="nc" id="L204">        } catch (PrivilegedActionException pae) {</span>
+<span class="nc" id="L205">            throw (IOException) pae.getException();</span>
+<span class="nc" id="L206">        }</span>
+<span class="nc" id="L207">    }</span>
+
+    @Override
+    public void serialize(Writer out, int flags) throws IOException {
+        try {
+<span class="nc bnc" id="L212" title="All 2 branches missed.">            if ((flags &amp; PRETTY) &gt; 0)</span>
+<span class="nc" id="L213">                serialize(new StreamResult(new XMLWriter(out)), flags);</span>
+            else
+<span class="nc" id="L215">                serialize(new StreamResult(out), flags);</span>
+<span class="nc" id="L216">        } catch (SAXException se) {</span>
+<span class="nc" id="L217">            throw new IOException(se.toString());</span>
+<span class="nc" id="L218">        }</span>
+<span class="nc" id="L219">    }</span>
+
+    /**
+     * Serialize the current set of objects to the given result.
+     */
+    public void serialize(Result result, int flags) throws SAXException {
+        try {
+<span class="nc" id="L226">            TransformerHandler trans = _factory.newTransformerHandler();</span>
+<span class="nc" id="L227">            trans.setResult(result);</span>
+<span class="nc" id="L228">            serialize(trans, flags);</span>
+<span class="nc" id="L229">        } catch (TransformerConfigurationException tce) {</span>
+<span class="nc" id="L230">            throw new SAXException(tce);</span>
+<span class="nc" id="L231">        }</span>
+<span class="nc" id="L232">    }</span>
+
+    /**
+     * Serilize the current set of objects to a series of SAX events on the
+     * given handler.
+     */
+    public void serialize(ContentHandler handler, int flags)
+        throws SAXException {
+<span class="nc" id="L240">        serialize(getObjects(), handler, flags);</span>
+<span class="nc" id="L241">    }</span>
+
+    /**
+     * Serialize the given collection of objects to the given handler.
+     */
+    private void serialize(Collection&lt;Object&gt; objs, ContentHandler handler,
+        int flags) throws SAXException {
+<span class="nc bnc" id="L248" title="All 4 branches missed.">        if (_log != null &amp;&amp; _log.isTraceEnabled())</span>
+<span class="nc" id="L249">            _log.trace(_loc.get(&quot;ser-objs&quot;, objs));</span>
+
+<span class="nc" id="L251">        _handler = handler;</span>
+<span class="nc" id="L252">        _flags = flags;</span>
+        try {
+<span class="nc bnc" id="L254" title="All 2 branches missed.">            if (!objs.isEmpty()) {</span>
+<span class="nc" id="L255">                handler.startDocument();</span>
+<span class="nc" id="L256">                serialize(objs);</span>
+<span class="nc" id="L257">                handler.endDocument();</span>
+            }
+        }
+        finally {
+<span class="nc" id="L261">            reset();</span>
+        }
+<span class="nc" id="L263">    }</span>
+
+    /**
+     * Whether this serialization is in verbose mode.
+     */
+    protected boolean isVerbose() {
+<span class="nc bnc" id="L269" title="All 2 branches missed.">        return (_flags &amp; VERBOSE) &gt; 0;</span>
+    }
+
+    /**
+     * The backup file made for the current file being parsed.
+     */
+    protected File currentBackupFile() {
+<span class="nc" id="L276">        return _backup;</span>
+    }
+
+    /**
+     * Start an element with the current attribute settings. Clears the
+     * attributes as well.
+     */
+    protected void startElement(String name) throws SAXException {
+<span class="nc" id="L284">        _handler.startElement(&quot;&quot;, name, name, _attrs);</span>
+<span class="nc" id="L285">        _attrs.clear();</span>
+<span class="nc" id="L286">    }</span>
+
+    /**
+     * End the current element.
+     */
+    protected void endElement(String name) throws SAXException {
+<span class="nc" id="L292">        _handler.endElement(&quot;&quot;, name, name);</span>
+<span class="nc" id="L293">    }</span>
+
+    /**
+     * Add text to the current element.
+     */
+    protected void addText(String text) throws SAXException {
+<span class="nc" id="L299">        _handler.characters(text.toCharArray(), 0, text.length());</span>
+<span class="nc" id="L300">    }</span>
+
+    /**
+     * Add an attribute to the current group.
+     */
+    protected void addAttribute(String name, String value) {
+<span class="nc" id="L306">        _attrs.addAttribute(&quot;&quot;, name, name, &quot;CDATA&quot;, value);</span>
+<span class="nc" id="L307">    }</span>
+
+    /**
+     * The current attributes.
+     */
+    protected Attributes getAttributes() {
+<span class="nc" id="L313">        return _attrs;</span>
+    }
+
+    /**
+     * Add a comment to the stream.
+     */
+    protected void addComments(String[] comments) throws SAXException {
+<span class="nc bnc" id="L320" title="All 6 branches missed.">        if (comments == null || comments.length == 0</span>
+            || !(_handler instanceof LexicalHandler))
+<span class="nc" id="L322">            return;</span>
+
+<span class="nc" id="L324">        LexicalHandler lh = (LexicalHandler) _handler;</span>
+        char[] chars;
+<span class="nc bnc" id="L326" title="All 2 branches missed.">        for (String comment : comments) {</span>
+<span class="nc" id="L327">            chars = comment.toCharArray();</span>
+<span class="nc" id="L328">            lh.comment(chars, 0, chars.length);</span>
+        }
+<span class="nc" id="L330">    }</span>
+
+    /**
+     * Write the given entity's comments. By default, tests if entity is
+     * {@link Commentable}.
+     */
+    protected void addComments(Object obj) throws SAXException {
+<span class="nc bnc" id="L337" title="All 2 branches missed.">        if (obj instanceof Commentable)</span>
+<span class="nc" id="L338">            addComments(((Commentable) obj).getComments());</span>
+<span class="nc" id="L339">    }</span>
+
+    /**
+     * Reset serialization state for the next document.
+     */
+    protected void reset() {
+<span class="nc" id="L345">        _attrs.clear();</span>
+<span class="nc" id="L346">        _handler = null;</span>
+<span class="nc" id="L347">        _flags = 0;</span>
+<span class="nc" id="L348">        _backup = null;</span>
+<span class="nc" id="L349">    }</span>
+
+    /**
+     * Serialize the given set of objects.
+     */
+    protected abstract void serialize(Collection&lt;Object&gt; objs) throws
+            SAXException;
+
+    /**
+     * Return the current set of objects for serialization.
+     */
+    protected abstract Collection&lt;Object&gt; getObjects();
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ObjectValue.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.conf</a> &gt; <span class="el_source">ObjectValue.java</span></div><h1>ObjectValue.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.conf;
+
+import java.security.AccessController;
+import java.util.Objects;
+
+import org.apache.openjpa.lib.util.collections.AbstractReferenceMap.ReferenceStrength;
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.lib.util.concurrent.ConcurrentReferenceHashMap;
+
+/**
+ * An object {@link Value}.
+ *
+ * @author Abe White
+ */
+public class ObjectValue extends Value {
+
+<span class="nc" id="L36">    private static final Localizer _loc = Localizer.forPackage</span>
+<span class="nc" id="L37">        (ObjectValue.class);</span>
+
+    // cache the types' classloader
+<span class="nc" id="L40">    private static ConcurrentReferenceHashMap _classloaderCache =</span>
+        new ConcurrentReferenceHashMap(ReferenceStrength.HARD, ReferenceStrength.WEAK);
+
+<span class="nc" id="L43">    private Object _value = null;</span>
+
+    public ObjectValue(String prop) {
+<span class="nc" id="L46">        super(prop);</span>
+<span class="nc" id="L47">    }</span>
+
+    /**
+     * The internal value.
+     */
+    @Override
+    public Object get() {
+<span class="nc" id="L54">        return _value;</span>
+    }
+
+    /**
+     * The internal value.
+     */
+    public void set(Object obj) {
+<span class="nc" id="L61">        set(obj, false);</span>
+<span class="nc" id="L62">    }</span>
+
+    /**
+     * The internal value.
+     *
+     * @param derived if true, this value was derived from other properties
+     */
+    public void set(Object obj, boolean derived) {
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        if (!derived) assertChangeable();</span>
+<span class="nc" id="L71">        Object oldValue = _value;</span>
+<span class="nc" id="L72">        _value = obj;</span>
+<span class="nc bnc" id="L73" title="All 4 branches missed.">        if (!derived &amp;&amp; !Objects.equals(obj, oldValue)) {</span>
+<span class="nc" id="L74">            objectChanged();</span>
+<span class="nc" id="L75">            valueChanged();</span>
+        }
+<span class="nc" id="L77">    }</span>
+
+    /**
+     * Instantiate the object as an instance of the given class. Equivalent
+     * to &lt;code&gt;instantiate(type, conf, true)&lt;/code&gt;.
+     */
+    public Object instantiate(Class&lt;?&gt; type, Configuration conf) {
+<span class="nc" id="L84">        return instantiate(type, conf, true);</span>
+    }
+
+    /**
+     * Instantiate the object as an instance of the given class.
+     */
+    public Object instantiate(Class&lt;?&gt; type, Configuration conf, boolean fatal)
+    {
+<span class="nc" id="L92">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * Configure the given object.
+     */
+    public Object configure(Object obj, Configuration conf) {
+<span class="nc" id="L99">        return configure(obj, conf, true);</span>
+    }
+
+    /**
+     * Configure the given object.
+     */
+    public Object configure(Object obj, Configuration conf, boolean fatal) {
+<span class="nc" id="L106">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * Allow subclasses to instantiate additional plugins. This method does
+     * not perform configuration.
+     */
+    public Object newInstance(String clsName, Class&lt;?&gt; type, Configuration conf,
+            boolean fatal) {
+<span class="nc" id="L115">        ClassLoader cl = (ClassLoader) _classloaderCache.get(type);</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        if (cl == null) {</span>
+<span class="nc" id="L117">            cl = AccessController.doPrivileged(</span>
+<span class="nc" id="L118">                J2DoPrivHelper.getClassLoaderAction(type));</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">            if (cl == null) {  // System classloader is returned as null</span>
+<span class="nc" id="L120">                cl = AccessController.doPrivileged(</span>
+<span class="nc" id="L121">                    J2DoPrivHelper.getSystemClassLoaderAction());</span>
+            }
+<span class="nc" id="L123">            _classloaderCache.put(type, cl);</span>
+        }
+<span class="nc" id="L125">        return Configurations.newInstance(clsName, this, conf, cl, fatal);</span>
+    }
+
+    @Override
+    public Class&lt;?&gt; getValueType() {
+<span class="nc" id="L130">        return Object.class;</span>
+    }
+
+    /**
+     * Implement this method to synchronize internal data with the new
+     * object value.
+     */
+    protected void objectChanged() {
+<span class="nc" id="L138">    }</span>
+
+    @Override
+    protected String getInternalString() {
+<span class="nc" id="L142">        return null;</span>
+    }
+
+    @Override
+    protected void setInternalString(String str) {
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if (str == null)</span>
+<span class="nc" id="L148">            set(null);</span>
+        else
+<span class="nc" id="L150">            throw new IllegalArgumentException(_loc.get(&quot;cant-set-string&quot;,</span>
+<span class="nc" id="L151">                getProperty()).getMessage());</span>
+<span class="nc" id="L152">    }</span>
+
+    @Override
+    protected void setInternalObject(Object obj) {
+<span class="nc" id="L156">        set(obj);</span>
+<span class="nc" id="L157">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

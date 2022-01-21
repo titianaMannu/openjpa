@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ClassAnnotationMetaDataFilter.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.meta</a> &gt; <span class="el_source">ClassAnnotationMetaDataFilter.java</span></div><h1>ClassAnnotationMetaDataFilter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.meta;
+
+import java.io.IOException;
+
+import org.apache.openjpa.lib.log.Log;
+import org.apache.openjpa.lib.util.Localizer;
+
+import serp.bytecode.lowlevel.ConstantPoolTable;
+
+/**
+ * Filter that looks for classes with one of a set of annotations.
+ * See JDK 1.5 JVM spec for details on annotation bytecode:&lt;br /&gt;
+ * java.sun.com/docs/books/vmspec/2nd-edition/ClassFileFormat-final-draft.pdf
+ *
+ * @author Abe White
+ */
+public class ClassAnnotationMetaDataFilter implements MetaDataFilter {
+
+    private final String[] _annos;
+
+<span class="nc" id="L39">    private static final Localizer _loc = Localizer.forPackage</span>
+<span class="nc" id="L40">        (ClassAnnotationMetaDataFilter.class);</span>
+<span class="nc" id="L41">    private Log _log = null;</span>
+
+    /**
+     * Constructor; supply annotation to match against.
+     */
+    public ClassAnnotationMetaDataFilter(Class&lt;?&gt; anno) {
+<span class="nc" id="L47">        this(new Class[]{ anno });</span>
+<span class="nc" id="L48">    }</span>
+
+    /**
+     * Constructor; supply annotations to match against.
+     */
+<span class="nc" id="L53">    public ClassAnnotationMetaDataFilter(Class&lt;?&gt;[] annos) {</span>
+<span class="nc" id="L54">        _annos = new String[annos.length];</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        for (int i = 0; i &lt; annos.length; i++)</span>
+<span class="nc" id="L56">            _annos[i] = &quot;L&quot; + annos[i].getName().replace('.', '/') + &quot;;&quot;;</span>
+<span class="nc" id="L57">    }</span>
+
+    @Override
+    public boolean matches(Resource rsrc) throws IOException {
+<span class="nc bnc" id="L61" title="All 4 branches missed.">        if (_annos.length == 0 || !rsrc.getName().endsWith(&quot;.class&quot;))</span>
+<span class="nc" id="L62">            return false;</span>
+
+        try {
+<span class="nc" id="L65">            ConstantPoolTable table = new ConstantPoolTable(rsrc.getContent());</span>
+<span class="nc" id="L66">            int idx = table.getEndIndex();</span>
+<span class="nc" id="L67">            idx += 6; // skip access, cls, super</span>
+
+            // skip interfaces
+<span class="nc" id="L70">            int interfaces = table.readUnsignedShort(idx);</span>
+<span class="nc" id="L71">            idx += 2 + interfaces * 2;</span>
+
+            // skip fields and methods
+<span class="nc" id="L74">            int fields = table.readUnsignedShort(idx);</span>
+<span class="nc" id="L75">            idx += 2;</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">            for (int i = 0; i &lt; fields; i++)</span>
+<span class="nc" id="L77">                idx += skipFieldOrMethod(table, idx);</span>
+<span class="nc" id="L78">            int methods = table.readUnsignedShort(idx);</span>
+<span class="nc" id="L79">            idx += 2;</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">            for (int i = 0; i &lt; methods; i++)</span>
+<span class="nc" id="L81">                idx += skipFieldOrMethod(table, idx);</span>
+
+            // look for annotation attrs
+<span class="nc" id="L84">            int attrs = table.readUnsignedShort(idx);</span>
+<span class="nc" id="L85">            idx += 2;</span>
+            int name;
+<span class="nc bnc" id="L87" title="All 2 branches missed.">            for (int i = 0; i &lt; attrs; i++) {</span>
+<span class="nc" id="L88">                name = table.readUnsignedShort(idx);</span>
+<span class="nc" id="L89">                idx += 2;</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                if (&quot;RuntimeVisibleAnnotations&quot;.equals(table.readString</span>
+<span class="nc" id="L91">                    (table.get(name))))</span>
+<span class="nc" id="L92">                    return matchAnnotations(table, idx + 4);</span>
+<span class="nc" id="L93">                idx += 4 + table.readInt(idx);</span>
+            }
+<span class="nc" id="L95">        } catch (ArrayIndexOutOfBoundsException e) {</span>
+            /*
+             * This ArrayIndexOutOfBoundsException indicates an incorrectly
+             * formed .class file. We will eat the exception, log a trace
+             * message (if a log exists), and return &quot;false&quot; to indicate there
+             * was no match.
+             */
+<span class="nc" id="L102">            Error cfe = new ClassFormatError(rsrc.getName());</span>
+<span class="nc" id="L103">            cfe.initCause(e);</span>
+<span class="nc bnc" id="L104" title="All 4 branches missed.">            if (_log != null &amp;&amp; _log.isTraceEnabled())</span>
+<span class="nc" id="L105">                _log.trace(_loc.get(&quot;class-arg&quot;, rsrc.getName()), cfe);</span>
+<span class="nc" id="L106">        }</span>
+<span class="nc" id="L107">        return false;</span>
+    }
+
+    /**
+     * Return whether the given annotations match our candidates.
+     */
+    private boolean matchAnnotations(ConstantPoolTable table, int idx) {
+<span class="nc" id="L114">        int annos = table.readUnsignedShort(idx);</span>
+<span class="nc" id="L115">        idx += 2;</span>
+
+        int type;
+        int props;
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        for (int i = 0; i &lt; annos; i++) {</span>
+<span class="nc" id="L120">            type = table.readUnsignedShort(idx);</span>
+<span class="nc" id="L121">            idx += 2;</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">            if (matchAnnotation(table.readString(table.get(type))))</span>
+<span class="nc" id="L123">                return true;</span>
+
+<span class="nc" id="L125">            props = table.readUnsignedShort(idx);</span>
+<span class="nc" id="L126">            idx += 2;</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">            for (int j = 0; j &lt; props; j++) {</span>
+<span class="nc" id="L128">                idx += 2; // name</span>
+<span class="nc" id="L129">                idx += skipAnnotationPropertyValue(table, idx);</span>
+            }
+        }
+<span class="nc" id="L132">        return false;</span>
+    }
+
+    /**
+     * Return whether the given annotation matches our candidates.
+     */
+    private boolean matchAnnotation(String name) {
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        for (String anno : _annos)</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">            if (name.equals(anno))</span>
+<span class="nc" id="L141">                return true;</span>
+<span class="nc" id="L142">        return false;</span>
+    }
+
+    /**
+     * Skip an annotation property value, returning the number of bytes skipped.
+     */
+    private static int skipAnnotationPropertyValue(ConstantPoolTable table,
+        int idx) {
+<span class="nc" id="L150">        int skipped = 0;</span>
+<span class="nc bnc" id="L151" title="All 5 branches missed.">        switch (table.readByte(idx + skipped++)) {</span>
+            case 'Z': // bool
+            case 'B': // byte
+            case 'C': // char
+            case 'D': // double
+            case 'F': // float
+            case 'I': // int
+            case 'J': // long
+            case 'S': // short
+            case 's': // string
+            case 'c': // class
+<span class="nc" id="L162">                skipped += 2;</span>
+<span class="nc" id="L163">                break;</span>
+            case 'e': // enum ptr
+<span class="nc" id="L165">                skipped += 4;</span>
+<span class="nc" id="L166">                break;</span>
+            case '[': // array
+<span class="nc" id="L168">                int size = table.readUnsignedShort(idx + skipped);</span>
+<span class="nc" id="L169">                skipped += 2;</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">                for (int i = 0; i &lt; size; i++)</span>
+<span class="nc" id="L171">                    skipped +=</span>
+<span class="nc" id="L172">                        skipAnnotationPropertyValue(table, idx + skipped);</span>
+<span class="nc" id="L173">                break;</span>
+            case '@': // anno
+<span class="nc" id="L175">                skipped += 2; // type</span>
+<span class="nc" id="L176">                int props = table.readUnsignedShort(idx + skipped);</span>
+<span class="nc" id="L177">                skipped += 2;</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">                for (int j = 0; j &lt; props; j++) {</span>
+<span class="nc" id="L179">                    skipped += 2; // name</span>
+<span class="nc" id="L180">                    skipped +=</span>
+<span class="nc" id="L181">                        skipAnnotationPropertyValue(table, idx + skipped);</span>
+                }
+                break;
+        }
+<span class="nc" id="L185">        return skipped;</span>
+    }
+
+    /**
+     * Skip the current field or method, returning the number of bytes skipped.
+     */
+    private static int skipFieldOrMethod(ConstantPoolTable table, int idx) {
+<span class="nc" id="L192">        int attrs = table.readUnsignedShort(idx + 6);</span>
+<span class="nc" id="L193">        int skipped = 8;</span>
+        int len;
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        for (int i = 0; i &lt; attrs; i++) {</span>
+<span class="nc" id="L196">            len = table.readInt(idx + skipped + 2);</span>
+<span class="nc" id="L197">            skipped += 6 + len;</span>
+        }
+<span class="nc" id="L199">        return skipped;</span>
+    }
+
+    public Log getLog() {
+<span class="nc" id="L203">        return _log;</span>
+    }
+
+    public void setLog(Log _log) {
+<span class="nc" id="L207">        this._log = _log;</span>
+<span class="nc" id="L208">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

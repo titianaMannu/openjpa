@@ -1,0 +1,986 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ConcurrentHashMap.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util.concurrent</a> &gt; <span class="el_source">ConcurrentHashMap.java</span></div><h1>ConcurrentHashMap.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util.concurrent;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.AbstractCollection;
+import java.util.AbstractMap;
+import java.util.AbstractSet;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Random;
+import java.util.Set;
+
+import org.apache.openjpa.lib.util.SizedMap;
+
+/**
+ * This class implements a HashMap which has limited synchronization.
+ * In particular mutators are generally synchronized while accessors
+ * are generally not. Additionally the Iterators returned by this
+ * class are not &quot;fail-fast&quot;, but instead try to continue to iterate
+ * over the data structure after changes have been made.
+ * The synchronization semantics are built right in to the
+ * implementation rather than using a delegating wrapper like the
+ * other collection classes do because it wasn't clear to me that the
+ * how the two should be seperated or that it would be useful to do
+ * so. This can probably be a topic for further debate in the future.
+ * This class is based heavily on the HashMap class in the Java
+ * collections package.
+ */
+public class ConcurrentHashMap extends AbstractMap
+    implements ConcurrentMap, SizedMap, Cloneable, Serializable {
+
+    /**
+     * The default initial capacity - MUST be a power of two.
+     */
+    private static final int DEFAULT_INITIAL_CAPACITY = 16;
+
+    /**
+     * The maximum capacity, used if a higher value is implicitly specified
+     * by either of the constructors with arguments.
+     * MUST be a power of two &lt;= 1&lt;&lt;30.
+     */
+    private static final int MAXIMUM_CAPACITY = 1 &lt;&lt; 30;
+
+    /**
+     * The load fast used when none specified in constructor.
+     */
+    private static final float DEFAULT_LOAD_FACTOR = 0.75f;
+
+    /**
+     * Cache of random numbers used in &quot;random&quot; methods, since generating them
+     * is expensive. We hope each map changes enough between cycling through
+     * this list that the overall effect is random enough.
+     */
+<span class="nc" id="L76">    static final double[] RANDOMS = new double[1000];</span>
+
+    static {
+<span class="nc" id="L79">        Random random = new Random();</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">        for (int i = 0; i &lt; RANDOMS.length; i++)</span>
+<span class="nc" id="L81">            RANDOMS[i] = random.nextDouble();</span>
+    }
+
+    /**
+     * The table, resized as necessary. Length MUST Always be a power of two.
+     */
+    private transient Entry[] table;
+
+    /**
+     * The number of key-value mappings contained in this identity hash map.
+     */
+    private transient int size;
+
+    /**
+     * The next size value at which to resize(capacity * load factor).
+     *
+     * @serial
+     */
+    private int threshold;
+
+    /**
+     * The load factor for the hash table.
+     *
+     * @serial
+     */
+    private final float loadFactor;
+
+    /**
+     * Spread &quot;random&quot; removes and iteration.
+     */
+<span class="nc" id="L111">    private int randomEntry = 0;</span>
+
+    /**
+     * Maximum entries.
+     */
+<span class="nc" id="L116">    private int maxSize = Integer.MAX_VALUE;</span>
+
+    /**
+     * Constructs an empty &lt;tt&gt;ConcurrentHashMap&lt;/tt&gt; with the specified initial
+     * capacity and load factor.
+     *
+     * @param initialCapacity The initial capacity.
+     * @param loadFactor The load factor.
+     * @throws IllegalArgumentException if the initial capacity is negative
+     * or the load factor is nonpositive.
+     */
+<span class="nc" id="L127">    public ConcurrentHashMap(int initialCapacity, float loadFactor) {</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (initialCapacity &lt; 0) {</span>
+<span class="nc" id="L129">            throw new IllegalArgumentException(&quot;Illegal initial capacity: &quot; +</span>
+                initialCapacity);
+        }
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (initialCapacity &gt; MAXIMUM_CAPACITY)</span>
+<span class="nc" id="L133">            initialCapacity = MAXIMUM_CAPACITY;</span>
+<span class="nc bnc" id="L134" title="All 4 branches missed.">        if (loadFactor &lt;= 0 || loadFactor &gt; 1) {</span>
+<span class="nc" id="L135">            throw new IllegalArgumentException(&quot;Illegal load factor: &quot; +</span>
+                loadFactor);
+        }
+
+        // Find a power of 2 &gt;= initialCapacity
+<span class="nc" id="L140">        int capacity = 1;</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">        while (capacity &lt; initialCapacity) capacity &lt;&lt;= 1;</span>
+
+<span class="nc" id="L143">        this.loadFactor = loadFactor;</span>
+<span class="nc" id="L144">        threshold = (int) (capacity * loadFactor);</span>
+<span class="nc" id="L145">        table = new Entry[capacity];</span>
+<span class="nc" id="L146">    }</span>
+
+    /**
+     * Constructs an empty &lt;tt&gt;ConcurrentHashMap&lt;/tt&gt; with the specified initial
+     * capacity and the default load factor(0.75).
+     *
+     * @param initialCapacity the initial capacity.
+     * @throws IllegalArgumentException if the initial capacity is negative.
+     */
+    public ConcurrentHashMap(int initialCapacity) {
+<span class="nc" id="L156">        this(initialCapacity, DEFAULT_LOAD_FACTOR);</span>
+<span class="nc" id="L157">    }</span>
+
+    /**
+     * Constructs an empty &lt;tt&gt;ConcurrentHashMap&lt;/tt&gt; with the default initial
+     * capacity(16) and the default load factor(0.75).
+     */
+    public ConcurrentHashMap() {
+<span class="nc" id="L164">        this(DEFAULT_INITIAL_CAPACITY, DEFAULT_LOAD_FACTOR);</span>
+<span class="nc" id="L165">    }</span>
+
+    /**
+     * Constructs a new &lt;tt&gt;ConcurrentHashMap&lt;/tt&gt; with the same mappings as the
+     * specified &lt;tt&gt;Map&lt;/tt&gt;. The &lt;tt&gt;ConcurrentHashMap&lt;/tt&gt; is created with
+     * default load factor(0.75) and an initial capacity sufficient to
+     * hold the mappings in the specified &lt;tt&gt;Map&lt;/tt&gt;.
+     *
+     * @param m the map whose mappings are to be placed in this map.
+     * @throws NullPointerException if the specified map is null.
+     */
+    public ConcurrentHashMap(Map m) {
+<span class="nc" id="L177">        this(Math.max((int) (m.size() / DEFAULT_LOAD_FACTOR) + 1,</span>
+            DEFAULT_INITIAL_CAPACITY), DEFAULT_LOAD_FACTOR);
+<span class="nc" id="L179">        putAll(m);</span>
+<span class="nc" id="L180">    }</span>
+
+    // internal utilities
+
+    /**
+     * Value representing null keys inside tables.
+     */
+<span class="nc" id="L187">    private static final Object NULL_KEY = new Object();</span>
+
+    /**
+     * Returns internal representation for key. Use NULL_KEY if key is null.
+     */
+    private static Object maskNull(Object key) {
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        return (key == null ? NULL_KEY : key);</span>
+    }
+
+    /**
+     * Returns key represented by specified internal representation.
+     */
+    private static Object unmaskNull(Object key) {
+<span class="nc bnc" id="L200" title="All 2 branches missed.">        return (key == NULL_KEY ? null : key);</span>
+    }
+
+    /**
+     * Returns a hash code for non-null Object x.
+     */
+    private static int hash(Object x) {
+<span class="nc" id="L207">        int h = x.hashCode();</span>
+<span class="nc" id="L208">        return h - (h &lt;&lt; 7); // i.e., -127 * h</span>
+    }
+
+    /**
+     * Check for equality of non-null reference x and possibly-null y.
+     */
+    private static boolean eq(Object x, Object y) {
+<span class="nc bnc" id="L215" title="All 4 branches missed.">        return x == y || x.equals(y);</span>
+    }
+
+    /**
+     * Returns the current capacity of backing table in this map.
+     *
+     * @return the current capacity of backing table in this map.
+     */
+    public final int capacity() {
+<span class="nc" id="L224">        return table.length;</span>
+    }
+
+    /**
+     * Returns the load factor for this map.
+     *
+     * @return the load factor for this map.
+     */
+    public final float loadFactor() {
+<span class="nc" id="L233">        return loadFactor;</span>
+    }
+
+    @Override
+    public int getMaxSize() {
+<span class="nc" id="L238">        return maxSize;</span>
+    }
+
+    @Override
+    public void setMaxSize(int maxSize) {
+<span class="nc bnc" id="L243" title="All 2 branches missed.">        this.maxSize = (maxSize &lt; 0) ? Integer.MAX_VALUE : maxSize;</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">        if (this.maxSize != Integer.MAX_VALUE)</span>
+<span class="nc" id="L245">            removeOverflow(this.maxSize);</span>
+<span class="nc" id="L246">    }</span>
+
+    @Override
+    public boolean isFull() {
+<span class="nc bnc" id="L250" title="All 4 branches missed.">        return maxSize != Integer.MAX_VALUE &amp;&amp; size() &gt;= maxSize;</span>
+    }
+
+    @Override
+    public void overflowRemoved(Object key, Object value) {
+<span class="nc" id="L255">    }</span>
+
+    /**
+     * Returns the number of key-value mappings in this map.
+     *
+     * @return the number of key-value mappings in this map.
+     */
+    @Override
+    public final int size() {
+<span class="nc" id="L264">        return size;</span>
+    }
+
+    /**
+     * Returns &lt;tt&gt;true&lt;/tt&gt; if this map contains no key-value mappings.
+     *
+     * @return &lt;tt&gt;true&lt;/tt&gt; if this map contains no key-value mappings.
+     */
+    @Override
+    public final boolean isEmpty() {
+<span class="nc bnc" id="L274" title="All 2 branches missed.">        return size == 0;</span>
+    }
+
+    /**
+     * Returns the value to which the specified key is mapped in this identity
+     * hash map, or &lt;tt&gt;null&lt;/tt&gt; if the map contains no mapping for this key.
+     * A return value of &lt;tt&gt;null&lt;/tt&gt; does not &lt;i&gt;necessarily&lt;/i&gt; indicate
+     * that the map contains no mapping for the key; it is also possible that
+     * the map explicitly maps the key to &lt;tt&gt;null&lt;/tt&gt;. The
+     * &lt;tt&gt;containsKey&lt;/tt&gt; method may be used to distinguish these two cases.
+     *
+     * @param key the key whose associated value is to be returned.
+     * @return the value to which this map maps the specified key, or
+     * &lt;tt&gt;null&lt;/tt&gt; if the map contains no mapping for this key.
+     * @see #put(Object, Object)
+     */
+    @Override
+    public Object get(Object key) {
+<span class="nc" id="L292">        Entry e = getEntry(key);</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">        return e == null ? null : e.value;</span>
+    }
+
+    /**
+     * Returns &lt;tt&gt;true&lt;/tt&gt; if this map contains a mapping for the
+     * specified key.
+     *
+     * @param key The key whose presence in this map is to be tested
+     * @return &lt;tt&gt;true&lt;/tt&gt; if this map contains a mapping for the specified
+     * key.
+     */
+    @Override
+    public final boolean containsKey(Object key) {
+<span class="nc bnc" id="L306" title="All 2 branches missed.">        return getEntry(key) != null;</span>
+    }
+
+    /**
+     * Returns the entry associated with the specified key in the
+     * ConcurrentHashMap. Returns null if the ConcurrentHashMap contains no
+     * mapping for this key.
+     */
+    protected Entry getEntry(Object key) {
+<span class="nc" id="L315">        Object k = maskNull(key);</span>
+<span class="nc" id="L316">        int hash = hash(k);</span>
+<span class="nc" id="L317">        Entry[] tab = table;</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        for (Entry e = tab[hash &amp; (tab.length - 1)]; e != null; e = e.next) {</span>
+<span class="nc bnc" id="L319" title="All 4 branches missed.">            if (e.hash == hash &amp;&amp; eq(k, e.key)) return e;</span>
+        }
+<span class="nc" id="L321">        return null;</span>
+    }
+
+    /**
+     * Associates the specified value with the specified key in this map.
+     * If the map previously contained a mapping for this key, the old
+     * value is replaced.
+     *
+     * @param key key with which the specified value is to be associated.
+     * @param value value to be associated with the specified key.
+     * @return previous value associated with specified key, or &lt;tt&gt;null&lt;/tt&gt;
+     * if there was no mapping for key. A &lt;tt&gt;null&lt;/tt&gt; return can
+     * also indicate that the ConcurrentHashMap previously associated
+     * &lt;tt&gt;null&lt;/tt&gt; with the specified key.
+     */
+    @Override
+    public Object put(Object key, Object value) {
+<span class="nc" id="L338">        Object k = maskNull(key);</span>
+<span class="nc" id="L339">        int hash = hash(k);</span>
+<span class="nc" id="L340">        synchronized (this) {</span>
+<span class="nc" id="L341">            int i = hash &amp; (table.length - 1);</span>
+
+<span class="nc bnc" id="L343" title="All 2 branches missed.">            for (Entry e = table[i]; e != null; e = e.next) {</span>
+<span class="nc bnc" id="L344" title="All 4 branches missed.">                if (e.hash == hash &amp;&amp; eq(k, e.key)) {</span>
+<span class="nc" id="L345">                    Object oldValue = e.value;</span>
+<span class="nc" id="L346">                    e.value = value;</span>
+<span class="nc" id="L347">                    return oldValue;</span>
+                }
+            }
+
+<span class="nc bnc" id="L351" title="All 2 branches missed.">            if (maxSize != Integer.MAX_VALUE)</span>
+<span class="nc" id="L352">                removeOverflow(maxSize - 1);</span>
+<span class="nc" id="L353">            table[i] = createEntry(hash, k, value, table[i]);</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">            if (size++ &gt;= threshold) resize(2 * table.length);</span>
+<span class="nc" id="L355">        }</span>
+<span class="nc" id="L356">        return null;</span>
+    }
+
+    /**
+     * Remove any entries equal to or over the max size.
+     */
+    private void removeOverflow(int maxSize) {
+<span class="nc bnc" id="L363" title="All 2 branches missed.">        while (size &gt; maxSize) {</span>
+<span class="nc" id="L364">            Map.Entry entry = removeRandom();</span>
+<span class="nc bnc" id="L365" title="All 2 branches missed.">            if (entry == null)</span>
+<span class="nc" id="L366">                break;</span>
+<span class="nc" id="L367">            overflowRemoved(entry.getKey(), entry.getValue());</span>
+<span class="nc" id="L368">        }</span>
+<span class="nc" id="L369">    }</span>
+
+    @Override
+    public Object putIfAbsent(Object key, Object value) {
+<span class="nc" id="L373">        Object k = maskNull(key);</span>
+<span class="nc" id="L374">        int hash = hash(k);</span>
+<span class="nc" id="L375">        synchronized (this) {</span>
+<span class="nc" id="L376">            int i = hash &amp; (table.length - 1);</span>
+
+<span class="nc bnc" id="L378" title="All 2 branches missed.">            for (Entry e = table[i]; e != null; e = e.next) {</span>
+<span class="nc bnc" id="L379" title="All 4 branches missed.">                if (e.hash == hash &amp;&amp; eq(k, e.key)) {</span>
+<span class="nc" id="L380">                    return e.value;</span>
+                }
+            }
+
+<span class="nc bnc" id="L384" title="All 2 branches missed.">            if (maxSize != Integer.MAX_VALUE)</span>
+<span class="nc" id="L385">                removeOverflow(maxSize - 1);</span>
+<span class="nc" id="L386">            table[i] = createEntry(hash, k, value, table[i]);</span>
+<span class="nc bnc" id="L387" title="All 2 branches missed.">            if (size++ &gt;= threshold) resize(2 * table.length);</span>
+<span class="nc" id="L388">        }</span>
+<span class="nc" id="L389">        return null;</span>
+    }
+
+    /**
+     * Rehashes the contents of this map into a new &lt;tt&gt;ConcurrentHashMap&lt;/tt&gt;
+     * instance with a larger capacity. This method is called automatically when
+     * the number of keys in this map exceeds its capacity and load factor.
+     *
+     * @param newCapacity the new capacity, MUST be a power of two.
+     */
+    private void resize(int newCapacity) {
+        // assert(newCapacity &amp; -newCapacity) == newCapacity; // power of 2
+<span class="nc" id="L401">        Entry[] oldTable = table;</span>
+<span class="nc" id="L402">        int oldCapacity = oldTable.length;</span>
+
+        // check if needed
+<span class="nc bnc" id="L405" title="All 4 branches missed.">        if (size &lt; threshold || oldCapacity &gt; newCapacity) return;</span>
+
+<span class="nc" id="L407">        Entry[] newTable = new Entry[newCapacity];</span>
+<span class="nc" id="L408">        int mask = newCapacity - 1;</span>
+<span class="nc bnc" id="L409" title="All 2 branches missed.">        for (int i = oldCapacity; i-- &gt; 0;) {</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">            for (Entry e = oldTable[i]; e != null; e = e.next) {</span>
+<span class="nc" id="L411">                Entry clone = (Entry) e.clone();</span>
+<span class="nc" id="L412">                int j = clone.hash &amp; mask;</span>
+<span class="nc" id="L413">                clone.next = newTable[j];</span>
+<span class="nc" id="L414">                newTable[j] = clone;</span>
+            }
+        }
+<span class="nc" id="L417">        table = newTable;</span>
+<span class="nc" id="L418">        threshold = (int) (newCapacity * loadFactor);</span>
+<span class="nc" id="L419">    }</span>
+
+    /**
+     * Copies all of the mappings from the specified map to this map
+     * These mappings will replace any mappings that
+     * this map had for any of the keys currently in the specified map.
+     *
+     * @param t mappings to be stored in this map.
+     * @throws NullPointerException if the specified map is null.
+     */
+    @Override
+    public final synchronized void putAll(Map t) {
+        // Expand enough to hold t's elements without resizing.
+<span class="nc" id="L432">        int n = t.size();</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">        if (n == 0) return;</span>
+<span class="nc bnc" id="L434" title="All 2 branches missed.">        if (n &gt;= threshold) {</span>
+<span class="nc" id="L435">            n = (int) (n / loadFactor + 1);</span>
+<span class="nc bnc" id="L436" title="All 2 branches missed.">            if (n &gt; MAXIMUM_CAPACITY) n = MAXIMUM_CAPACITY;</span>
+<span class="nc" id="L437">            int capacity = table.length;</span>
+<span class="nc bnc" id="L438" title="All 2 branches missed.">            while (capacity &lt; n) capacity &lt;&lt;= 1;</span>
+<span class="nc" id="L439">            resize(capacity);</span>
+        }
+
+<span class="nc bnc" id="L442" title="All 2 branches missed.">        for (Object o : t.entrySet()) {</span>
+<span class="nc" id="L443">            Map.Entry e = (Map.Entry) o;</span>
+<span class="nc" id="L444">            put(e.getKey(), e.getValue());</span>
+<span class="nc" id="L445">        }</span>
+<span class="nc" id="L446">    }</span>
+
+    /**
+     * Removes the mapping for this key from this map if present.
+     *
+     * @param key key whose mapping is to be removed from the map.
+     * @return previous value associated with specified key, or &lt;tt&gt;null&lt;/tt&gt;
+     * if there was no mapping for key. A &lt;tt&gt;null&lt;/tt&gt; return can
+     * also indicate that the map previously associated &lt;tt&gt;null&lt;/tt&gt;
+     * with the specified key.
+     */
+    @Override
+    public Object remove(Object key) {
+<span class="nc" id="L459">        Entry e = removeEntryForKey(key);</span>
+<span class="nc bnc" id="L460" title="All 2 branches missed.">        return (e == null ? e : e.value);</span>
+    }
+
+    /**
+     * Removes and returns the entry associated with the specified key in the
+     * ConcurrentHashMap. Returns null if the ConcurrentHashMap contains no
+     * mapping for this key.
+     */
+    private Entry removeEntryForKey(Object key) {
+<span class="nc" id="L469">        Object k = maskNull(key);</span>
+<span class="nc" id="L470">        int hash = hash(k);</span>
+<span class="nc" id="L471">        synchronized (this) {</span>
+<span class="nc" id="L472">            int i = hash &amp; (table.length - 1);</span>
+<span class="nc" id="L473">            Entry e = table[i];</span>
+
+<span class="nc bnc" id="L475" title="All 2 branches missed.">            if (e == null) return null;</span>
+<span class="nc bnc" id="L476" title="All 4 branches missed.">            if (e.hash == hash &amp;&amp; eq(k, e.key)) {</span>
+<span class="nc" id="L477">                size--;</span>
+<span class="nc" id="L478">                table[i] = e.next;</span>
+<span class="nc" id="L479">                return e;</span>
+            }
+
+<span class="nc" id="L482">            Entry prev = e;</span>
+<span class="nc bnc" id="L483" title="All 2 branches missed.">            for (e = e.next; e != null; prev = e, e = e.next) {</span>
+<span class="nc bnc" id="L484" title="All 4 branches missed.">                if (e.hash == hash &amp;&amp; eq(k, e.key)) {</span>
+<span class="nc" id="L485">                    size--;</span>
+<span class="nc" id="L486">                    prev.next = e.next;</span>
+<span class="nc" id="L487">                    return e;</span>
+                }
+            }
+<span class="nc" id="L490">        }</span>
+<span class="nc" id="L491">        return null;</span>
+    }
+
+    /**
+     * Special version of remove for EntrySet.
+     */
+    private Entry removeMapping(Object o) {
+<span class="nc bnc" id="L498" title="All 2 branches missed.">        if (!(o instanceof Map.Entry)) return null;</span>
+
+<span class="nc" id="L500">        Map.Entry entry = (Map.Entry) o;</span>
+<span class="nc" id="L501">        Object k = maskNull(entry.getKey());</span>
+<span class="nc" id="L502">        int hash = hash(k);</span>
+<span class="nc" id="L503">        synchronized (this) {</span>
+<span class="nc" id="L504">            int i = hash &amp; (table.length - 1);</span>
+<span class="nc" id="L505">            Entry e = table[i];</span>
+
+<span class="nc bnc" id="L507" title="All 2 branches missed.">            if (e == null) return null;</span>
+<span class="nc bnc" id="L508" title="All 4 branches missed.">            if (e.hash == hash &amp;&amp; e.equals(entry)) {</span>
+<span class="nc" id="L509">                size--;</span>
+<span class="nc" id="L510">                table[i] = e.next;</span>
+<span class="nc" id="L511">                return e;</span>
+            }
+
+<span class="nc" id="L514">            Entry prev = e;</span>
+<span class="nc bnc" id="L515" title="All 2 branches missed.">            for (e = e.next; e != null; prev = e, e = e.next) {</span>
+<span class="nc bnc" id="L516" title="All 4 branches missed.">                if (e.hash == hash &amp;&amp; e.equals(entry)) {</span>
+<span class="nc" id="L517">                    size--;</span>
+<span class="nc" id="L518">                    prev.next = e.next;</span>
+<span class="nc" id="L519">                    return e;</span>
+                }
+            }
+<span class="nc" id="L522">        }</span>
+<span class="nc" id="L523">        return null;</span>
+    }
+
+    /**
+     * Removes all mappings from this map.
+     */
+    @Override
+    public synchronized void clear() {
+<span class="nc" id="L531">        table = new Entry[table.length];</span>
+<span class="nc" id="L532">        size = 0;</span>
+<span class="nc" id="L533">    }</span>
+
+    /**
+     * Return an arbitrary entry index.
+     */
+    private int randomEntryIndex() {
+<span class="nc bnc" id="L539" title="All 2 branches missed.">        if (randomEntry == RANDOMS.length)</span>
+<span class="nc" id="L540">            randomEntry = 0;</span>
+<span class="nc" id="L541">        return (int) (RANDOMS[randomEntry++] * table.length);</span>
+    }
+
+    @Override
+    public Map.Entry removeRandom() {
+<span class="nc bnc" id="L546" title="All 2 branches missed.">        if (size == 0)</span>
+<span class="nc" id="L547">            return null;</span>
+
+<span class="nc" id="L549">        synchronized (this) {</span>
+<span class="nc" id="L550">            int random = randomEntryIndex();</span>
+<span class="nc bnc" id="L551" title="All 2 branches missed.">            int index = findEntry(random, random % 2 == 0, false);</span>
+<span class="nc bnc" id="L552" title="All 2 branches missed.">            if (index == -1)</span>
+<span class="nc" id="L553">                return null;</span>
+<span class="nc" id="L554">            Entry rem = table[index];</span>
+<span class="nc" id="L555">            table[index] = rem.next;</span>
+<span class="nc" id="L556">            size--;</span>
+<span class="nc" id="L557">            return rem;</span>
+        }
+    }
+
+    /**
+     * Find the index of the entry nearest the given index, starting in the
+     * given direction.
+     */
+    private int findEntry(int start, boolean forward, boolean searchedOther) {
+<span class="nc bnc" id="L566" title="All 2 branches missed.">        if (forward) {</span>
+<span class="nc bnc" id="L567" title="All 2 branches missed.">            for (int i = start; i &lt; table.length; i++)</span>
+<span class="nc bnc" id="L568" title="All 2 branches missed.">                if (table[i] != null)</span>
+<span class="nc" id="L569">                    return i;</span>
+<span class="nc bnc" id="L570" title="All 4 branches missed.">            return (searchedOther || start == 0) ? -1</span>
+<span class="nc" id="L571">                : findEntry(start - 1, false, true);</span>
+        } else {
+<span class="nc bnc" id="L573" title="All 2 branches missed.">            for (int i = start; i &gt;= 0; i--)</span>
+<span class="nc bnc" id="L574" title="All 2 branches missed.">                if (table[i] != null)</span>
+<span class="nc" id="L575">                    return i;</span>
+<span class="nc bnc" id="L576" title="All 4 branches missed.">            return (searchedOther || start == table.length - 1) ? -1</span>
+<span class="nc" id="L577">                : findEntry(start + 1, true, true);</span>
+        }
+    }
+
+    @Override
+    public Iterator randomEntryIterator() {
+        // pass index so calculated before iterator refs table, in case table
+        // gets replace with a larger one
+<span class="nc" id="L585">        return new HashIterator(ENTRIES, randomEntryIndex());</span>
+    }
+
+    /**
+     * Returns &lt;tt&gt;true&lt;/tt&gt; if this map maps one or more keys to the
+     * specified value.
+     *
+     * @param value value whose presence in this map is to be tested.
+     * @return &lt;tt&gt;true&lt;/tt&gt; if this map maps one or more keys to the
+     * specified value.
+     */
+    @Override
+    public final boolean containsValue(Object value) {
+<span class="nc bnc" id="L598" title="All 2 branches missed.">        if (value == null) return containsNullValue();</span>
+
+<span class="nc" id="L600">        Entry tab[] = table;</span>
+<span class="nc bnc" id="L601" title="All 2 branches missed.">        for (Entry entry : tab) {</span>
+<span class="nc bnc" id="L602" title="All 2 branches missed.">            for (Entry e = entry; e != null; e = e.next) {</span>
+<span class="nc bnc" id="L603" title="All 2 branches missed.">                if (value.equals(e.value)) return true;</span>
+            }
+        }
+<span class="nc" id="L606">        return false;</span>
+    }
+
+    /**
+     * Special-case code for containsValue with null argument
+     */
+    private boolean containsNullValue() {
+<span class="nc" id="L613">        Entry tab[] = table;</span>
+<span class="nc bnc" id="L614" title="All 2 branches missed.">        for (Entry entry : tab) {</span>
+<span class="nc bnc" id="L615" title="All 2 branches missed.">            for (Entry e = entry; e != null; e = e.next) {</span>
+<span class="nc bnc" id="L616" title="All 2 branches missed.">                if (e.value == null) return true;</span>
+            }
+        }
+<span class="nc" id="L619">        return false;</span>
+    }
+
+    /**
+     * Returns a shallow copy of this &lt;tt&gt;ConcurrentHashMap&lt;/tt&gt; instance: the
+     * keys and values themselves are not cloned.
+     *
+     * @return a shallow copy of this map.
+     */
+    @Override
+    public final Object clone() {
+<span class="nc" id="L630">        return new ConcurrentHashMap(this);</span>
+    }
+
+    protected Entry createEntry(int h, Object k, Object v, Entry n) {
+<span class="nc" id="L634">        return new Entry(h, k, v, n);</span>
+    }
+
+    protected static class Entry implements Map.Entry {
+
+        final Object key;
+        Object value;
+        final int hash;
+        Entry next;
+
+        /**
+         * Create new entry.
+         */
+<span class="nc" id="L647">        protected Entry(int h, Object k, Object v, Entry n) {</span>
+<span class="nc" id="L648">            value = v;</span>
+<span class="nc" id="L649">            next = n;</span>
+<span class="nc" id="L650">            key = k;</span>
+<span class="nc" id="L651">            hash = h;</span>
+<span class="nc" id="L652">        }</span>
+
+        @Override
+        public Object getKey() {
+<span class="nc" id="L656">            return unmaskNull(key);</span>
+        }
+
+        @Override
+        public Object getValue() {
+<span class="nc" id="L661">            return value;</span>
+        }
+
+        @Override
+        public Object setValue(Object newValue) {
+<span class="nc" id="L666">            Object oldValue = value;</span>
+<span class="nc" id="L667">            value = newValue;</span>
+<span class="nc" id="L668">            return oldValue;</span>
+        }
+
+        @Override
+        public boolean equals(Object o) {
+<span class="nc bnc" id="L673" title="All 2 branches missed.">            if (!(o instanceof Map.Entry)) return false;</span>
+<span class="nc" id="L674">            Map.Entry e = (Map.Entry) o;</span>
+<span class="nc" id="L675">            Object k1 = getKey();</span>
+<span class="nc" id="L676">            Object k2 = e.getKey();</span>
+<span class="nc bnc" id="L677" title="All 6 branches missed.">            if (k1 == k2 || (k1 != null &amp;&amp; k1.equals(k2))) {</span>
+<span class="nc" id="L678">                Object v1 = getValue();</span>
+<span class="nc" id="L679">                Object v2 = e.getValue();</span>
+<span class="nc bnc" id="L680" title="All 6 branches missed.">                if (v1 == v2 || (v1 != null &amp;&amp; v1.equals(v2)))</span>
+<span class="nc" id="L681">                    return true;</span>
+            }
+<span class="nc" id="L683">            return false;</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc bnc" id="L688" title="All 4 branches missed.">            return (key == NULL_KEY ? 0 : key.hashCode()) ^</span>
+<span class="nc" id="L689">                (value == null ? 0 : value.hashCode());</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L694">            return getKey() + &quot;=&quot; + getValue();</span>
+        }
+
+        @Override
+        protected Object clone() {
+            // It is the callers responsibility to set the next field
+            // correctly.
+<span class="nc" id="L701">            return new Entry(hash, key, value, null);</span>
+        }
+    }
+
+    // Types of Enumerations/Iterations
+    private static final int KEYS = 0;
+    private static final int VALUES = 1;
+    private static final int ENTRIES = 2;
+
+    /**
+     * Map iterator.
+     */
+    private class HashIterator implements Iterator {
+
+<span class="nc" id="L715">        final Entry[] table = ConcurrentHashMap.this.table;</span>
+        final int type;
+        int startIndex;
+<span class="nc" id="L718">        int stopIndex = 0;</span>
+        int index;
+<span class="nc" id="L720">        Entry entry = null;</span>
+<span class="nc" id="L721">        Entry lastReturned = null;</span>
+
+<span class="nc" id="L723">        HashIterator(int type, int startIndex) {</span>
+<span class="nc" id="L724">            this.type = type;</span>
+<span class="nc" id="L725">            this.startIndex = startIndex;</span>
+<span class="nc" id="L726">            index = startIndex;</span>
+<span class="nc" id="L727">        }</span>
+
+        @Override
+        public boolean hasNext() {
+<span class="nc bnc" id="L731" title="All 2 branches missed.">            if (entry != null) {</span>
+<span class="nc" id="L732">                return true;</span>
+            }
+<span class="nc bnc" id="L734" title="All 2 branches missed.">            while (index &gt;= stopIndex) {</span>
+<span class="nc bnc" id="L735" title="All 2 branches missed.">                if ((entry = table[index--]) != null) {</span>
+<span class="nc" id="L736">                    return true;</span>
+                }
+            }
+<span class="nc bnc" id="L739" title="All 2 branches missed.">            if (stopIndex == 0) {</span>
+<span class="nc" id="L740">                index = table.length - 1;</span>
+<span class="nc" id="L741">                stopIndex = startIndex + 1;</span>
+<span class="nc bnc" id="L742" title="All 2 branches missed.">                while (index &gt;= stopIndex) {</span>
+<span class="nc bnc" id="L743" title="All 2 branches missed.">                    if ((entry = table[index--]) != null) {</span>
+<span class="nc" id="L744">                        return true;</span>
+                    }
+                }
+            }
+<span class="nc" id="L748">            return false;</span>
+        }
+
+        @Override
+        public Object next() {
+<span class="nc bnc" id="L753" title="All 2 branches missed.">            if (!hasNext())</span>
+<span class="nc" id="L754">                throw new NoSuchElementException();</span>
+<span class="nc" id="L755">            Entry e = lastReturned = entry;</span>
+<span class="nc" id="L756">            entry = e.next;</span>
+<span class="nc bnc" id="L757" title="All 4 branches missed.">            return type == KEYS ? e.key : (type == VALUES ? e.value : e);</span>
+        }
+
+        @Override
+        public void remove() {
+<span class="nc bnc" id="L762" title="All 2 branches missed.">            if (lastReturned == null)</span>
+<span class="nc" id="L763">                throw new IllegalStateException();</span>
+<span class="nc" id="L764">            synchronized (ConcurrentHashMap.this) {</span>
+<span class="nc" id="L765">                Entry[] tab = ConcurrentHashMap.this.table;</span>
+<span class="nc" id="L766">                int index = (lastReturned.hash &amp; 0x7FFFFFFF) % tab.length;</span>
+
+<span class="nc bnc" id="L768" title="All 2 branches missed.">                for (Entry e = tab[index], prev = null; e != null;</span>
+<span class="nc" id="L769">                    prev = e, e = e.next) {</span>
+<span class="nc bnc" id="L770" title="All 2 branches missed.">                    if (e == lastReturned) {</span>
+<span class="nc bnc" id="L771" title="All 2 branches missed.">                        if (prev == null)</span>
+<span class="nc" id="L772">                            tab[index] = e.next;</span>
+                        else
+<span class="nc" id="L774">                            prev.next = e.next;</span>
+<span class="nc" id="L775">                        size--;</span>
+<span class="nc" id="L776">                        lastReturned = null;</span>
+<span class="nc" id="L777">                        return;</span>
+                    }
+                }
+<span class="nc" id="L780">                throw new Error(&quot;Iterated off table when doing remove&quot;);</span>
+            }
+        }
+    }
+
+    // Views
+
+<span class="nc" id="L787">    private transient Set entrySet = null;</span>
+<span class="nc" id="L788">    private transient Set keySet = null;</span>
+<span class="nc" id="L789">    private transient Collection values = null;</span>
+
+    /**
+     * Returns a set view of the keys contained in this map. The set is
+     * backed by the map, so changes to the map are reflected in the set, and
+     * vice-versa. The set supports element removal, which removes the
+     * corresponding mapping from this map, via the &lt;tt&gt;Iterator.remove&lt;/tt&gt;,
+     * &lt;tt&gt;Set.remove&lt;/tt&gt;, &lt;tt&gt;removeAll&lt;/tt&gt;, &lt;tt&gt;retainAll&lt;/tt&gt;, and
+     * &lt;tt&gt;clear&lt;/tt&gt; operations. It does not support the &lt;tt&gt;add&lt;/tt&gt; or
+     * &lt;tt&gt;addAll&lt;/tt&gt; operations.
+     *
+     * @return a set view of the keys contained in this map.
+     */
+    @Override
+    public final Set keySet() {
+<span class="nc" id="L804">        Set ks = keySet;</span>
+<span class="nc bnc" id="L805" title="All 2 branches missed.">        return (ks != null ? ks : (keySet = new KeySet()));</span>
+    }
+
+<span class="nc" id="L808">    private final class KeySet extends AbstractSet {</span>
+
+        @Override
+        public Iterator iterator() {
+<span class="nc" id="L812">            return new HashIterator(KEYS, table.length - 1);</span>
+        }
+
+        @Override
+        public int size() {
+<span class="nc" id="L817">            return size;</span>
+        }
+
+        @Override
+        public boolean contains(Object o) {
+<span class="nc" id="L822">            return containsKey(o);</span>
+        }
+
+        @Override
+        public boolean remove(Object o) {
+<span class="nc bnc" id="L827" title="All 2 branches missed.">            return ConcurrentHashMap.this.removeEntryForKey(o) != null;</span>
+        }
+
+        @Override
+        public void clear() {
+<span class="nc" id="L832">            ConcurrentHashMap.this.clear();</span>
+<span class="nc" id="L833">        }</span>
+    }
+
+    /**
+     * Returns a collection view of the values contained in this map. The
+     * collection is backed by the map, so changes to the map are reflected in
+     * the collection, and vice-versa. The collection supports element
+     * removal, which removes the corresponding mapping from this map, via the
+     * &lt;tt&gt;Iterator.remove&lt;/tt&gt;, &lt;tt&gt;Collection.remove&lt;/tt&gt;,
+     * &lt;tt&gt;removeAll&lt;/tt&gt;, &lt;tt&gt;retainAll&lt;/tt&gt;, and &lt;tt&gt;clear&lt;/tt&gt; operations.
+     * It does not support the &lt;tt&gt;add&lt;/tt&gt; or &lt;tt&gt;addAll&lt;/tt&gt; operations.
+     *
+     * @return a collection view of the values contained in this map.
+     */
+    @Override
+    public final Collection values() {
+<span class="nc" id="L849">        Collection vs = values;</span>
+<span class="nc bnc" id="L850" title="All 2 branches missed.">        return (vs != null ? vs : (values = new Values()));</span>
+    }
+
+<span class="nc" id="L853">    private final class Values extends AbstractCollection {</span>
+
+        @Override
+        public Iterator iterator() {
+<span class="nc" id="L857">            return new HashIterator(VALUES, table.length - 1);</span>
+        }
+
+        @Override
+        public int size() {
+<span class="nc" id="L862">            return size;</span>
+        }
+
+        @Override
+        public boolean contains(Object o) {
+<span class="nc" id="L867">            return containsValue(o);</span>
+        }
+
+        @Override
+        public void clear() {
+<span class="nc" id="L872">            ConcurrentHashMap.this.clear();</span>
+<span class="nc" id="L873">        }</span>
+    }
+
+    /**
+     * Returns a collection view of the mappings contained in this map. Each
+     * element in the returned collection is a &lt;tt&gt;Map.Entry&lt;/tt&gt;. The
+     * collection is backed by the map, so changes to the map are reflected in
+     * the collection, and vice-versa. The collection supports element
+     * removal, which removes the corresponding mapping from the map, via the
+     * &lt;tt&gt;Iterator.remove&lt;/tt&gt;, &lt;tt&gt;Collection.remove&lt;/tt&gt;,
+     * &lt;tt&gt;removeAll&lt;/tt&gt;, &lt;tt&gt;retainAll&lt;/tt&gt;, and &lt;tt&gt;clear&lt;/tt&gt; operations.
+     * It does not support the &lt;tt&gt;add&lt;/tt&gt; or &lt;tt&gt;addAll&lt;/tt&gt; operations.
+     *
+     * @return a collection view of the mappings contained in this map.
+     * @see Map.Entry
+     */
+    @Override
+    public final Set entrySet() {
+<span class="nc" id="L891">        Set es = entrySet;</span>
+<span class="nc bnc" id="L892" title="All 2 branches missed.">        return (es != null ? es : (entrySet = new EntrySet()));</span>
+    }
+
+<span class="nc" id="L895">    private final class EntrySet extends AbstractSet {</span>
+
+        @Override
+        public Iterator iterator() {
+<span class="nc" id="L899">            return new HashIterator(ENTRIES, table.length - 1);</span>
+        }
+
+        @Override
+        public boolean contains(Object o) {
+<span class="nc bnc" id="L904" title="All 2 branches missed.">            if (!(o instanceof Map.Entry)) return false;</span>
+<span class="nc" id="L905">            Map.Entry e = (Map.Entry) o;</span>
+<span class="nc" id="L906">            Entry candidate = getEntry(e.getKey());</span>
+<span class="nc bnc" id="L907" title="All 4 branches missed.">            return candidate != null &amp;&amp; candidate.equals(e);</span>
+        }
+
+        @Override
+        public boolean remove(Object o) {
+<span class="nc bnc" id="L912" title="All 2 branches missed.">            return removeMapping(o) != null;</span>
+        }
+
+        @Override
+        public int size() {
+<span class="nc" id="L917">            return size;</span>
+        }
+
+        @Override
+        public void clear() {
+<span class="nc" id="L922">            ConcurrentHashMap.this.clear();</span>
+<span class="nc" id="L923">        }</span>
+    }
+
+    /**
+     * Save the state of the &lt;tt&gt;ConcurrentHashMap&lt;/tt&gt; instance to a stream
+     * (i.e., serialize it).
+     *
+     * @serialData The &lt;i&gt;capacity&lt;/i&gt; of the ConcurrentHashMap(the length of
+     * the bucket array) is emitted(int), followed by the &lt;i&gt;size&lt;/i&gt; of the
+     * ConcurrentHashMap(the number of key-value mappings), followed by the key
+     * (Object) and value(Object) for each key-value mapping represented by the
+     * ConcurrentHashMap The key-value mappings are emitted in the order that
+     * they are returned by &lt;tt&gt;entrySet().iterator()&lt;/tt&gt;.
+     */
+    private void writeObject(ObjectOutputStream s) throws IOException {
+        // Write out the threshold, loadfactor, and any hidden stuff
+<span class="nc" id="L939">        s.defaultWriteObject();</span>
+
+        // Write out number of buckets
+<span class="nc" id="L942">        s.writeInt(table.length);</span>
+
+        // Write out size(number of Mappings)
+<span class="nc" id="L945">        s.writeInt(size);</span>
+<span class="nc" id="L946">        s.writeInt(maxSize);</span>
+
+        // Write out keys and values(alternating)
+<span class="nc bnc" id="L949" title="All 2 branches missed.">        for (Object o : entrySet()) {</span>
+<span class="nc" id="L950">            Map.Entry e = (Map.Entry) o;</span>
+<span class="nc" id="L951">            s.writeObject(e.getKey());</span>
+<span class="nc" id="L952">            s.writeObject(e.getValue());</span>
+<span class="nc" id="L953">        }</span>
+<span class="nc" id="L954">    }</span>
+
+    private static final long serialVersionUID = -6452706556724125778L;
+
+    /**
+     * Reconstitute the &lt;tt&gt;ConcurrentHashMap&lt;/tt&gt; instance from a stream(i.e.,
+     * deserialize it).
+     */
+    private void readObject(ObjectInputStream s)
+        throws IOException, ClassNotFoundException {
+        // Read in the threshold, loadfactor, and any hidden stuff
+<span class="nc" id="L965">        s.defaultReadObject();</span>
+
+        // Read in number of buckets and allocate the bucket array;
+<span class="nc" id="L968">        int numBuckets = s.readInt();</span>
+<span class="nc" id="L969">        table = new Entry[numBuckets];</span>
+
+        // Read in size(number of Mappings)
+<span class="nc" id="L972">        int size = s.readInt();</span>
+
+        // read the max size
+<span class="nc" id="L975">        maxSize = s.readInt();</span>
+
+        // Read the keys and values, and put the mappings in the
+        // ConcurrentHashMap
+<span class="nc bnc" id="L979" title="All 2 branches missed.">        for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L980">            Object key = s.readObject();</span>
+<span class="nc" id="L981">            Object value = s.readObject();</span>
+<span class="nc" id="L982">            put(key, value);</span>
+        }
+<span class="nc" id="L984">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

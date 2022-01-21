@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>IdentifierRule.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.identifier</a> &gt; <span class="el_source">IdentifierRule.java</span></div><h1>IdentifierRule.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.identifier;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import org.apache.openjpa.lib.util.StringUtil;
+
+/**
+ * The standard identifier rule.  Rules are used for specific configuration
+ * of identifier types.  For example.  A rule could be used to indicate that
+ * an identifier type should not be delimited or has a max length of 255
+ * characters.
+ *
+ */
+<span class="nc" id="L33">public class IdentifierRule {</span>
+
+<span class="nc" id="L35">    public static final Set&lt;String&gt; EMPTY_SET = new HashSet&lt;&gt;(0);</span>
+    public static final String DEFAULT_RULE = &quot;default&quot;;
+<span class="nc" id="L37">    public static char UNDERSCORE = '_';</span>
+
+    private String _name;
+<span class="nc" id="L40">    private int _maxLength = 128;</span>
+<span class="nc" id="L41">    private boolean _nullable = false;</span>
+<span class="nc" id="L42">    private boolean _allowTruncation = false;</span>
+<span class="nc" id="L43">    private boolean _allowCompaction = true;</span>
+<span class="nc" id="L44">    private boolean _canDelimit = true;</span>
+<span class="nc" id="L45">    private boolean _mustDelimit = false;</span>
+<span class="nc" id="L46">    private boolean _mustBeginWithLetter = true;</span>
+<span class="nc" id="L47">    private boolean _onlyLettersDigitsUnderscores = true;</span>
+<span class="nc" id="L48">    private String _specialCharacters = &quot;&quot;;</span>
+<span class="nc" id="L49">    private Set&lt;String&gt; _reservedWords = null;</span>
+<span class="nc" id="L50">    private boolean _delimitReservedWords = false;</span>
+<span class="nc" id="L51">    private String _wildcard = &quot;%&quot;;</span>
+
+    public void setName(String name) {
+<span class="nc" id="L54">        _name = name;</span>
+<span class="nc" id="L55">    }</span>
+
+    public String getName() {
+<span class="nc" id="L58">        return _name;</span>
+    }
+
+    public void setMaxLength(int maxLength) {
+<span class="nc" id="L62">        _maxLength = maxLength;</span>
+<span class="nc" id="L63">    }</span>
+
+    public int getMaxLength() {
+<span class="nc" id="L66">        return _maxLength;</span>
+    }
+
+    public void setAllowTruncation(boolean allowTruncation) {
+<span class="nc" id="L70">        _allowTruncation = allowTruncation;</span>
+<span class="nc" id="L71">    }</span>
+
+    public boolean isAllowTruncation() {
+<span class="nc" id="L74">        return _allowTruncation;</span>
+    }
+
+    public void setNullable(boolean nullable) {
+<span class="nc" id="L78">        _nullable = nullable;</span>
+<span class="nc" id="L79">    }</span>
+
+    public boolean isNullable() {
+<span class="nc" id="L82">        return _nullable;</span>
+    }
+
+    public void setAllowCompaction(boolean allowCompaction) {
+<span class="nc" id="L86">        _allowCompaction = allowCompaction;</span>
+<span class="nc" id="L87">    }</span>
+
+    public boolean getAllowCompaction() {
+<span class="nc" id="L90">        return _allowCompaction;</span>
+    }
+
+    public void setCanDelimit(boolean canDelimit) {
+<span class="nc" id="L94">        _canDelimit = canDelimit;</span>
+<span class="nc" id="L95">    }</span>
+
+    public boolean getCanDelimit() {
+<span class="nc" id="L98">        return _canDelimit;</span>
+    }
+
+    public void setMustDelimit(boolean mustDelimit) {
+<span class="nc" id="L102">        _mustDelimit = mustDelimit;</span>
+<span class="nc" id="L103">    }</span>
+
+    public boolean getMustDelimit() {
+<span class="nc" id="L106">        return _mustDelimit;</span>
+    }
+
+    public void setMustBeginWithLetter(boolean mustBeginWithLetter) {
+<span class="nc" id="L110">        _mustBeginWithLetter = mustBeginWithLetter;</span>
+<span class="nc" id="L111">    }</span>
+
+    public boolean isMustBeginWithLetter() {
+<span class="nc" id="L114">        return _mustBeginWithLetter;</span>
+    }
+
+    public void setOnlyLettersDigitsUnderscores(boolean onlyLettersDigitsUnderscores) {
+<span class="nc" id="L118">        _onlyLettersDigitsUnderscores = onlyLettersDigitsUnderscores;</span>
+<span class="nc" id="L119">    }</span>
+
+    public boolean isOnlyLettersDigitsUnderscores() {
+<span class="nc" id="L122">        return _onlyLettersDigitsUnderscores;</span>
+    }
+
+    public void setReservedWords(Set&lt;String&gt; reservedWords) {
+<span class="nc" id="L126">        _reservedWords = reservedWords;</span>
+<span class="nc" id="L127">    }</span>
+
+    public Set&lt;String&gt; getReservedWords() {
+<span class="nc bnc" id="L130" title="All 2 branches missed.">        if (_reservedWords == null) {</span>
+<span class="nc" id="L131">            _reservedWords = new HashSet&lt;&gt;();</span>
+        }
+<span class="nc" id="L133">        return _reservedWords;</span>
+    }
+
+    public void setSpecialCharacters(String specialCharacters) {
+<span class="nc" id="L137">        _specialCharacters = specialCharacters;</span>
+<span class="nc" id="L138">    }</span>
+
+    public String getSpecialCharacters() {
+<span class="nc" id="L141">        return _specialCharacters;</span>
+    }
+
+    public void setDelimitReservedWords(boolean delimitReservedWords) {
+<span class="nc" id="L145">        _delimitReservedWords = delimitReservedWords;</span>
+<span class="nc" id="L146">    }</span>
+
+    public boolean getDelimitReservedWords() {
+<span class="nc" id="L149">        return _delimitReservedWords;</span>
+    }
+
+    /**
+     * SQL identifier rules:
+     * 1) Can be up to 128 characters long
+     * 2) Must begin with a letter
+     * 3) Can contain letters, digits, and underscores
+     * 4) Can't contain spaces or special characters such as #, $, &amp;, %, or
+     *    punctuation.
+     * 5) Can't be reserved words
+     */
+    public boolean requiresDelimiters(String identifier) {
+
+        // Do not delimit single valued wildcards or &quot;?&quot; or names that have method-type
+        // signatures (ex. getValue()).  These are considered special values in OpenJPA
+        // and should not be delimited.
+<span class="nc bnc" id="L166" title="All 4 branches missed.">        if (_wildcard.equals(identifier) || &quot;?&quot;.equals(identifier) ||</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">            identifier.endsWith(&quot;()&quot;)) {</span>
+<span class="nc" id="L168">            return false;</span>
+        }
+
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        if (getMustDelimit()) {</span>
+<span class="nc" id="L172">            return true;</span>
+        }
+
+        // Assert identifier begins with a letter
+<span class="nc" id="L176">        char[] chars = identifier.toCharArray();</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        if (isMustBeginWithLetter()) {</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">            if (!Character.isJavaIdentifierStart(chars[0])) {</span>
+<span class="nc" id="L179">                return true;</span>
+            }
+        }
+
+        // Iterate through chars, asserting delimiting rules
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        for (char ch : chars) {</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">            if (isOnlyLettersDigitsUnderscores()) {</span>
+<span class="nc bnc" id="L186" title="All 4 branches missed.">                if (!Character.isJavaIdentifierPart(ch) &amp;&amp; !(ch == UNDERSCORE)) {</span>
+<span class="nc" id="L187">                    return true;</span>
+                }
+            }
+            // Look for special characters
+<span class="nc bnc" id="L191" title="All 2 branches missed.">            if (StringUtil.contains(getSpecialCharacters(), ch)) {</span>
+<span class="nc" id="L192">                return true;</span>
+            }
+        }
+        // Finally, look for reserved words
+<span class="nc bnc" id="L196" title="All 2 branches missed.">        if (getDelimitReservedWords()) {</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">            if (isReservedWord(identifier)) {</span>
+<span class="nc" id="L198">                return true;</span>
+            }
+        }
+<span class="nc" id="L201">        return false;</span>
+    }
+
+    public boolean isReservedWord(String identifier) {
+<span class="nc" id="L205">        return _reservedWords.contains(identifier);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

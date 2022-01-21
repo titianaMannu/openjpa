@@ -1,0 +1,2515 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>LoggingConnectionDecorator.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.jdbc</a> &gt; <span class="el_source">LoggingConnectionDecorator.java</span></div><h1>LoggingConnectionDecorator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.jdbc;
+
+import java.io.InputStream;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.net.URL;
+import java.sql.Array;
+import java.sql.BatchUpdateException;
+import java.sql.Blob;
+import java.sql.CallableStatement;
+import java.sql.Clob;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.Ref;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.SQLWarning;
+import java.sql.Savepoint;
+import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Iterator;
+import java.util.List;
+
+import org.apache.openjpa.lib.log.Log;
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+
+/**
+ * A {@link ConnectionDecorator} that creates logging connections and
+ * {@link ReportingSQLException}s.
+ *
+ * @author Marc Prud'hommeaux
+ */
+<span class="nc" id="L58">public class LoggingConnectionDecorator implements ConnectionDecorator {</span>
+
+<span class="nc" id="L60">    private static final String SEP = J2DoPrivHelper.getLineSeparator();</span>
+
+    private static final int WARN_IGNORE = 0;
+    private static final int WARN_LOG_TRACE = 1;
+    private static final int WARN_LOG_INFO = 2;
+    private static final int WARN_LOG_WARN = 3;
+    private static final int WARN_LOG_ERROR = 4;
+    private static final int WARN_THROW = 5;
+    private static final int WARN_HANDLE = 6;
+<span class="nc" id="L69">    private static final String[] WARNING_ACTIONS = new String[7];</span>
+
+    static {
+<span class="nc" id="L72">        WARNING_ACTIONS[WARN_IGNORE] = &quot;ignore&quot;;</span>
+<span class="nc" id="L73">        WARNING_ACTIONS[WARN_LOG_TRACE] = &quot;trace&quot;;</span>
+<span class="nc" id="L74">        WARNING_ACTIONS[WARN_LOG_INFO] = &quot;info&quot;;</span>
+<span class="nc" id="L75">        WARNING_ACTIONS[WARN_LOG_WARN] = &quot;warn&quot;;</span>
+<span class="nc" id="L76">        WARNING_ACTIONS[WARN_LOG_ERROR] = &quot;error&quot;;</span>
+<span class="nc" id="L77">        WARNING_ACTIONS[WARN_THROW] = &quot;throw&quot;;</span>
+<span class="nc" id="L78">        WARNING_ACTIONS[WARN_HANDLE] = &quot;handle&quot;;</span>
+<span class="nc" id="L79">    }</span>
+
+<span class="nc" id="L81">    private final DataSourceLogs _logs = new DataSourceLogs();</span>
+    private SQLFormatter _formatter;
+    private boolean _prettyPrint;
+<span class="nc" id="L84">    private int _prettyPrintLineLength = 60;</span>
+<span class="nc" id="L85">    private int _warningAction = WARN_IGNORE;</span>
+    private SQLWarningHandler _warningHandler;
+<span class="nc" id="L87">    private boolean _printParameters = false;</span>
+
+    /**
+     * If set to &lt;code&gt;true&lt;/code&gt;, pretty-print SQL by running it
+     * through {@link SQLFormatter#prettyPrint}. If
+     * &lt;code&gt;false&lt;/code&gt;, don't pretty-print, and output SQL logs in
+     * a single line. Pretty-printed SQL can be easier for a human to
+     * read, but is harder to parse with tools like grep.
+     */
+    public void setPrettyPrint(boolean prettyPrint) {
+<span class="nc" id="L97">        _prettyPrint = prettyPrint;</span>
+<span class="nc bnc" id="L98" title="All 4 branches missed.">        if (_formatter == null &amp;&amp; _prettyPrint) {</span>
+<span class="nc" id="L99">            _formatter = new SQLFormatter();</span>
+<span class="nc" id="L100">            _formatter.setLineLength(_prettyPrintLineLength);</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        } else if (!_prettyPrint)</span>
+<span class="nc" id="L102">            _formatter = null;</span>
+<span class="nc" id="L103">    }</span>
+
+    /**
+     * @see #setPrettyPrint
+     */
+    public boolean getPrettyPrint() {
+<span class="nc" id="L109">        return _prettyPrint;</span>
+    }
+
+    /**
+     * The number of characters to print per line when
+     * pretty-printing of SQL is enabled. Defaults to 60 to provide
+     * some space for any ant-related characters on the left of a
+     * standard 80-character display.
+     */
+    public void setPrettyPrintLineLength(int length) {
+<span class="nc" id="L119">        _prettyPrintLineLength = length;</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">        if (_formatter != null)</span>
+<span class="nc" id="L121">            _formatter.setLineLength(length);</span>
+<span class="nc" id="L122">    }</span>
+
+    /**
+     * @see #setPrettyPrintLineLength
+     */
+    public int getPrettyPrintLineLength() {
+<span class="nc" id="L128">        return _prettyPrintLineLength;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Whether parameter values will be printed in exception messages or in trace. This is different from
+     * trackParameters which controls whether OpenJPA will track parameters internally (visible while debugging and used
+     * in batching).
+     * &lt;/p&gt;
+     */
+    public boolean getPrintParameters() {
+<span class="nc" id="L139">        return _printParameters;</span>
+    }
+
+    public void setPrintParameters(boolean printParameters) {
+<span class="nc" id="L143">        _printParameters = printParameters;</span>
+<span class="nc" id="L144">    }</span>
+
+    /**
+     * What to do with SQL warnings.
+     */
+    public void setWarningAction(String warningAction) {
+<span class="nc" id="L150">        int index = Arrays.asList(WARNING_ACTIONS).indexOf(warningAction);</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">        if (index &lt; 0)</span>
+<span class="nc" id="L152">            index = WARN_IGNORE;</span>
+<span class="nc" id="L153">        _warningAction = index;</span>
+<span class="nc" id="L154">    }</span>
+
+    /**
+     * What to do with SQL warnings.
+     */
+    public String getWarningAction() {
+<span class="nc" id="L160">        return WARNING_ACTIONS[_warningAction];</span>
+    }
+
+    /**
+     * What to do with SQL warnings.
+     */
+    public void setWarningHandler(SQLWarningHandler warningHandler) {
+<span class="nc" id="L167">        _warningHandler = warningHandler;</span>
+<span class="nc" id="L168">    }</span>
+
+    /**
+     * What to do with SQL warnings.
+     */
+    public SQLWarningHandler getWarningHandler() {
+<span class="nc" id="L174">        return _warningHandler;</span>
+    }
+
+    /**
+     * The log to write to.
+     */
+    public DataSourceLogs getLogs() {
+<span class="nc" id="L181">        return _logs;</span>
+    }
+
+    @Override
+    public Connection decorate(Connection conn) throws SQLException {
+<span class="nc" id="L186">        return newLoggingConnection(conn);</span>
+    }
+
+    private LoggingConnection newLoggingConnection(Connection conn)
+        throws SQLException {
+<span class="nc" id="L191">        return new LoggingConnection(conn);</span>
+    }
+
+    private SQLException wrap(SQLException sqle, Statement stmnt) {
+<span class="nc" id="L195">        return wrap(sqle, stmnt, null, -1);</span>
+    }
+
+    private SQLException wrap(SQLException sqle, String sql) {
+<span class="nc" id="L199">        return wrap(sqle, null, sql, -1);</span>
+    }
+
+    private SQLException wrap(SQLException sqle, Statement stmnt, String sql) {
+<span class="nc" id="L203">        return wrap(sqle, stmnt, sql, -1);</span>
+    }
+
+    private SQLException wrap(SQLException sqle, Statement stmnt, int indexOfFailedBatchObject) {
+<span class="nc" id="L207">        return wrap(sqle, stmnt, null, indexOfFailedBatchObject);</span>
+    }
+
+    /**
+     * Include SQL in exception.
+     */
+    private SQLException wrap(SQLException sqle, Statement stmnt, String sql, int indexOfFailedBatchObject) {
+<span class="nc" id="L214">        ReportingSQLException toReturn = null;</span>
+
+<span class="nc bnc" id="L216" title="All 2 branches missed.">        if (sqle instanceof ReportingSQLException) {</span>
+<span class="nc" id="L217">            toReturn = (ReportingSQLException) sqle;</span>
+        } else {
+<span class="nc" id="L219">            toReturn = new ReportingSQLException(sqle, stmnt, sql);</span>
+        }
+
+<span class="nc" id="L222">        toReturn.setIndexOfFirstFailedObject(indexOfFailedBatchObject);</span>
+<span class="nc" id="L223">        return toReturn;</span>
+    }
+
+    /**
+     * Interface that allows customization of what to do when
+     * {@link SQLWarning}s occur.
+     */
+    public interface SQLWarningHandler {
+
+        void handleWarning(SQLWarning warning) throws SQLException;
+    }
+
+    /**
+     * Logging connection.
+     */
+    protected class LoggingConnection extends DelegatingConnection {
+
+<span class="nc" id="L240">        public LoggingConnection(Connection conn) throws SQLException {</span>
+<span class="nc" id="L241">            super(conn);</span>
+<span class="nc" id="L242">        }</span>
+
+        @Override
+        protected PreparedStatement prepareStatement(String sql, boolean wrap)
+            throws SQLException {
+<span class="nc" id="L247">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L249">                PreparedStatement stmnt = super.prepareStatement(sql, false);</span>
+<span class="nc" id="L250">                return newLoggingPreparedStatement(stmnt, sql);</span>
+<span class="nc" id="L251">            } catch (SQLException se) {</span>
+<span class="nc" id="L252">                err = wrap(se, sql);</span>
+<span class="nc" id="L253">                throw err;</span>
+            }  finally {
+<span class="nc" id="L255">                handleSQLErrors(err);</span>
+            }
+        }
+
+        @Override
+        protected PreparedStatement prepareStatement(String sql, int rsType,
+            int rsConcur, boolean wrap) throws SQLException {
+<span class="nc" id="L262">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L264">                PreparedStatement stmnt = super.prepareStatement</span>
+<span class="nc" id="L265">                    (sql, rsType, rsConcur, false);</span>
+<span class="nc" id="L266">                return newLoggingPreparedStatement(stmnt, sql);</span>
+<span class="nc" id="L267">            } catch (SQLException se) {</span>
+<span class="nc" id="L268">                err =  wrap(se, sql);</span>
+<span class="nc" id="L269">                throw err;</span>
+            } finally {
+<span class="nc" id="L271">                handleSQLErrors(err);</span>
+            }
+        }
+
+        @Override
+        protected Statement createStatement(boolean wrap) throws SQLException {
+<span class="nc" id="L277">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L279">                Statement stmnt = super.createStatement(false);</span>
+<span class="nc" id="L280">                return newLoggingStatement(stmnt);</span>
+<span class="nc" id="L281">            }catch (SQLException se) {</span>
+<span class="nc" id="L282">                err = se;</span>
+<span class="nc" id="L283">                throw se;</span>
+            } finally {
+<span class="nc" id="L285">                handleSQLErrors(err);</span>
+            }
+        }
+
+        @Override
+        protected Statement createStatement(int type, int concurrency,
+            boolean wrap) throws SQLException {
+<span class="nc" id="L292">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L294">                Statement stmnt = super.createStatement(type, concurrency,</span>
+                    false);
+<span class="nc" id="L296">                return newLoggingStatement(stmnt);</span>
+<span class="nc" id="L297">            } catch (SQLException se) {</span>
+<span class="nc" id="L298">                err = se;</span>
+<span class="nc" id="L299">                throw se;</span>
+            } finally {
+<span class="nc" id="L301">                handleSQLErrors(err);</span>
+            }
+        }
+
+        @Override
+        protected CallableStatement prepareCall(String sql, boolean wrap)
+            throws SQLException {
+<span class="nc" id="L308">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L310">                CallableStatement stmt = super.prepareCall(sql, wrap);</span>
+<span class="nc" id="L311">                return newLoggingCallableStatement(stmt, sql);</span>
+<span class="nc" id="L312">            } catch (SQLException se) {</span>
+<span class="nc" id="L313">                err = wrap(se, sql);</span>
+<span class="nc" id="L314">                throw err;</span>
+            } finally {
+<span class="nc" id="L316">                handleSQLErrors(err);</span>
+            }
+        }
+
+        private LoggingPreparedStatement newLoggingPreparedStatement
+            (PreparedStatement stmnt, String sql) throws SQLException {
+<span class="nc" id="L322">            return new LoggingPreparedStatement(stmnt, sql);</span>
+        }
+
+        private CallableStatement newLoggingCallableStatement(
+            CallableStatement stmnt, String sql) throws SQLException {
+<span class="nc" id="L327">            return new LoggingCallableStatement(stmnt, sql);</span>
+        }
+
+        private LoggingStatement newLoggingStatement(Statement stmnt)
+            throws SQLException {
+<span class="nc" id="L332">            return new LoggingStatement(stmnt);</span>
+        }
+
+        private LoggingDatabaseMetaData newLoggingDatabaseMetaData
+            (DatabaseMetaData meta) throws SQLException {
+<span class="nc" id="L337">            return new LoggingDatabaseMetaData(meta);</span>
+        }
+
+
+
+        @Override
+        public void commit() throws SQLException {
+<span class="nc" id="L344">            long start = System.currentTimeMillis();</span>
+<span class="nc" id="L345">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L347">                super.commit();</span>
+<span class="nc" id="L348">            } catch (SQLException se) {</span>
+<span class="nc" id="L349">                err = se;</span>
+<span class="nc" id="L350">                throw se;</span>
+            } finally {
+<span class="nc bnc" id="L352" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L353">                    _logs.logJDBC(&quot;commit&quot;, start, this);</span>
+<span class="nc" id="L354">                handleSQLErrors(err);</span>
+            }
+<span class="nc" id="L356">        }</span>
+
+        @Override
+        public void rollback() throws SQLException {
+<span class="nc" id="L360">            long start = System.currentTimeMillis();</span>
+<span class="nc" id="L361">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L363">                super.rollback();</span>
+<span class="nc" id="L364">            } catch (SQLException se) {</span>
+<span class="nc" id="L365">                err = se;</span>
+<span class="nc" id="L366">                throw se;</span>
+            } finally {
+<span class="nc bnc" id="L368" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L369">                    _logs.logJDBC(&quot;rollback&quot;, start, this);</span>
+<span class="nc" id="L370">                handleSQLErrors(err);</span>
+            }
+<span class="nc" id="L372">        }</span>
+
+        @Override
+        public void close() throws SQLException {
+<span class="nc" id="L376">            long start = System.currentTimeMillis();</span>
+            try {
+<span class="nc" id="L378">                super.close();</span>
+            } finally {
+<span class="nc bnc" id="L380" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L381">                    _logs.logJDBC(&quot;close&quot;, start, this);</span>
+            }
+<span class="nc" id="L383">        }</span>
+
+        @Override
+        public Savepoint setSavepoint() throws SQLException {
+<span class="nc" id="L387">            long start = System.currentTimeMillis();</span>
+<span class="nc" id="L388">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L390">                return super.setSavepoint();</span>
+<span class="nc" id="L391">            } catch (SQLException se) {</span>
+<span class="nc" id="L392">                err = se;</span>
+<span class="nc" id="L393">                throw se;</span>
+            } finally {
+<span class="nc bnc" id="L395" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L396">                    _logs.logJDBC(&quot;savepoint&quot;, start, this);</span>
+<span class="nc" id="L397">                handleSQLErrors(err);</span>
+            }
+        }
+
+        @Override
+        public Savepoint setSavepoint(String name) throws SQLException {
+<span class="nc" id="L403">            long start = System.currentTimeMillis();</span>
+<span class="nc" id="L404">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L406">                return super.setSavepoint(name);</span>
+<span class="nc" id="L407">            } catch (SQLException se) {</span>
+<span class="nc" id="L408">                err = se;</span>
+<span class="nc" id="L409">                throw se;</span>
+            } finally {
+<span class="nc bnc" id="L411" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L412">                    _logs.logJDBC(&quot;savepoint: &quot; + name, start, this);</span>
+<span class="nc" id="L413">                handleSQLErrors(err);</span>
+            }
+        }
+
+        @Override
+        public void rollback(Savepoint savepoint) throws SQLException {
+<span class="nc" id="L419">            long start = System.currentTimeMillis();</span>
+<span class="nc" id="L420">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L422">                super.rollback(savepoint);</span>
+<span class="nc" id="L423">            } catch (SQLException se) {</span>
+<span class="nc" id="L424">                err = se;</span>
+<span class="nc" id="L425">                throw se;</span>
+            } finally {
+<span class="nc bnc" id="L427" title="All 2 branches missed.">                if (_logs.isJDBCEnabled()) {</span>
+<span class="nc" id="L428">                    String name = null;</span>
+                    try {
+<span class="nc" id="L430">                        name = savepoint.getSavepointName();</span>
+<span class="nc" id="L431">                    } catch (SQLException sqe) {</span>
+<span class="nc" id="L432">                        name = String.valueOf(savepoint.getSavepointId());</span>
+<span class="nc" id="L433">                    }</span>
+<span class="nc" id="L434">                    _logs.logJDBC(&quot;rollback: &quot; + name, start, this);</span>
+                }
+<span class="nc" id="L436">                handleSQLErrors(err);</span>
+            }
+<span class="nc" id="L438">        }</span>
+
+        @Override
+        public void releaseSavepoint(Savepoint savepoint) throws SQLException {
+<span class="nc" id="L442">            long start = System.currentTimeMillis();</span>
+<span class="nc" id="L443">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L445">                super.releaseSavepoint(savepoint);</span>
+<span class="nc" id="L446">            } catch (SQLException se) {</span>
+<span class="nc" id="L447">                err = se;</span>
+<span class="nc" id="L448">                throw se;</span>
+            } finally {
+<span class="nc bnc" id="L450" title="All 2 branches missed.">                if (_logs.isJDBCEnabled()) {</span>
+<span class="nc" id="L451">                    String name = null;</span>
+                    try {
+<span class="nc" id="L453">                        name = savepoint.getSavepointName();</span>
+<span class="nc" id="L454">                    } catch (SQLException sqe) {</span>
+<span class="nc" id="L455">                        name = String.valueOf(savepoint.getSavepointId());</span>
+<span class="nc" id="L456">                    }</span>
+<span class="nc" id="L457">                    _logs.logJDBC(&quot;release: &quot; + name, start, this);</span>
+                }
+<span class="nc" id="L459">                handleSQLErrors(err);</span>
+            }
+<span class="nc" id="L461">        }</span>
+
+        @Override
+        protected Statement createStatement(int resultSetType,
+            int resultSetConcurrency, int resultSetHoldability, boolean wrap)
+            throws SQLException {
+<span class="nc" id="L467">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L469">                Statement stmnt = super.createStatement(resultSetType,</span>
+                    resultSetConcurrency, resultSetHoldability, false);
+<span class="nc" id="L471">                return newLoggingStatement(stmnt);</span>
+<span class="nc" id="L472">            }catch (SQLException se) {</span>
+<span class="nc" id="L473">                err = se;</span>
+<span class="nc" id="L474">                throw se;</span>
+            } finally {
+<span class="nc" id="L476">                handleSQLErrors(err);</span>
+            }
+        }
+
+        @Override
+        protected PreparedStatement prepareStatement(String sql,
+            int resultSetType, int resultSetConcurrency,
+            int resultSetHoldability, boolean wrap) throws SQLException {
+<span class="nc" id="L484">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L486">                PreparedStatement stmnt = super.prepareStatement</span>
+<span class="nc" id="L487">                    (sql, resultSetType, resultSetConcurrency,</span>
+                        resultSetHoldability, false);
+<span class="nc" id="L489">                return newLoggingPreparedStatement(stmnt, sql);</span>
+<span class="nc" id="L490">            } catch (SQLException se) {</span>
+<span class="nc" id="L491">                err = wrap(se, sql);</span>
+<span class="nc" id="L492">                throw err;</span>
+            } finally {
+<span class="nc" id="L494">                handleSQLErrors(err);</span>
+            }
+        }
+
+        @Override
+        protected PreparedStatement prepareStatement(String sql,
+            int autoGeneratedKeys, boolean wrap) throws SQLException {
+<span class="nc" id="L501">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L503">                PreparedStatement stmnt = super.prepareStatement</span>
+<span class="nc" id="L504">                    (sql, autoGeneratedKeys, false);</span>
+<span class="nc" id="L505">                return newLoggingPreparedStatement(stmnt, sql);</span>
+<span class="nc" id="L506">            } catch (SQLException se) {</span>
+<span class="nc" id="L507">                err = wrap(se, sql);</span>
+<span class="nc" id="L508">                throw err;</span>
+            } finally {
+<span class="nc" id="L510">                handleSQLErrors(err);</span>
+            }
+        }
+
+        @Override
+        protected PreparedStatement prepareStatement(String sql,
+            int[] columnIndexes, boolean wrap) throws SQLException {
+<span class="nc" id="L517">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L519">                PreparedStatement stmnt = super.prepareStatement</span>
+<span class="nc" id="L520">                    (sql, columnIndexes, false);</span>
+<span class="nc" id="L521">                return newLoggingPreparedStatement(stmnt, sql);</span>
+<span class="nc" id="L522">            } catch (SQLException se) {</span>
+<span class="nc" id="L523">                err = wrap(se, sql);</span>
+<span class="nc" id="L524">                throw err;</span>
+            } finally {
+<span class="nc" id="L526">                handleSQLErrors(err);</span>
+            }
+        }
+
+        @Override
+        protected PreparedStatement prepareStatement(String sql,
+            String[] columnNames, boolean wrap) throws SQLException {
+<span class="nc" id="L533">            SQLException err = null;</span>
+            try {
+<span class="nc" id="L535">                PreparedStatement stmnt = super.prepareStatement</span>
+<span class="nc" id="L536">                    (sql, columnNames, false);</span>
+<span class="nc" id="L537">                return newLoggingPreparedStatement(stmnt, sql);</span>
+<span class="nc" id="L538">            } catch (SQLException se) {</span>
+<span class="nc" id="L539">                err = wrap(se, sql);</span>
+<span class="nc" id="L540">                throw err;</span>
+            } finally {
+<span class="nc" id="L542">                handleSQLErrors(err);</span>
+            }
+        }
+
+        @Override
+        protected DatabaseMetaData getMetaData(boolean wrap)
+            throws SQLException {
+<span class="nc" id="L549">            return newLoggingDatabaseMetaData(super.getMetaData(false));</span>
+        }
+
+        /**
+         * Log time elapsed since given start.
+         */
+        private void logTime(long startTime) throws SQLException {
+<span class="nc bnc" id="L556" title="All 2 branches missed.">            if (_logs.isSQLEnabled())</span>
+<span class="nc" id="L557">                _logs.logSQL(&quot;spent&quot;, startTime, this);</span>
+<span class="nc" id="L558">        }</span>
+
+        /**
+         * Log time elapsed since given start.
+         */
+        private void logSQL(Statement stmnt) throws SQLException {
+<span class="nc bnc" id="L564" title="All 2 branches missed.">            if (_logs.isSQLEnabled())</span>
+<span class="nc" id="L565">                _logs.logSQL(&quot;executing &quot; + stmnt, this);</span>
+<span class="nc" id="L566">        }</span>
+
+        /**
+         * Log time elapsed since given start.
+         */
+        private void logBatchSQL(Statement stmnt) throws SQLException {
+<span class="nc bnc" id="L572" title="All 2 branches missed.">            if (_logs.isSQLEnabled())</span>
+<span class="nc" id="L573">                _logs.logSQL(&quot;executing batch &quot; + stmnt, this);</span>
+<span class="nc" id="L574">        }</span>
+
+        /**
+         * Handle any {@link SQLWarning}s on the current {@link Connection}.
+         * Chain throwed SQLWarnings to SQLException.
+         * @see #handleSQLWarning(SQLWarning)
+         */
+        private void handleSQLErrors(SQLException err) throws SQLException {
+<span class="nc bnc" id="L582" title="All 2 branches missed.">            if (_warningAction == WARN_IGNORE)</span>
+<span class="nc" id="L583">                return;</span>
+
+            try {
+<span class="nc" id="L586">                handleSQLWarning(getWarnings());</span>
+<span class="nc" id="L587">            } catch (SQLException warning) {</span>
+<span class="nc bnc" id="L588" title="All 2 branches missed.">                if (err != null)</span>
+<span class="nc" id="L589">                    err.setNextException(warning);</span>
+                else
+<span class="nc" id="L591">                    throw warning;</span>
+            } finally {
+<span class="nc" id="L593">                clearWarnings();</span>
+            }
+<span class="nc" id="L595">        }</span>
+
+        /**
+         * Handle any {@link SQLWarning}s on the specified {@link Statement}.
+         * Chain throwed SQLWarnings to SQLException.
+         *
+         * @see #handleSQLWarning(SQLWarning)
+         */
+        private void handleSQLErrors(Statement stmnt, SQLException err)
+            throws SQLException {
+<span class="nc bnc" id="L605" title="All 2 branches missed.">            if (_warningAction == WARN_IGNORE)</span>
+<span class="nc" id="L606">                return;</span>
+
+            try {
+<span class="nc" id="L609">                handleSQLWarning(stmnt.getWarnings());</span>
+<span class="nc" id="L610">            } catch (SQLException warning) {</span>
+<span class="nc bnc" id="L611" title="All 2 branches missed.">                if (err != null)</span>
+<span class="nc" id="L612">                    err.setNextException(warning);</span>
+                else
+<span class="nc" id="L614">                    throw warning;</span>
+            } finally {
+<span class="nc" id="L616">                stmnt.clearWarnings();</span>
+            }
+<span class="nc" id="L618">        }</span>
+
+        /**
+         * Handle any {@link SQLWarning}s on the specified {@link ResultSet}.
+         * Chain throwed SQLWarnings to SQLException.
+         *
+         * @see #handleSQLWarning(SQLWarning)
+         */
+        private void handleSQLErrors(ResultSet rs, SQLException err)
+            throws SQLException {
+<span class="nc bnc" id="L628" title="All 2 branches missed.">            if (_warningAction == WARN_IGNORE)</span>
+<span class="nc" id="L629">                return;</span>
+
+            try {
+<span class="nc" id="L632">                handleSQLWarning(rs.getWarnings());</span>
+<span class="nc" id="L633">            } catch (SQLException warning){</span>
+<span class="nc bnc" id="L634" title="All 2 branches missed.">                if (err != null)</span>
+<span class="nc" id="L635">                    err.setNextException(warning);</span>
+                else
+<span class="nc" id="L637">                    throw warning;</span>
+            } finally {
+<span class="nc" id="L639">                rs.clearWarnings();</span>
+            }
+<span class="nc" id="L641">        }</span>
+
+        /**
+         * Handle the specified {@link SQLWarning} depending on the
+         * setting of the {@link #setWarningAction} attribute.
+         *
+         * @param warning the warning to handle
+         */
+        private void handleSQLWarning(SQLWarning warning) throws SQLException {
+<span class="nc bnc" id="L650" title="All 2 branches missed.">            if (warning == null)</span>
+<span class="nc" id="L651">                return;</span>
+<span class="nc bnc" id="L652" title="All 2 branches missed.">            if (_warningAction == WARN_IGNORE)</span>
+<span class="nc" id="L653">                return;</span>
+
+<span class="nc" id="L655">            Log log = _logs.getJDBCLog();</span>
+<span class="nc bnc" id="L656" title="All 2 branches missed.">            for (; warning != null; warning = warning.getNextWarning()) {</span>
+<span class="nc bnc" id="L657" title="All 7 branches missed.">                switch (_warningAction) {</span>
+                    case WARN_LOG_TRACE:
+<span class="nc bnc" id="L659" title="All 2 branches missed.">                        if (log.isTraceEnabled())</span>
+<span class="nc" id="L660">                            log.trace(warning);</span>
+                        break;
+                    case WARN_LOG_INFO:
+<span class="nc bnc" id="L663" title="All 2 branches missed.">                        if (log.isInfoEnabled())</span>
+<span class="nc" id="L664">                            log.info(warning);</span>
+                        break;
+                    case WARN_LOG_WARN:
+<span class="nc bnc" id="L667" title="All 2 branches missed.">                        if (log.isWarnEnabled())</span>
+<span class="nc" id="L668">                            log.warn(warning);</span>
+                        break;
+                    case WARN_LOG_ERROR:
+<span class="nc bnc" id="L671" title="All 2 branches missed.">                        if (log.isErrorEnabled())</span>
+<span class="nc" id="L672">                            log.error(warning);</span>
+                        break;
+                    case WARN_THROW:
+                        // just throw it as if it were a SQLException
+<span class="nc" id="L676">                        throw warning;</span>
+                    case WARN_HANDLE:
+<span class="nc bnc" id="L678" title="All 2 branches missed.">                        if (_warningHandler != null)</span>
+<span class="nc" id="L679">                            _warningHandler.handleWarning(warning);</span>
+                        break;
+                    default:
+                        // ignore
+                        break;
+                }
+            }
+<span class="nc" id="L686">        }</span>
+
+        /**
+         * Metadata wrapper that logs actions.
+         */
+        protected class LoggingDatabaseMetaData
+            extends DelegatingDatabaseMetaData {
+
+<span class="nc" id="L694">            public LoggingDatabaseMetaData(DatabaseMetaData meta) {</span>
+<span class="nc" id="L695">                super(meta, LoggingConnection.this);</span>
+<span class="nc" id="L696">            }</span>
+
+            @Override
+            public ResultSet getBestRowIdentifier(String catalog,
+                String schema, String table, int scope, boolean nullable)
+                throws SQLException {
+<span class="nc bnc" id="L702" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L703">                    _logs.logJDBC(&quot;getBestRowIdentifier: &quot;</span>
+                        + catalog + &quot;, &quot; + schema + &quot;, &quot; + table,
+                        LoggingConnection.this);
+<span class="nc" id="L706">                return super.getBestRowIdentifier(catalog, schema,</span>
+                    table, scope, nullable);
+            }
+
+            @Override
+            public ResultSet getCatalogs() throws SQLException {
+<span class="nc bnc" id="L712" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L713">                    _logs.logJDBC(&quot;getCatalogs&quot;, LoggingConnection.this);</span>
+<span class="nc" id="L714">                return super.getCatalogs();</span>
+            }
+
+            @Override
+            public ResultSet getColumnPrivileges(String catalog, String schema,
+                String table, String columnNamePattern) throws SQLException {
+<span class="nc bnc" id="L720" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L721">                    _logs.logJDBC(&quot;getColumnPrivileges: &quot;</span>
+                        + catalog + &quot;, &quot; + schema + &quot;, &quot; + table,
+                        LoggingConnection.this);
+<span class="nc" id="L724">                return super.getColumnPrivileges(catalog, schema,</span>
+                    table, columnNamePattern);
+            }
+
+            @Override
+            public ResultSet getColumns(String catalog, String schemaPattern,
+                String tableNamePattern, String columnNamePattern)
+                throws SQLException {
+<span class="nc bnc" id="L732" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L733">                    _logs.logJDBC(&quot;getColumns: &quot;</span>
+                        + catalog + &quot;, &quot; + schemaPattern + &quot;, &quot;
+                        + tableNamePattern + &quot;, &quot; + columnNamePattern,
+                        LoggingConnection.this);
+<span class="nc" id="L737">                return super.getColumns(catalog, schemaPattern,</span>
+                    tableNamePattern, columnNamePattern);
+            }
+
+            @Override
+            public ResultSet getCrossReference(String primaryCatalog,
+                String primarySchema, String primaryTable,
+                String foreignCatalog, String foreignSchema,
+                String foreignTable) throws SQLException {
+<span class="nc bnc" id="L746" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L747">                    _logs.logJDBC(&quot;getCrossReference: &quot;</span>
+                        + primaryCatalog + &quot;, &quot; + primarySchema + &quot;, &quot;
+                        + primaryTable + &quot;, &quot; + foreignCatalog + &quot;, &quot;
+                        + foreignSchema + &quot;, &quot; + foreignSchema,
+                        LoggingConnection.this);
+<span class="nc" id="L752">                return super.getCrossReference(primaryCatalog, primarySchema,</span>
+                    primaryTable, foreignCatalog, foreignSchema, foreignTable);
+            }
+
+            @Override
+            public ResultSet getExportedKeys(String catalog, String schema,
+                String table) throws SQLException {
+<span class="nc bnc" id="L759" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L760">                    _logs.logJDBC(&quot;getExportedKeys: &quot;</span>
+                        + catalog + &quot;, &quot; + schema + &quot;, &quot; + table,
+                        LoggingConnection.this);
+<span class="nc" id="L763">                return super.getExportedKeys(catalog, schema, table);</span>
+            }
+
+            @Override
+            public ResultSet getImportedKeys(String catalog, String schema,
+                String table) throws SQLException {
+<span class="nc bnc" id="L769" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L770">                    _logs.logJDBC(&quot;getImportedKeys: &quot;</span>
+                        + catalog + &quot;, &quot; + schema + &quot;, &quot; + table,
+                        LoggingConnection.this);
+<span class="nc" id="L773">                return super.getImportedKeys(catalog, schema, table);</span>
+            }
+
+            @Override
+            public ResultSet getIndexInfo(String catalog, String schema,
+                String table, boolean unique, boolean approximate)
+                throws SQLException {
+<span class="nc bnc" id="L780" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L781">                    _logs.logJDBC(&quot;getIndexInfo: &quot;</span>
+                        + catalog + &quot;, &quot; + schema + &quot;, &quot; + table,
+                        LoggingConnection.this);
+<span class="nc" id="L784">                return super.getIndexInfo(catalog, schema, table, unique,</span>
+                    approximate);
+            }
+
+            @Override
+            public ResultSet getPrimaryKeys(String catalog, String schema,
+                String table) throws SQLException {
+<span class="nc bnc" id="L791" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L792">                    _logs.logJDBC(&quot;getPrimaryKeys: &quot;</span>
+                        + catalog + &quot;, &quot; + schema + &quot;, &quot; + table,
+                        LoggingConnection.this);
+<span class="nc" id="L795">                return super.getPrimaryKeys(catalog, schema, table);</span>
+            }
+
+            @Override
+            public ResultSet getProcedureColumns(String catalog,
+                String schemaPattern, String procedureNamePattern,
+                String columnNamePattern) throws SQLException {
+<span class="nc bnc" id="L802" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L803">                    _logs.logJDBC(&quot;getProcedureColumns: &quot;</span>
+                        + catalog + &quot;, &quot; + schemaPattern + &quot;, &quot;
+                        + procedureNamePattern + &quot;, &quot; + columnNamePattern,
+                        LoggingConnection.this);
+<span class="nc" id="L807">                return super.getProcedureColumns(catalog, schemaPattern,</span>
+                    procedureNamePattern, columnNamePattern);
+            }
+
+            @Override
+            public ResultSet getProcedures(String catalog,
+                String schemaPattern, String procedureNamePattern)
+                throws SQLException {
+<span class="nc bnc" id="L815" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L816">                    _logs.logJDBC(&quot;getProcedures: &quot;</span>
+                        + catalog + &quot;, &quot; + schemaPattern + &quot;, &quot;
+                        + procedureNamePattern, LoggingConnection.this);
+<span class="nc" id="L819">                return super.getProcedures(catalog, schemaPattern,</span>
+                    procedureNamePattern);
+            }
+
+            @Override
+            public ResultSet getSchemas() throws SQLException {
+<span class="nc bnc" id="L825" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L826">                    _logs.logJDBC(&quot;getSchemas&quot;, LoggingConnection.this);</span>
+<span class="nc" id="L827">                return super.getSchemas();</span>
+            }
+
+            @Override
+            public ResultSet getTablePrivileges(String catalog,
+                String schemaPattern, String tableNamePattern)
+                throws SQLException {
+<span class="nc bnc" id="L834" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L835">                    _logs.logJDBC(&quot;getTablePrivileges&quot;, LoggingConnection.this);</span>
+<span class="nc" id="L836">                return super.getTablePrivileges(catalog, schemaPattern,</span>
+                    tableNamePattern);
+            }
+
+            @Override
+            public ResultSet getTables(String catalog, String schemaPattern,
+                String tableNamePattern, String[] types) throws SQLException {
+<span class="nc bnc" id="L843" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L844">                    _logs.logJDBC(&quot;getTables: &quot;</span>
+                        + catalog + &quot;, &quot; + schemaPattern + &quot;, &quot;
+                        + tableNamePattern, LoggingConnection.this);
+<span class="nc" id="L847">                return super.getTables(catalog, schemaPattern,</span>
+                    tableNamePattern, types);
+            }
+
+            @Override
+            public ResultSet getTableTypes() throws SQLException {
+<span class="nc bnc" id="L853" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L854">                    _logs.logJDBC(&quot;getTableTypes&quot;, LoggingConnection.this);</span>
+<span class="nc" id="L855">                return super.getTableTypes();</span>
+            }
+
+            @Override
+            public ResultSet getTypeInfo() throws SQLException {
+<span class="nc bnc" id="L860" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L861">                    _logs.logJDBC(&quot;getTypeInfo&quot;, LoggingConnection.this);</span>
+<span class="nc" id="L862">                return super.getTypeInfo();</span>
+            }
+
+            @Override
+            public ResultSet getUDTs(String catalog, String schemaPattern,
+                String typeNamePattern, int[] types) throws SQLException {
+<span class="nc bnc" id="L868" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L869">                    _logs.logJDBC(&quot;getUDTs&quot;, LoggingConnection.this);</span>
+<span class="nc" id="L870">                return super.getUDTs(catalog, schemaPattern,</span>
+                    typeNamePattern, types);
+            }
+
+            @Override
+            public ResultSet getVersionColumns(String catalog,
+                String schema, String table) throws SQLException {
+<span class="nc bnc" id="L877" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L878">                    _logs.logJDBC(&quot;getVersionColumns: &quot;</span>
+                        + catalog + &quot;, &quot; + schema + &quot;, &quot; + table,
+                        LoggingConnection.this);
+<span class="nc" id="L881">                return super.getVersionColumns(catalog, schema, table);</span>
+            }
+        }
+
+        /**
+         * Statement wrapper that logs SQL to the parent data source and
+         * remembers the last piece of SQL to be executed on it.
+         */
+        protected class LoggingStatement extends DelegatingStatement {
+
+<span class="nc" id="L891">            private String _sql = null;</span>
+
+<span class="nc" id="L893">            public LoggingStatement(Statement stmnt) throws SQLException {</span>
+<span class="nc" id="L894">                super(stmnt, LoggingConnection.this);</span>
+<span class="nc" id="L895">            }</span>
+
+            private LoggingResultSet newLoggingResultSet(ResultSet rs, Statement stmnt) {
+<span class="nc" id="L898">                return new LoggingResultSet(rs, stmnt);</span>
+            }
+
+            @Override
+            public void appendInfo(StringBuffer buf) {
+<span class="nc bnc" id="L903" title="All 2 branches missed.">                if (_sql != null) {</span>
+<span class="nc" id="L904">                    buf.append(&quot; &quot;);</span>
+<span class="nc bnc" id="L905" title="All 2 branches missed.">                    if (_formatter != null) {</span>
+<span class="nc" id="L906">                        buf.append(SEP);</span>
+<span class="nc" id="L907">                        buf.append(_formatter.prettyPrint(_sql));</span>
+                    } else {
+<span class="nc" id="L909">                        buf.append(_sql);</span>
+                    }
+                }
+<span class="nc" id="L912">            }</span>
+
+            @Override
+            protected ResultSet wrapResult(ResultSet rs, boolean wrap) {
+<span class="nc bnc" id="L916" title="All 4 branches missed.">                if (!wrap || rs == null)</span>
+<span class="nc" id="L917">                    return super.wrapResult(rs, wrap);</span>
+<span class="nc" id="L918">                return newLoggingResultSet(rs, this);</span>
+            }
+
+            @Override
+            public void cancel() throws SQLException {
+<span class="nc bnc" id="L923" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L924">                    _logs.logJDBC(&quot;cancel &quot; + this, LoggingConnection.this);</span>
+<span class="nc" id="L925">                super.cancel();</span>
+<span class="nc" id="L926">            }</span>
+
+            @Override
+            protected ResultSet executeQuery(String sql, boolean wrap)
+                throws SQLException {
+<span class="nc" id="L931">                _sql = sql;</span>
+<span class="nc" id="L932">                logSQL(this);</span>
+<span class="nc" id="L933">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L934">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L936">                    return super.executeQuery(sql, wrap);</span>
+<span class="nc" id="L937">                } catch (SQLException se) {</span>
+<span class="nc" id="L938">                    err = wrap(se, LoggingStatement.this, sql);</span>
+<span class="nc" id="L939">                    throw err;</span>
+                } finally {
+<span class="nc" id="L941">                    logTime(start);</span>
+<span class="nc" id="L942">                    handleSQLErrors(LoggingStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String sql) throws SQLException {
+<span class="nc" id="L948">                _sql = sql;</span>
+<span class="nc" id="L949">                logSQL(this);</span>
+<span class="nc" id="L950">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L951">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L953">                    return super.executeUpdate(sql);</span>
+<span class="nc" id="L954">                } catch (SQLException se) {</span>
+<span class="nc" id="L955">                    err = wrap(se, LoggingStatement.this, sql);</span>
+<span class="nc" id="L956">                    throw err;</span>
+                } finally {
+<span class="nc" id="L958">                    logTime(start);</span>
+<span class="nc" id="L959">                    handleSQLErrors(LoggingStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String sql) throws SQLException {
+<span class="nc" id="L965">                _sql = sql;</span>
+<span class="nc" id="L966">                logSQL(this);</span>
+<span class="nc" id="L967">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L968">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L970">                    return super.execute(sql);</span>
+<span class="nc" id="L971">                } catch (SQLException se) {</span>
+<span class="nc" id="L972">                    err = wrap(se, LoggingStatement.this, sql);</span>
+<span class="nc" id="L973">                    throw err;</span>
+                } finally {
+<span class="nc" id="L975">                    logTime(start);</span>
+<span class="nc" id="L976">                    handleSQLErrors(LoggingStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String sql, int i) throws SQLException {
+<span class="nc" id="L982">                _sql = sql;</span>
+<span class="nc" id="L983">                logSQL(this);</span>
+<span class="nc" id="L984">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L985">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L987">                    return super.executeUpdate(sql, i);</span>
+<span class="nc" id="L988">                } catch (SQLException se) {</span>
+<span class="nc" id="L989">                    err = wrap(se, LoggingStatement.this, sql);</span>
+<span class="nc" id="L990">                    throw err;</span>
+                } finally {
+<span class="nc" id="L992">                    logTime(start);</span>
+<span class="nc" id="L993">                    handleSQLErrors(LoggingStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String sql, int[] ia) throws SQLException {
+<span class="nc" id="L999">                _sql = sql;</span>
+<span class="nc" id="L1000">                logSQL(this);</span>
+<span class="nc" id="L1001">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1002">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1004">                    return super.executeUpdate(sql, ia);</span>
+<span class="nc" id="L1005">                } catch (SQLException se) {</span>
+<span class="nc" id="L1006">                    err = wrap(se, LoggingStatement.this, sql);</span>
+<span class="nc" id="L1007">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1009">                    logTime(start);</span>
+<span class="nc" id="L1010">                    handleSQLErrors(LoggingStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String sql, String[] sa) throws SQLException {
+<span class="nc" id="L1016">                _sql = sql;</span>
+<span class="nc" id="L1017">                logSQL(this);</span>
+<span class="nc" id="L1018">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1019">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1021">                    return super.executeUpdate(sql, sa);</span>
+<span class="nc" id="L1022">                } catch (SQLException se) {</span>
+<span class="nc" id="L1023">                    err = wrap(se, LoggingStatement.this, sql);</span>
+<span class="nc" id="L1024">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1026">                    logTime(start);</span>
+<span class="nc" id="L1027">                    handleSQLErrors(LoggingStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String sql, int i) throws SQLException {
+<span class="nc" id="L1033">                _sql = sql;</span>
+<span class="nc" id="L1034">                logSQL(this);</span>
+<span class="nc" id="L1035">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1036">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1038">                    return super.execute(sql, i);</span>
+<span class="nc" id="L1039">                } catch (SQLException se) {</span>
+<span class="nc" id="L1040">                    err = wrap(se, LoggingStatement.this, sql);</span>
+<span class="nc" id="L1041">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1043">                    logTime(start);</span>
+<span class="nc" id="L1044">                    handleSQLErrors(LoggingStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String sql, int[] ia) throws SQLException {
+<span class="nc" id="L1050">                _sql = sql;</span>
+<span class="nc" id="L1051">                logSQL(this);</span>
+<span class="nc" id="L1052">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1053">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1055">                    return super.execute(sql, ia);</span>
+<span class="nc" id="L1056">                } catch (SQLException se) {</span>
+<span class="nc" id="L1057">                    err = wrap(se, LoggingStatement.this, sql);</span>
+<span class="nc" id="L1058">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1060">                    logTime(start);</span>
+<span class="nc" id="L1061">                    handleSQLErrors(LoggingStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String sql, String[] sa) throws SQLException {
+<span class="nc" id="L1067">                _sql = sql;</span>
+<span class="nc" id="L1068">                logSQL(this);</span>
+<span class="nc" id="L1069">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1070">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1072">                    return super.execute(sql, sa);</span>
+<span class="nc" id="L1073">                } catch (SQLException se) {</span>
+<span class="nc" id="L1074">                    err = wrap(se, LoggingStatement.this, sql);</span>
+<span class="nc" id="L1075">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1077">                    logTime(start);</span>
+<span class="nc" id="L1078">                    handleSQLErrors(LoggingStatement.this, err);</span>
+                }
+            }
+        }
+
+        protected class LoggingPreparedStatement
+            extends DelegatingPreparedStatement {
+
+            private final String _sql;
+<span class="nc" id="L1087">            private List&lt;String&gt; _params = null;</span>
+<span class="nc" id="L1088">            private List&lt;List&lt;String&gt;&gt; _paramBatch = null;</span>
+            // When batching is used, this variable contains the index into the
+            // last successfully executed batched statement.
+<span class="nc" id="L1091">            int batchedRowsBaseIndex = 0;</span>
+
+            public LoggingPreparedStatement(PreparedStatement stmnt, String sql)
+<span class="nc" id="L1094">                throws SQLException {</span>
+<span class="nc" id="L1095">                super(stmnt, LoggingConnection.this);</span>
+<span class="nc" id="L1096">                _sql = sql;</span>
+<span class="nc" id="L1097">            }</span>
+
+            private LoggingResultSet newLoggingResultSet(ResultSet rs,
+                PreparedStatement stmnt) {
+<span class="nc" id="L1101">                return new LoggingResultSet(rs, stmnt);</span>
+            }
+
+            @Override
+            protected ResultSet wrapResult(ResultSet rs, boolean wrap) {
+<span class="nc bnc" id="L1106" title="All 4 branches missed.">                if (!wrap || rs == null)</span>
+<span class="nc" id="L1107">                    return super.wrapResult(rs, wrap);</span>
+<span class="nc" id="L1108">                return newLoggingResultSet(rs, this);</span>
+            }
+
+            @Override
+            protected ResultSet executeQuery(String sql, boolean wrap)
+                throws SQLException {
+<span class="nc" id="L1114">                logSQL(this);</span>
+<span class="nc" id="L1115">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1116">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1118">                    return super.executeQuery(sql, wrap);</span>
+<span class="nc" id="L1119">                } catch (SQLException se) {</span>
+<span class="nc" id="L1120">                    err = wrap(se, LoggingPreparedStatement.this, sql);</span>
+<span class="nc" id="L1121">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1123">                    logTime(start);</span>
+<span class="nc" id="L1124">                    clearLogParameters(true);</span>
+<span class="nc" id="L1125">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String sql) throws SQLException {
+<span class="nc" id="L1131">                logSQL(this);</span>
+<span class="nc" id="L1132">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1133">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1135">                    return super.executeUpdate(sql);</span>
+<span class="nc" id="L1136">                } catch (SQLException se) {</span>
+<span class="nc" id="L1137">                    err =  wrap(se, LoggingPreparedStatement.this, sql);</span>
+<span class="nc" id="L1138">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1140">                    logTime(start);</span>
+<span class="nc" id="L1141">                    clearLogParameters(true);</span>
+<span class="nc" id="L1142">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String sql) throws SQLException {
+<span class="nc" id="L1148">                logSQL(this);</span>
+<span class="nc" id="L1149">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1150">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1152">                    return super.execute(sql);</span>
+<span class="nc" id="L1153">                } catch (SQLException se) {</span>
+<span class="nc" id="L1154">                    err = wrap(se, LoggingPreparedStatement.this, sql);</span>
+<span class="nc" id="L1155">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1157">                    logTime(start);</span>
+<span class="nc" id="L1158">                    clearLogParameters(true);</span>
+<span class="nc" id="L1159">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            protected ResultSet executeQuery(boolean wrap) throws SQLException {
+<span class="nc" id="L1165">                logSQL(this);</span>
+<span class="nc" id="L1166">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1167">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1169">                    return super.executeQuery(wrap);</span>
+<span class="nc" id="L1170">                } catch (SQLException se) {</span>
+<span class="nc" id="L1171">                    err = wrap(se, LoggingPreparedStatement.this, _sql);</span>
+<span class="nc" id="L1172">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1174">                    logTime(start);</span>
+<span class="nc" id="L1175">                    clearLogParameters(true);</span>
+<span class="nc" id="L1176">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate() throws SQLException {
+<span class="nc" id="L1182">                logSQL(this);</span>
+<span class="nc" id="L1183">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1184">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1186">                    return super.executeUpdate();</span>
+<span class="nc" id="L1187">                } catch (SQLException se) {</span>
+<span class="nc" id="L1188">                    err = wrap(se, LoggingPreparedStatement.this);</span>
+<span class="nc" id="L1189">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1191">                    logTime(start);</span>
+<span class="nc" id="L1192">                    clearLogParameters(true);</span>
+<span class="nc" id="L1193">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int[] executeBatch() throws SQLException {
+<span class="nc" id="L1199">                int indexOfFirstFailedObject = -1;</span>
+
+<span class="nc" id="L1201">                logBatchSQL(this);</span>
+<span class="nc" id="L1202">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1203">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1205">                    int[] toReturn = super.executeBatch();</span>
+                    //executeBatch is called any time the number of batched statements
+                    //is equal to, or less than, batchLimit.  In the 'catch' block below,
+                    //the logic seeks to find an index based on the current executeBatch
+                    //results.  This is fine when executeBatch is only called once, but
+                    //if executeBatch is called many times, the _paramsBatch will continue
+                    //to grow, as such, to index into _paramsBatch, we need to take into
+                    //account the number of times executeBatch is called in or der to
+                    //correctly index into _paramsBatch.  To that end, each time executeBatch
+                    //is called, lets get the size of _paramBatch.  This will effectively
+                    //tell us the index of the last successfully executed batch statement.
+                    //If an exception is caused, then we know that _paramBatch.size was
+                    //the index of the LAST row to successfully execute.
+<span class="nc bnc" id="L1218" title="All 2 branches missed.">                    if (_paramBatch != null){</span>
+<span class="nc" id="L1219">                        batchedRowsBaseIndex = _paramBatch.size();</span>
+                    }
+<span class="nc" id="L1221">                    return toReturn;</span>
+<span class="nc" id="L1222">                } catch (SQLException se) {</span>
+                    // if the exception is a BatchUpdateException, and
+                    // we are tracking parameters, then set the current
+                    // parameter set to be the index of the failed
+                    // statement so that the ReportingSQLException will
+                    // show the correct param(s)
+<span class="nc bnc" id="L1228" title="All 4 branches missed.">                    if (se instanceof BatchUpdateException</span>
+<span class="nc bnc" id="L1229" title="All 2 branches missed.">                        &amp;&amp; _paramBatch != null &amp;&amp; shouldTrackParameters()) {</span>
+<span class="nc" id="L1230">                        int[] count = ((BatchUpdateException) se).</span>
+<span class="nc" id="L1231">                            getUpdateCounts();</span>
+<span class="nc bnc" id="L1232" title="All 4 branches missed.">                        if (count != null &amp;&amp; count.length &lt;= _paramBatch.size())</span>
+                        {
+<span class="nc bnc" id="L1234" title="All 2 branches missed.">                            for (int i = 0; i &lt; count.length; i++) {</span>
+                                // -3 is Statement.STATEMENT_FAILED, but is
+                                // only available in JDK 1.4+
+<span class="nc bnc" id="L1237" title="All 2 branches missed.">                                if (count[i] == Statement.EXECUTE_FAILED) {</span>
+<span class="nc" id="L1238">                                    indexOfFirstFailedObject = i;</span>
+<span class="nc" id="L1239">                                    break;</span>
+                                }
+                            }
+
+                            // no -3 element: it may be that the server stopped
+                            // processing, so the size of the count will be
+                            // the index
+                            //See the Javadoc for 'getUpdateCounts'; a provider
+                            //may stop processing when the first failure occurs,
+                            //as such, it may only return 'UpdateCounts' for the
+                            //first few which pass.  As such, the failed
+                            //index is 'count.length', NOT count.length+1.  That
+                            //is, if the provider ONLY returns the first few that
+                            //passes (i.e. say an array of [1,1] is returned) then
+                            //length is 2, and since _paramBatch starts at 0, we
+                            //don't want to use length+1 as that will give us the
+                            //wrong index.
+<span class="nc bnc" id="L1256" title="All 2 branches missed.">                            if (indexOfFirstFailedObject == -1){</span>
+<span class="nc" id="L1257">                                indexOfFirstFailedObject = count.length;</span>
+                            }
+
+                            //Finally, whatever the index is at this point, add batchedRowsBaseIndex
+                            //to it to get the final index.  Recall, we need to start our index from the
+                            //last batch which successfully executed.
+<span class="nc" id="L1263">                            indexOfFirstFailedObject += batchedRowsBaseIndex;</span>
+
+                            // set the current params to the saved values
+<span class="nc bnc" id="L1266" title="All 2 branches missed.">                            if (indexOfFirstFailedObject &lt; _paramBatch.size())</span>
+<span class="nc" id="L1267">                                _params = (List&lt;String&gt;) _paramBatch.get(indexOfFirstFailedObject);</span>
+                        }
+                    }
+<span class="nc" id="L1270">                    err = wrap(se, LoggingPreparedStatement.this, indexOfFirstFailedObject);</span>
+<span class="nc" id="L1271">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1273">                    logTime(start);</span>
+<span class="nc" id="L1274">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute() throws SQLException {
+<span class="nc" id="L1280">                logSQL(this);</span>
+<span class="nc" id="L1281">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1282">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1284">                    return super.execute();</span>
+<span class="nc" id="L1285">                } catch (SQLException se) {</span>
+<span class="nc" id="L1286">                    err = wrap(se, LoggingPreparedStatement.this);</span>
+<span class="nc" id="L1287">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1289">                    logTime(start);</span>
+<span class="nc" id="L1290">                    clearLogParameters(true);</span>
+<span class="nc" id="L1291">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String s, int i) throws SQLException {
+<span class="nc" id="L1297">                logSQL(this);</span>
+<span class="nc" id="L1298">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1299">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1301">                    return super.executeUpdate(s, i);</span>
+<span class="nc" id="L1302">                } catch (SQLException se) {</span>
+<span class="nc" id="L1303">                    err = wrap(se, LoggingPreparedStatement.this);</span>
+<span class="nc" id="L1304">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1306">                    logTime(start);</span>
+<span class="nc" id="L1307">                    clearLogParameters(true);</span>
+<span class="nc" id="L1308">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String s, int[] ia) throws SQLException {
+<span class="nc" id="L1314">                logSQL(this);</span>
+<span class="nc" id="L1315">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1316">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1318">                    return super.executeUpdate(s, ia);</span>
+<span class="nc" id="L1319">                } catch (SQLException se) {</span>
+<span class="nc" id="L1320">                    err = wrap(se, LoggingPreparedStatement.this);</span>
+<span class="nc" id="L1321">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1323">                    logTime(start);</span>
+<span class="nc" id="L1324">                    clearLogParameters(true);</span>
+<span class="nc" id="L1325">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String s, String[] sa) throws SQLException {
+<span class="nc" id="L1331">                logSQL(this);</span>
+<span class="nc" id="L1332">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1333">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1335">                    return super.executeUpdate(s, sa);</span>
+<span class="nc" id="L1336">                } catch (SQLException se) {</span>
+<span class="nc" id="L1337">                    err = wrap(se, LoggingPreparedStatement.this);</span>
+<span class="nc" id="L1338">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1340">                    logTime(start);</span>
+<span class="nc" id="L1341">                    clearLogParameters(true);</span>
+<span class="nc" id="L1342">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String s, int i) throws SQLException {
+<span class="nc" id="L1348">                logSQL(this);</span>
+<span class="nc" id="L1349">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1350">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1352">                    return super.execute(s, i);</span>
+<span class="nc" id="L1353">                } catch (SQLException se) {</span>
+<span class="nc" id="L1354">                    err = wrap(se, LoggingPreparedStatement.this);</span>
+<span class="nc" id="L1355">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1357">                    logTime(start);</span>
+<span class="nc" id="L1358">                    clearLogParameters(true);</span>
+<span class="nc" id="L1359">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String s, int[] ia) throws SQLException {
+<span class="nc" id="L1365">                logSQL(this);</span>
+<span class="nc" id="L1366">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1367">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1369">                    return super.execute(s, ia);</span>
+<span class="nc" id="L1370">                } catch (SQLException se) {</span>
+<span class="nc" id="L1371">                    err = wrap(se, LoggingPreparedStatement.this);</span>
+<span class="nc" id="L1372">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1374">                    logTime(start);</span>
+<span class="nc" id="L1375">                    clearLogParameters(true);</span>
+<span class="nc" id="L1376">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String s, String[] sa) throws SQLException {
+<span class="nc" id="L1382">                logSQL(this);</span>
+<span class="nc" id="L1383">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1384">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1386">                    return super.execute(s, sa);</span>
+<span class="nc" id="L1387">                } catch (SQLException se) {</span>
+<span class="nc" id="L1388">                    err = wrap(se, LoggingPreparedStatement.this);</span>
+<span class="nc" id="L1389">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1391">                    logTime(start);</span>
+<span class="nc" id="L1392">                    clearLogParameters(true);</span>
+<span class="nc" id="L1393">                    handleSQLErrors(LoggingPreparedStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public void cancel() throws SQLException {
+<span class="nc bnc" id="L1399" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L1400">                    _logs.logJDBC(&quot;cancel &quot; + this + &quot;: &quot; + _sql,</span>
+                        LoggingConnection.this);
+
+<span class="nc" id="L1403">                super.cancel();</span>
+<span class="nc" id="L1404">            }</span>
+
+            @Override
+            public void setNull(int i1, int i2) throws SQLException {
+<span class="nc" id="L1408">                setLogParameter(i1, &quot;null&quot;, null);</span>
+<span class="nc" id="L1409">                super.setNull(i1, i2);</span>
+<span class="nc" id="L1410">            }</span>
+
+            @Override
+            public void setBoolean(int i, boolean b) throws SQLException {
+<span class="nc" id="L1414">                setLogParameter(i, b);</span>
+<span class="nc" id="L1415">                super.setBoolean(i, b);</span>
+<span class="nc" id="L1416">            }</span>
+
+            @Override
+            public void setByte(int i, byte b) throws SQLException {
+<span class="nc" id="L1420">                setLogParameter(i, b);</span>
+<span class="nc" id="L1421">                super.setByte(i, b);</span>
+<span class="nc" id="L1422">            }</span>
+
+            @Override
+            public void setShort(int i, short s) throws SQLException {
+<span class="nc" id="L1426">                setLogParameter(i, s);</span>
+<span class="nc" id="L1427">                super.setShort(i, s);</span>
+<span class="nc" id="L1428">            }</span>
+
+            @Override
+            public void setInt(int i1, int i2) throws SQLException {
+<span class="nc" id="L1432">                setLogParameter(i1, i2);</span>
+<span class="nc" id="L1433">                super.setInt(i1, i2);</span>
+<span class="nc" id="L1434">            }</span>
+
+            @Override
+            public void setLong(int i, long l) throws SQLException {
+<span class="nc" id="L1438">                setLogParameter(i, l);</span>
+<span class="nc" id="L1439">                super.setLong(i, l);</span>
+<span class="nc" id="L1440">            }</span>
+
+            @Override
+            public void setFloat(int i, float f) throws SQLException {
+<span class="nc" id="L1444">                setLogParameter(i, f);</span>
+<span class="nc" id="L1445">                super.setFloat(i, f);</span>
+<span class="nc" id="L1446">            }</span>
+
+            @Override
+            public void setDouble(int i, double d) throws SQLException {
+<span class="nc" id="L1450">                setLogParameter(i, d);</span>
+<span class="nc" id="L1451">                super.setDouble(i, d);</span>
+<span class="nc" id="L1452">            }</span>
+
+            @Override
+            public void setBigDecimal(int i, BigDecimal bd)
+                throws SQLException {
+<span class="nc" id="L1457">                setLogParameter(i, &quot;BigDecimal&quot;, bd);</span>
+<span class="nc" id="L1458">                super.setBigDecimal(i, bd);</span>
+<span class="nc" id="L1459">            }</span>
+
+            @Override
+            public void setString(int i, String s) throws SQLException {
+<span class="nc" id="L1463">                setLogParameter(i, &quot;String&quot;, s);</span>
+<span class="nc" id="L1464">                super.setString(i, s);</span>
+<span class="nc" id="L1465">            }</span>
+
+            @Override
+            public void setBytes(int i, byte[] b) throws SQLException {
+<span class="nc" id="L1469">                setLogParameter(i, &quot;byte[]&quot;, b);</span>
+<span class="nc" id="L1470">                super.setBytes(i, b);</span>
+<span class="nc" id="L1471">            }</span>
+
+            @Override
+            public void setDate(int i, Date d) throws SQLException {
+<span class="nc" id="L1475">                setLogParameter(i, &quot;Date&quot;, d);</span>
+<span class="nc" id="L1476">                super.setDate(i, d);</span>
+<span class="nc" id="L1477">            }</span>
+
+            @Override
+            public void setTime(int i, Time t) throws SQLException {
+<span class="nc" id="L1481">                setLogParameter(i, &quot;Time&quot;, t);</span>
+<span class="nc" id="L1482">                super.setTime(i, t);</span>
+<span class="nc" id="L1483">            }</span>
+
+            @Override
+            public void setTimestamp(int i, Timestamp t) throws SQLException {
+<span class="nc" id="L1487">                setLogParameter(i, &quot;Timestamp&quot;, t);</span>
+<span class="nc" id="L1488">                super.setTimestamp(i, t);</span>
+<span class="nc" id="L1489">            }</span>
+
+            @Override
+            public void setAsciiStream(int i1, InputStream is, int i2)
+                throws SQLException {
+<span class="nc" id="L1494">                setLogParameter(i1, &quot;InputStream&quot;, is);</span>
+<span class="nc" id="L1495">                super.setAsciiStream(i1, is, i2);</span>
+<span class="nc" id="L1496">            }</span>
+
+            @Override
+            @Deprecated
+            public void setUnicodeStream(int i1, InputStream is, int i2)
+                throws SQLException {
+<span class="nc" id="L1502">                setLogParameter(i1, &quot;InputStream&quot;, is);</span>
+<span class="nc" id="L1503">                super.setUnicodeStream(i2, is, i2);</span>
+<span class="nc" id="L1504">            }</span>
+
+            @Override
+            public void setBinaryStream(int i1, InputStream is, int i2)
+                throws SQLException {
+<span class="nc" id="L1509">                setLogParameter(i1, &quot;InputStream&quot;, is);</span>
+<span class="nc" id="L1510">                super.setBinaryStream(i1, is, i2);</span>
+<span class="nc" id="L1511">            }</span>
+
+            @Override
+            public void setBinaryStream(int i1, InputStream is)
+            throws SQLException {
+<span class="nc" id="L1516">            	setLogParameter(i1, &quot;InputStream&quot;, is);</span>
+<span class="nc" id="L1517">            	super.setBinaryStream(i1, is);</span>
+<span class="nc" id="L1518">            }</span>
+
+            @Override
+            public void clearParameters() throws SQLException {
+<span class="nc" id="L1522">                clearLogParameters(false);</span>
+<span class="nc" id="L1523">                super.clearParameters();</span>
+<span class="nc" id="L1524">            }</span>
+
+            @Override
+            public void setObject(int i1, Object o, int i2, int i3)
+                throws SQLException {
+<span class="nc" id="L1529">                setLogParameter(i1, &quot;Object&quot;, o);</span>
+<span class="nc" id="L1530">                super.setObject(i1, o, i2, i3);</span>
+<span class="nc" id="L1531">            }</span>
+
+            @Override
+            public void setObject(int i1, Object o, int i2)
+                throws SQLException {
+<span class="nc" id="L1536">                setLogParameter(i1, &quot;Object&quot;, o);</span>
+<span class="nc" id="L1537">                super.setObject(i1, o, i2);</span>
+<span class="nc" id="L1538">            }</span>
+
+            @Override
+            public void setObject(int i, Object o) throws SQLException {
+<span class="nc" id="L1542">                setLogParameter(i, &quot;Object&quot;, o);</span>
+<span class="nc" id="L1543">                super.setObject(i, o);</span>
+<span class="nc" id="L1544">            }</span>
+
+            @Override
+            public void addBatch() throws SQLException {
+<span class="nc bnc" id="L1548" title="All 2 branches missed.">                if (_logs.isSQLEnabled())</span>
+<span class="nc" id="L1549">                    _logs.logSQL(&quot;batching &quot; + this, LoggingConnection.this);</span>
+<span class="nc" id="L1550">                long start = System.currentTimeMillis();</span>
+                try {
+<span class="nc" id="L1552">                    super.addBatch();</span>
+<span class="nc bnc" id="L1553" title="All 2 branches missed.">                    if (shouldTrackParameters()) {</span>
+                        // make sure our list is initialized
+<span class="nc bnc" id="L1555" title="All 2 branches missed.">                        if (_paramBatch == null)</span>
+<span class="nc" id="L1556">                            _paramBatch = new ArrayList&lt;&gt;();</span>
+                        // copy parameters since they will be re-used
+<span class="nc bnc" id="L1558" title="All 2 branches missed.">                        if (_params != null) {</span>
+<span class="nc" id="L1559">                            List&lt;String&gt; copyParms =</span>
+                                    new ArrayList&lt;&gt;(_params);
+<span class="nc" id="L1561">                            _paramBatch.add(copyParms);</span>
+<span class="nc" id="L1562">                        }</span>
+                        else
+<span class="nc" id="L1564">                            _paramBatch.add(null);</span>
+                    }
+                }
+                finally {
+<span class="nc" id="L1568">                    logTime(start);</span>
+                }
+<span class="nc" id="L1570">            }</span>
+
+            @Override
+            public void setCharacterStream(int i1, Reader r, int i2)
+                throws SQLException {
+<span class="nc" id="L1575">                setLogParameter(i1, &quot;Reader&quot;, r);</span>
+<span class="nc" id="L1576">                super.setCharacterStream(i1, r, i2);</span>
+<span class="nc" id="L1577">            }</span>
+
+            @Override
+            public void setRef(int i, Ref r) throws SQLException {
+<span class="nc" id="L1581">                setLogParameter(i, &quot;Ref&quot;, r);</span>
+<span class="nc" id="L1582">                super.setRef(i, r);</span>
+<span class="nc" id="L1583">            }</span>
+
+            @Override
+            public void setBlob(int i, Blob b) throws SQLException {
+<span class="nc" id="L1587">                setLogParameter(i, &quot;Blob&quot;, b);</span>
+<span class="nc" id="L1588">                super.setBlob(i, b);</span>
+<span class="nc" id="L1589">            }</span>
+
+            @Override
+            public void setClob(int i, Clob c) throws SQLException {
+<span class="nc" id="L1593">                setLogParameter(i, &quot;Clob&quot;, c);</span>
+<span class="nc" id="L1594">                super.setClob(i, c);</span>
+<span class="nc" id="L1595">            }</span>
+
+            @Override
+            public void setArray(int i, Array a) throws SQLException {
+<span class="nc" id="L1599">                setLogParameter(i, &quot;Array&quot;, a);</span>
+<span class="nc" id="L1600">                super.setArray(i, a);</span>
+<span class="nc" id="L1601">            }</span>
+
+            @Override
+            public ResultSetMetaData getMetaData() throws SQLException {
+<span class="nc" id="L1605">                return super.getMetaData();</span>
+            }
+
+            @Override
+            public void setDate(int i, Date d, Calendar c) throws SQLException {
+<span class="nc" id="L1610">                setLogParameter(i, &quot;Date&quot;, d);</span>
+<span class="nc" id="L1611">                super.setDate(i, d, c);</span>
+<span class="nc" id="L1612">            }</span>
+
+            @Override
+            public void setTime(int i, Time t, Calendar c) throws SQLException {
+<span class="nc" id="L1616">                setLogParameter(i, &quot;Time&quot;, t);</span>
+<span class="nc" id="L1617">                super.setTime(i, t, c);</span>
+<span class="nc" id="L1618">            }</span>
+
+            @Override
+            public void setTimestamp(int i, Timestamp t, Calendar c)
+                throws SQLException {
+<span class="nc" id="L1623">                setLogParameter(i, &quot;Timestamp&quot;, t);</span>
+<span class="nc" id="L1624">                super.setTimestamp(i, t, c);</span>
+<span class="nc" id="L1625">            }</span>
+
+            @Override
+            public void setNull(int i1, int i2, String s) throws SQLException {
+<span class="nc" id="L1629">                setLogParameter(i1, &quot;null&quot;, null);</span>
+<span class="nc" id="L1630">                super.setNull(i1, i2, s);</span>
+<span class="nc" id="L1631">            }</span>
+
+            @Override
+            public void setURL(int i, URL u) throws SQLException {
+<span class="nc" id="L1635">                setLogParameter(i, &quot;URL&quot;, u);</span>
+<span class="nc" id="L1636">                super.setURL(i, u);</span>
+<span class="nc" id="L1637">            }</span>
+
+            @Override
+            protected void appendInfo(StringBuffer buf) {
+<span class="nc" id="L1641">                buf.append(&quot; &quot;);</span>
+<span class="nc bnc" id="L1642" title="All 2 branches missed.">                if (_formatter != null) {</span>
+<span class="nc" id="L1643">                    buf.append(SEP);</span>
+<span class="nc" id="L1644">                    buf.append(_formatter.prettyPrint(_sql));</span>
+<span class="nc" id="L1645">                    buf.append(SEP);</span>
+                } else {
+<span class="nc" id="L1647">                    buf.append(_sql);</span>
+                }
+
+<span class="nc" id="L1650">                StringBuilder paramBuf = null;</span>
+<span class="nc bnc" id="L1651" title="All 4 branches missed.">                if (_params != null &amp;&amp; !_params.isEmpty()) {</span>
+<span class="nc" id="L1652">                    paramBuf = new StringBuilder();</span>
+<span class="nc" id="L1653">                    for (Iterator&lt;String&gt; itr = _params.iterator(); itr</span>
+<span class="nc bnc" id="L1654" title="All 2 branches missed.">                        .hasNext();) {</span>
+<span class="nc bnc" id="L1655" title="All 2 branches missed.">                        if (_printParameters) {</span>
+<span class="nc" id="L1656">                            paramBuf.append(itr.next());</span>
+                        } else {
+<span class="nc" id="L1658">                            paramBuf.append(&quot;?&quot;);</span>
+<span class="nc" id="L1659">                            itr.next();</span>
+                        }
+<span class="nc bnc" id="L1661" title="All 2 branches missed.">                        if (itr.hasNext()) {</span>
+<span class="nc" id="L1662">                            paramBuf.append(&quot;, &quot;);</span>
+                        }
+                    }
+                }
+
+<span class="nc bnc" id="L1667" title="All 2 branches missed.">                if (paramBuf != null) {</span>
+<span class="nc bnc" id="L1668" title="All 2 branches missed.">                    if (!_prettyPrint) {</span>
+<span class="nc" id="L1669">                        buf.append(&quot; &quot;);</span>
+                    }
+<span class="nc" id="L1671">                    buf.append(&quot;[params=&quot;).append(paramBuf.toString()).append(&quot;]&quot;);</span>
+                }
+<span class="nc" id="L1673">                super.appendInfo(buf);</span>
+<span class="nc" id="L1674">            }</span>
+
+            private void clearLogParameters(boolean batch) {
+<span class="nc bnc" id="L1677" title="All 2 branches missed.">                if (_params != null) {</span>
+<span class="nc" id="L1678">                    _params.clear();</span>
+                }
+
+<span class="nc bnc" id="L1681" title="All 4 branches missed.">                if (batch &amp;&amp; _paramBatch != null) {</span>
+<span class="nc" id="L1682">                    _paramBatch.clear();</span>
+                }
+<span class="nc" id="L1684">            }</span>
+
+            private boolean shouldTrackParameters() {
+<span class="nc bnc" id="L1687" title="All 4 branches missed.">                return _printParameters || _logs.isSQLEnabled();</span>
+            }
+
+            private void setLogParameter(int index, boolean val) {
+<span class="nc bnc" id="L1691" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L1692">                    setLogParameter(index, &quot;(boolean) &quot; + val);</span>
+<span class="nc" id="L1693">            }</span>
+
+            private void setLogParameter(int index, byte val) {
+<span class="nc bnc" id="L1696" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L1697">                    setLogParameter(index, &quot;(byte) &quot; + val);</span>
+<span class="nc" id="L1698">            }</span>
+
+            private void setLogParameter(int index, double val) {
+<span class="nc bnc" id="L1701" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L1702">                    setLogParameter(index, &quot;(double) &quot; + val);</span>
+<span class="nc" id="L1703">            }</span>
+
+            private void setLogParameter(int index, float val) {
+<span class="nc bnc" id="L1706" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L1707">                    setLogParameter(index, &quot;(float) &quot; + val);</span>
+<span class="nc" id="L1708">            }</span>
+
+            private void setLogParameter(int index, int val) {
+<span class="nc bnc" id="L1711" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L1712">                    setLogParameter(index, &quot;(int) &quot; + val);</span>
+<span class="nc" id="L1713">            }</span>
+
+            private void setLogParameter(int index, long val) {
+<span class="nc bnc" id="L1716" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L1717">                    setLogParameter(index, &quot;(long) &quot; + val);</span>
+<span class="nc" id="L1718">            }</span>
+
+            private void setLogParameter(int index, short val) {
+<span class="nc bnc" id="L1721" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L1722">                    setLogParameter(index, &quot;(short) &quot; + val);</span>
+<span class="nc" id="L1723">            }</span>
+
+            private void setLogParameter(int index, String type, Object val) {
+<span class="nc bnc" id="L1726" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L1727">                    setLogParameter(index, &quot;(&quot; + type + &quot;) &quot; + val);</span>
+<span class="nc" id="L1728">            }</span>
+
+            private void setLogParameter(int index, String val) {
+<span class="nc bnc" id="L1731" title="All 2 branches missed.">                if (_params == null)</span>
+<span class="nc" id="L1732">                    _params = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L1733" title="All 2 branches missed.">                while (_params.size() &lt; index)</span>
+<span class="nc" id="L1734">                    _params.add(null);</span>
+<span class="nc bnc" id="L1735" title="All 2 branches missed.">                if (val.length() &gt; 80)</span>
+<span class="nc" id="L1736">                    val = val.substring(0, 77) + &quot;...&quot;;</span>
+<span class="nc" id="L1737">                _params.set(index - 1, val);</span>
+<span class="nc" id="L1738">            }</span>
+        }
+
+        /**
+         * Warning-handling result set.
+         */
+        protected class LoggingResultSet extends DelegatingResultSet {
+
+<span class="nc" id="L1746">            public LoggingResultSet(ResultSet rs, Statement stmnt) {</span>
+<span class="nc" id="L1747">                super(rs, stmnt);</span>
+<span class="nc" id="L1748">            }</span>
+
+            @Override
+            public boolean next() throws SQLException {
+<span class="nc" id="L1752">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1754">                    return super.next();</span>
+<span class="nc" id="L1755">                } catch (SQLException se) {</span>
+<span class="nc" id="L1756">                    err = se;</span>
+<span class="nc" id="L1757">                    throw se;</span>
+                } finally {
+<span class="nc" id="L1759">                    handleSQLErrors(LoggingResultSet.this, err);</span>
+                }
+            }
+
+            @Override
+            public void close() throws SQLException {
+<span class="nc" id="L1765">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1767">                    super.close();</span>
+<span class="nc" id="L1768">                } catch (SQLException se) {</span>
+<span class="nc" id="L1769">                    err = se;</span>
+<span class="nc" id="L1770">                    throw se;</span>
+                } finally {
+<span class="nc" id="L1772">                    handleSQLErrors(LoggingResultSet.this, err);</span>
+                }
+<span class="nc" id="L1774">            }</span>
+
+            @Override
+            public void beforeFirst() throws SQLException {
+<span class="nc" id="L1778">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1780">                    super.beforeFirst();</span>
+<span class="nc" id="L1781">                } catch (SQLException se) {</span>
+<span class="nc" id="L1782">                    err = se;</span>
+<span class="nc" id="L1783">                    throw se;</span>
+                } finally {
+<span class="nc" id="L1785">                    handleSQLErrors(LoggingResultSet.this, err);</span>
+                }
+<span class="nc" id="L1787">            }</span>
+
+            @Override
+            public void afterLast() throws SQLException {
+<span class="nc" id="L1791">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1793">                    super.afterLast();</span>
+<span class="nc" id="L1794">                } catch (SQLException se) {</span>
+<span class="nc" id="L1795">                    err = se;</span>
+<span class="nc" id="L1796">                    throw se;</span>
+                } finally {
+<span class="nc" id="L1798">                    handleSQLErrors(LoggingResultSet.this, err);</span>
+                }
+<span class="nc" id="L1800">            }</span>
+
+            @Override
+            public boolean first() throws SQLException {
+<span class="nc" id="L1804">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1806">                    return super.first();</span>
+<span class="nc" id="L1807">                } catch (SQLException se) {</span>
+<span class="nc" id="L1808">                    err = se;</span>
+<span class="nc" id="L1809">                    throw se;</span>
+                } finally {
+<span class="nc" id="L1811">                    handleSQLErrors(LoggingResultSet.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean last() throws SQLException {
+<span class="nc" id="L1817">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1819">                    return super.last();</span>
+<span class="nc" id="L1820">                } catch (SQLException se) {</span>
+<span class="nc" id="L1821">                    err = se;</span>
+<span class="nc" id="L1822">                    throw se;</span>
+                } finally {
+<span class="nc" id="L1824">                    handleSQLErrors(LoggingResultSet.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean absolute(int a) throws SQLException {
+<span class="nc" id="L1830">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1832">                    return super.absolute(a);</span>
+<span class="nc" id="L1833">                } catch (SQLException se) {</span>
+<span class="nc" id="L1834">                    err = se;</span>
+<span class="nc" id="L1835">                    throw se;</span>
+                } finally {
+<span class="nc" id="L1837">                    handleSQLErrors(LoggingResultSet.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean relative(int a) throws SQLException {
+<span class="nc" id="L1843">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1845">                    return super.relative(a);</span>
+<span class="nc" id="L1846">                } catch (SQLException se) {</span>
+<span class="nc" id="L1847">                    err = se;</span>
+<span class="nc" id="L1848">                    throw se;</span>
+                } finally {
+<span class="nc" id="L1850">                    handleSQLErrors(LoggingResultSet.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean previous() throws SQLException {
+<span class="nc" id="L1856">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1858">                    return super.previous();</span>
+<span class="nc" id="L1859">                } catch (SQLException se) {</span>
+<span class="nc" id="L1860">                    err = se;</span>
+<span class="nc" id="L1861">                    throw se;</span>
+                } finally {
+<span class="nc" id="L1863">                    handleSQLErrors(LoggingResultSet.this, err);</span>
+                }
+            }
+        }
+
+        /**
+         * CallableStatement decorated with logging.
+         * Similar to {@link LoggingPreparedStatement} but can not be extended
+         * due to the existing delegation hierarchy.
+         */
+        protected class LoggingCallableStatement extends
+            DelegatingCallableStatement {
+            private final String _sql;
+<span class="nc" id="L1876">            private List&lt;String&gt; _params = null;</span>
+<span class="nc" id="L1877">            private List&lt;List&lt;String&gt;&gt; _paramBatch = null;</span>
+            //When batching is used, this variable contains the index into the last
+            //successfully executed batched statement.
+<span class="nc" id="L1880">            int batchedRowsBaseIndex = 0;</span>
+
+            public LoggingCallableStatement(CallableStatement stmt, String sql)
+<span class="nc" id="L1883">                throws SQLException {</span>
+<span class="nc" id="L1884">        		super(stmt, LoggingConnection.this);</span>
+<span class="nc" id="L1885">        		_sql = sql;</span>
+<span class="nc" id="L1886">        	}</span>
+
+            private LoggingResultSet newLoggingResultSet(ResultSet rs,
+                CallableStatement stmnt) {
+<span class="nc" id="L1890">                return new LoggingResultSet(rs, stmnt);</span>
+            }
+
+            protected ResultSet wrapResult(ResultSet rs, boolean wrap) {
+<span class="nc bnc" id="L1894" title="All 4 branches missed.">                if (!wrap || rs == null)</span>
+<span class="nc" id="L1895">                    return super.wrapResult(wrap, rs);</span>
+<span class="nc" id="L1896">                return newLoggingResultSet(rs, this);</span>
+            }
+
+            @Override
+            protected ResultSet executeQuery(String sql, boolean wrap)
+                throws SQLException {
+<span class="nc" id="L1902">                logSQL(this);</span>
+<span class="nc" id="L1903">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1904">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1906">                    return super.executeQuery(sql, wrap);</span>
+<span class="nc" id="L1907">                } catch (SQLException se) {</span>
+<span class="nc" id="L1908">                    err = wrap(se, LoggingCallableStatement.this, sql);</span>
+<span class="nc" id="L1909">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1911">                    logTime(start);</span>
+<span class="nc" id="L1912">                    clearLogParameters(true);</span>
+<span class="nc" id="L1913">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String sql) throws SQLException {
+<span class="nc" id="L1919">                logSQL(this);</span>
+<span class="nc" id="L1920">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1921">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1923">                    return super.executeUpdate(sql);</span>
+<span class="nc" id="L1924">                } catch (SQLException se) {</span>
+<span class="nc" id="L1925">                    err = wrap(se, LoggingCallableStatement.this, sql);</span>
+<span class="nc" id="L1926">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1928">                    logTime(start);</span>
+<span class="nc" id="L1929">                    clearLogParameters(true);</span>
+<span class="nc" id="L1930">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String sql) throws SQLException {
+<span class="nc" id="L1936">                logSQL(this);</span>
+<span class="nc" id="L1937">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1938">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1940">                    return super.execute(sql);</span>
+<span class="nc" id="L1941">                } catch (SQLException se) {</span>
+<span class="nc" id="L1942">                    err = wrap(se, LoggingCallableStatement.this, sql);</span>
+<span class="nc" id="L1943">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1945">                    logTime(start);</span>
+<span class="nc" id="L1946">                    clearLogParameters(true);</span>
+<span class="nc" id="L1947">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            protected ResultSet executeQuery(boolean wrap) throws SQLException {
+<span class="nc" id="L1953">                logSQL(this);</span>
+<span class="nc" id="L1954">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1955">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1957">                    return super.executeQuery(wrap);</span>
+<span class="nc" id="L1958">                } catch (SQLException se) {</span>
+<span class="nc" id="L1959">                    err = wrap(se, LoggingCallableStatement.this);</span>
+<span class="nc" id="L1960">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1962">                    logTime(start);</span>
+<span class="nc" id="L1963">                    clearLogParameters(true);</span>
+<span class="nc" id="L1964">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate() throws SQLException {
+<span class="nc" id="L1970">                logSQL(this);</span>
+<span class="nc" id="L1971">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1972">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1974">                    return super.executeUpdate();</span>
+<span class="nc" id="L1975">                } catch (SQLException se) {</span>
+<span class="nc" id="L1976">                    err = wrap(se, LoggingCallableStatement.this);</span>
+<span class="nc" id="L1977">                    throw err;</span>
+                } finally {
+<span class="nc" id="L1979">                    logTime(start);</span>
+<span class="nc" id="L1980">                    clearLogParameters(true);</span>
+<span class="nc" id="L1981">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int[] executeBatch() throws SQLException {
+<span class="nc" id="L1987">                int indexOfFirstFailedObject = -1;</span>
+
+<span class="nc" id="L1989">                logBatchSQL(this);</span>
+<span class="nc" id="L1990">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L1991">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L1993">                    int[] toReturn = super.executeBatch();</span>
+                    //executeBatch is called any time the number of batched statements
+                    //is equal to, or less than, batchLimit.  In the 'catch' block below,
+                    //the logic seeks to find an index based on the current executeBatch
+                    //results.  This is fine when executeBatch is only called once, but
+                    //if executeBatch is called many times, the _paramsBatch will continue
+                    //to grow, as such, to index into _paramsBatch, we need to take into
+                    //account the number of times executeBatch is called in order to
+                    //correctly index into _paramsBatch.  To that end, each time executeBatch
+                    //is called, lets get the size of _paramBatch.  This will effectively
+                    //tell us the index of the last successfully executed batch statement.
+                    //If an exception is caused, then we know that _paramBatch.size was
+                    //the index of the LAST row to successfully execute.
+<span class="nc bnc" id="L2006" title="All 2 branches missed.">                    if (_paramBatch != null){</span>
+<span class="nc" id="L2007">                        batchedRowsBaseIndex = _paramBatch.size();</span>
+                    }
+<span class="nc" id="L2009">                    return toReturn;</span>
+<span class="nc" id="L2010">                } catch (SQLException se) {</span>
+                    // if the exception is a BatchUpdateException, and
+                    // we are tracking parameters, then set the current
+                    // parameter set to be the index of the failed
+                    // statement so that the ReportingSQLException will
+                    // show the correct param
+<span class="nc bnc" id="L2016" title="All 4 branches missed.">                    if (se instanceof BatchUpdateException</span>
+<span class="nc bnc" id="L2017" title="All 2 branches missed.">                        &amp;&amp; _paramBatch != null &amp;&amp; shouldTrackParameters()) {</span>
+<span class="nc" id="L2018">                        int[] count = ((BatchUpdateException) se).</span>
+<span class="nc" id="L2019">                            getUpdateCounts();</span>
+<span class="nc bnc" id="L2020" title="All 4 branches missed.">                        if (count != null &amp;&amp; count.length &lt;= _paramBatch.size())</span>
+                        {
+<span class="nc bnc" id="L2022" title="All 2 branches missed.">                            for (int i = 0; i &lt; count.length; i++) {</span>
+                                // -3 is Statement.STATEMENT_FAILED, but is
+                                // only available in JDK 1.4+
+<span class="nc bnc" id="L2025" title="All 2 branches missed.">                                if (count[i] == Statement.EXECUTE_FAILED) {</span>
+<span class="nc" id="L2026">                                    indexOfFirstFailedObject = i;</span>
+<span class="nc" id="L2027">                                    break;</span>
+                                }
+                            }
+
+                            // no -3 element: it may be that the server stopped
+                            // processing, so the size of the count will be
+                            // the index
+                            //See the Javadoc for 'getUpdateCounts'; a provider
+                            //may stop processing when the first failure occurs,
+                            //as such, it may only return 'UpdateCounts' for the
+                            //first few which pass.  As such, the failed
+                            //index is 'count.length', NOT count.length+1.  That
+                            //is, if the provider ONLY returns the first few that
+                            //passes (i.e. say an array of [1,1] is returned) then
+                            //length is 2, and since _paramBatch starts at 0, we
+                            //don't want to use length+1 as that will give us the
+                            //wrong index.
+<span class="nc bnc" id="L2044" title="All 2 branches missed.">                            if (indexOfFirstFailedObject == -1){</span>
+<span class="nc" id="L2045">                                indexOfFirstFailedObject = count.length;</span>
+                            }
+
+                            //Finally, whatever the index is at this point, add batchedRowsBaseIndex
+                            //to it to get the final index.  Recall, we need to start our index from the
+                            //last batch which successfully executed.
+<span class="nc" id="L2051">                            indexOfFirstFailedObject += batchedRowsBaseIndex;</span>
+
+                            // set the current params to the saved values
+<span class="nc bnc" id="L2054" title="All 2 branches missed.">                            if (indexOfFirstFailedObject &lt; _paramBatch.size()){</span>
+<span class="nc" id="L2055">                                _params = (List&lt;String&gt;) _paramBatch.get(indexOfFirstFailedObject);</span>
+                            }
+                        }
+                    }
+<span class="nc" id="L2059">                    err = wrap(se, LoggingCallableStatement.this, indexOfFirstFailedObject);</span>
+<span class="nc" id="L2060">                    throw err;</span>
+                } finally {
+<span class="nc" id="L2062">                    logTime(start);</span>
+<span class="nc" id="L2063">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute() throws SQLException {
+<span class="nc" id="L2069">                logSQL(this);</span>
+<span class="nc" id="L2070">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L2071">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L2073">                    return super.execute();</span>
+<span class="nc" id="L2074">                } catch (SQLException se) {</span>
+<span class="nc" id="L2075">                    err = wrap(se, LoggingCallableStatement.this);</span>
+<span class="nc" id="L2076">                    throw err;</span>
+                } finally {
+<span class="nc" id="L2078">                    logTime(start);</span>
+<span class="nc" id="L2079">                    clearLogParameters(true);</span>
+<span class="nc" id="L2080">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String s, int i) throws SQLException {
+<span class="nc" id="L2086">                logSQL(this);</span>
+<span class="nc" id="L2087">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L2088">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L2090">                    return super.executeUpdate(s, i);</span>
+<span class="nc" id="L2091">                } catch (SQLException se) {</span>
+<span class="nc" id="L2092">                    err = wrap(se, LoggingCallableStatement.this);</span>
+<span class="nc" id="L2093">                    throw err;</span>
+                } finally {
+<span class="nc" id="L2095">                    logTime(start);</span>
+<span class="nc" id="L2096">                    clearLogParameters(true);</span>
+<span class="nc" id="L2097">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String s, int[] ia) throws SQLException {
+<span class="nc" id="L2103">                logSQL(this);</span>
+<span class="nc" id="L2104">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L2105">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L2107">                    return super.executeUpdate(s, ia);</span>
+<span class="nc" id="L2108">                } catch (SQLException se) {</span>
+<span class="nc" id="L2109">                    err = wrap(se, LoggingCallableStatement.this);</span>
+<span class="nc" id="L2110">                    throw err;</span>
+                } finally {
+<span class="nc" id="L2112">                    logTime(start);</span>
+<span class="nc" id="L2113">                    clearLogParameters(true);</span>
+<span class="nc" id="L2114">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public int executeUpdate(String s, String[] sa) throws SQLException {
+<span class="nc" id="L2120">                logSQL(this);</span>
+<span class="nc" id="L2121">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L2122">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L2124">                    return super.executeUpdate(s, sa);</span>
+<span class="nc" id="L2125">                } catch (SQLException se) {</span>
+<span class="nc" id="L2126">                    err = wrap(se, LoggingCallableStatement.this);</span>
+<span class="nc" id="L2127">                    throw err;</span>
+                } finally {
+<span class="nc" id="L2129">                    logTime(start);</span>
+<span class="nc" id="L2130">                    clearLogParameters(true);</span>
+<span class="nc" id="L2131">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String s, int i) throws SQLException {
+<span class="nc" id="L2137">                logSQL(this);</span>
+<span class="nc" id="L2138">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L2139">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L2141">                    return super.execute(s, i);</span>
+<span class="nc" id="L2142">                } catch (SQLException se) {</span>
+<span class="nc" id="L2143">                    err = wrap(se, LoggingCallableStatement.this);</span>
+<span class="nc" id="L2144">                    throw err;</span>
+                } finally {
+<span class="nc" id="L2146">                    logTime(start);</span>
+<span class="nc" id="L2147">                    clearLogParameters(true);</span>
+<span class="nc" id="L2148">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String s, int[] ia) throws SQLException {
+<span class="nc" id="L2154">                logSQL(this);</span>
+<span class="nc" id="L2155">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L2156">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L2158">                    return super.execute(s, ia);</span>
+<span class="nc" id="L2159">                } catch (SQLException se) {</span>
+<span class="nc" id="L2160">                    err = wrap(se, LoggingCallableStatement.this);</span>
+<span class="nc" id="L2161">                    throw err;</span>
+                } finally {
+<span class="nc" id="L2163">                    logTime(start);</span>
+<span class="nc" id="L2164">                    clearLogParameters(true);</span>
+<span class="nc" id="L2165">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public boolean execute(String s, String[] sa) throws SQLException {
+<span class="nc" id="L2171">                logSQL(this);</span>
+<span class="nc" id="L2172">                long start = System.currentTimeMillis();</span>
+<span class="nc" id="L2173">                SQLException err = null;</span>
+                try {
+<span class="nc" id="L2175">                    return super.execute(s, sa);</span>
+<span class="nc" id="L2176">                } catch (SQLException se) {</span>
+<span class="nc" id="L2177">                    err = wrap(se, LoggingCallableStatement.this);</span>
+<span class="nc" id="L2178">                    throw err;</span>
+                } finally {
+<span class="nc" id="L2180">                    logTime(start);</span>
+<span class="nc" id="L2181">                    clearLogParameters(true);</span>
+<span class="nc" id="L2182">                    handleSQLErrors(LoggingCallableStatement.this, err);</span>
+                }
+            }
+
+            @Override
+            public void cancel() throws SQLException {
+<span class="nc bnc" id="L2188" title="All 2 branches missed.">                if (_logs.isJDBCEnabled())</span>
+<span class="nc" id="L2189">                    _logs.logJDBC(&quot;cancel &quot; + this + &quot;: &quot; + _sql,</span>
+                        LoggingConnection.this);
+
+<span class="nc" id="L2192">                super.cancel();</span>
+<span class="nc" id="L2193">            }</span>
+
+            @Override
+            public void setNull(int i1, int i2) throws SQLException {
+<span class="nc" id="L2197">                setLogParameter(i1, &quot;null&quot;, null);</span>
+<span class="nc" id="L2198">                super.setNull(i1, i2);</span>
+<span class="nc" id="L2199">            }</span>
+
+            @Override
+            public void setBoolean(int i, boolean b) throws SQLException {
+<span class="nc" id="L2203">                setLogParameter(i, b);</span>
+<span class="nc" id="L2204">                super.setBoolean(i, b);</span>
+<span class="nc" id="L2205">            }</span>
+
+            @Override
+            public void setByte(int i, byte b) throws SQLException {
+<span class="nc" id="L2209">                setLogParameter(i, b);</span>
+<span class="nc" id="L2210">                super.setByte(i, b);</span>
+<span class="nc" id="L2211">            }</span>
+
+            @Override
+            public void setShort(int i, short s) throws SQLException {
+<span class="nc" id="L2215">                setLogParameter(i, s);</span>
+<span class="nc" id="L2216">                super.setShort(i, s);</span>
+<span class="nc" id="L2217">            }</span>
+
+            @Override
+            public void setInt(int i1, int i2) throws SQLException {
+<span class="nc" id="L2221">                setLogParameter(i1, i2);</span>
+<span class="nc" id="L2222">                super.setInt(i1, i2);</span>
+<span class="nc" id="L2223">            }</span>
+
+            @Override
+            public void setLong(int i, long l) throws SQLException {
+<span class="nc" id="L2227">                setLogParameter(i, l);</span>
+<span class="nc" id="L2228">                super.setLong(i, l);</span>
+<span class="nc" id="L2229">            }</span>
+
+            @Override
+            public void setFloat(int i, float f) throws SQLException {
+<span class="nc" id="L2233">                setLogParameter(i, f);</span>
+<span class="nc" id="L2234">                super.setFloat(i, f);</span>
+<span class="nc" id="L2235">            }</span>
+
+            @Override
+            public void setDouble(int i, double d) throws SQLException {
+<span class="nc" id="L2239">                setLogParameter(i, d);</span>
+<span class="nc" id="L2240">                super.setDouble(i, d);</span>
+<span class="nc" id="L2241">            }</span>
+
+            @Override
+            public void setBigDecimal(int i, BigDecimal bd)
+                throws SQLException {
+<span class="nc" id="L2246">                setLogParameter(i, &quot;BigDecimal&quot;, bd);</span>
+<span class="nc" id="L2247">                super.setBigDecimal(i, bd);</span>
+<span class="nc" id="L2248">            }</span>
+
+            @Override
+            public void setString(int i, String s) throws SQLException {
+<span class="nc" id="L2252">                setLogParameter(i, &quot;String&quot;, s);</span>
+<span class="nc" id="L2253">                super.setString(i, s);</span>
+<span class="nc" id="L2254">            }</span>
+
+            @Override
+            public void setBytes(int i, byte[] b) throws SQLException {
+<span class="nc" id="L2258">                setLogParameter(i, &quot;byte[]&quot;, b);</span>
+<span class="nc" id="L2259">                super.setBytes(i, b);</span>
+<span class="nc" id="L2260">            }</span>
+
+            @Override
+            public void setDate(int i, Date d) throws SQLException {
+<span class="nc" id="L2264">                setLogParameter(i, &quot;Date&quot;, d);</span>
+<span class="nc" id="L2265">                super.setDate(i, d);</span>
+<span class="nc" id="L2266">            }</span>
+
+            @Override
+            public void setTime(int i, Time t) throws SQLException {
+<span class="nc" id="L2270">                setLogParameter(i, &quot;Time&quot;, t);</span>
+<span class="nc" id="L2271">                super.setTime(i, t);</span>
+<span class="nc" id="L2272">            }</span>
+
+            @Override
+            public void setTimestamp(int i, Timestamp t) throws SQLException {
+<span class="nc" id="L2276">                setLogParameter(i, &quot;Timestamp&quot;, t);</span>
+<span class="nc" id="L2277">                super.setTimestamp(i, t);</span>
+<span class="nc" id="L2278">            }</span>
+
+            @Override
+            public void setAsciiStream(int i1, InputStream is, int i2)
+                throws SQLException {
+<span class="nc" id="L2283">                setLogParameter(i1, &quot;InputStream&quot;, is);</span>
+<span class="nc" id="L2284">                super.setAsciiStream(i1, is, i2);</span>
+<span class="nc" id="L2285">            }</span>
+
+            @Override
+            @Deprecated
+            public void setUnicodeStream(int i1, InputStream is, int i2)
+                throws SQLException {
+<span class="nc" id="L2291">                setLogParameter(i1, &quot;InputStream&quot;, is);</span>
+<span class="nc" id="L2292">                super.setUnicodeStream(i2, is, i2);</span>
+<span class="nc" id="L2293">            }</span>
+
+            @Override
+            public void setBinaryStream(int i1, InputStream is, int i2)
+                throws SQLException {
+<span class="nc" id="L2298">                setLogParameter(i1, &quot;InputStream&quot;, is);</span>
+<span class="nc" id="L2299">                super.setBinaryStream(i1, is, i2);</span>
+<span class="nc" id="L2300">            }</span>
+
+            @Override
+            public void clearParameters() throws SQLException {
+<span class="nc" id="L2304">                clearLogParameters(false);</span>
+<span class="nc" id="L2305">                super.clearParameters();</span>
+<span class="nc" id="L2306">            }</span>
+
+            @Override
+            public void setObject(int i1, Object o, int i2, int i3)
+                throws SQLException {
+<span class="nc" id="L2311">                setLogParameter(i1, &quot;Object&quot;, o);</span>
+<span class="nc" id="L2312">                super.setObject(i1, o, i2, i3);</span>
+<span class="nc" id="L2313">            }</span>
+
+            @Override
+            public void setObject(int i1, Object o, int i2)
+                throws SQLException {
+<span class="nc" id="L2318">                setLogParameter(i1, &quot;Object&quot;, o);</span>
+<span class="nc" id="L2319">                super.setObject(i1, o, i2);</span>
+<span class="nc" id="L2320">            }</span>
+
+            @Override
+            public void setObject(int i, Object o) throws SQLException {
+<span class="nc" id="L2324">                setLogParameter(i, &quot;Object&quot;, o);</span>
+<span class="nc" id="L2325">                super.setObject(i, o);</span>
+<span class="nc" id="L2326">            }</span>
+
+            @Override
+            public void addBatch() throws SQLException {
+<span class="nc bnc" id="L2330" title="All 2 branches missed.">                if (_logs.isSQLEnabled())</span>
+<span class="nc" id="L2331">                    _logs.logSQL(&quot;batching &quot; + this, LoggingConnection.this);</span>
+<span class="nc" id="L2332">                long start = System.currentTimeMillis();</span>
+                try {
+<span class="nc" id="L2334">                    super.addBatch();</span>
+<span class="nc bnc" id="L2335" title="All 2 branches missed.">                    if (shouldTrackParameters()) {</span>
+                        // make sure our list is initialized
+<span class="nc bnc" id="L2337" title="All 2 branches missed.">                        if (_paramBatch == null)</span>
+<span class="nc" id="L2338">                            _paramBatch = new ArrayList&lt;&gt;();</span>
+                        // copy parameters since they will be re-used
+<span class="nc bnc" id="L2340" title="All 2 branches missed.">                        if (_params != null) {</span>
+<span class="nc" id="L2341">                            List&lt;String&gt; copyParams =</span>
+                                new ArrayList&lt;&gt;(_params);
+<span class="nc" id="L2343">                            _paramBatch.add(copyParams);</span>
+<span class="nc" id="L2344">                        }</span>
+                        else
+<span class="nc" id="L2346">                            _paramBatch.add(null);</span>
+                    }
+                }
+                finally {
+<span class="nc" id="L2350">                    logTime(start);</span>
+                }
+<span class="nc" id="L2352">            }</span>
+
+            @Override
+            public void setCharacterStream(int i1, Reader r, int i2)
+                throws SQLException {
+<span class="nc" id="L2357">                setLogParameter(i1, &quot;Reader&quot;, r);</span>
+<span class="nc" id="L2358">                super.setCharacterStream(i1, r, i2);</span>
+<span class="nc" id="L2359">            }</span>
+
+            @Override
+            public void setRef(int i, Ref r) throws SQLException {
+<span class="nc" id="L2363">                setLogParameter(i, &quot;Ref&quot;, r);</span>
+<span class="nc" id="L2364">                super.setRef(i, r);</span>
+<span class="nc" id="L2365">            }</span>
+
+            @Override
+            public void setBlob(int i, Blob b) throws SQLException {
+<span class="nc" id="L2369">                setLogParameter(i, &quot;Blob&quot;, b);</span>
+<span class="nc" id="L2370">                super.setBlob(i, b);</span>
+<span class="nc" id="L2371">            }</span>
+
+            @Override
+            public void setClob(int i, Clob c) throws SQLException {
+<span class="nc" id="L2375">                setLogParameter(i, &quot;Clob&quot;, c);</span>
+<span class="nc" id="L2376">                super.setClob(i, c);</span>
+<span class="nc" id="L2377">            }</span>
+
+            @Override
+            public void setArray(int i, Array a) throws SQLException {
+<span class="nc" id="L2381">                setLogParameter(i, &quot;Array&quot;, a);</span>
+<span class="nc" id="L2382">                super.setArray(i, a);</span>
+<span class="nc" id="L2383">            }</span>
+
+            @Override
+            public ResultSetMetaData getMetaData() throws SQLException {
+<span class="nc" id="L2387">                return super.getMetaData();</span>
+            }
+
+            @Override
+            public void setDate(int i, Date d, Calendar c) throws SQLException {
+<span class="nc" id="L2392">                setLogParameter(i, &quot;Date&quot;, d);</span>
+<span class="nc" id="L2393">                super.setDate(i, d, c);</span>
+<span class="nc" id="L2394">            }</span>
+
+            @Override
+            public void setTime(int i, Time t, Calendar c) throws SQLException {
+<span class="nc" id="L2398">                setLogParameter(i, &quot;Time&quot;, t);</span>
+<span class="nc" id="L2399">                super.setTime(i, t, c);</span>
+<span class="nc" id="L2400">            }</span>
+
+            @Override
+            public void setTimestamp(int i, Timestamp t, Calendar c)
+                throws SQLException {
+<span class="nc" id="L2405">                setLogParameter(i, &quot;Timestamp&quot;, t);</span>
+<span class="nc" id="L2406">                super.setTimestamp(i, t, c);</span>
+<span class="nc" id="L2407">            }</span>
+
+            @Override
+            public void setNull(int i1, int i2, String s) throws SQLException {
+<span class="nc" id="L2411">                setLogParameter(i1, &quot;null&quot;, null);</span>
+<span class="nc" id="L2412">                super.setNull(i1, i2, s);</span>
+<span class="nc" id="L2413">            }</span>
+
+            @Override
+            public void setURL(int i, URL u) throws SQLException {
+<span class="nc" id="L2417">                setLogParameter(i, &quot;URL&quot;, u);</span>
+<span class="nc" id="L2418">                super.setURL(i, u);</span>
+<span class="nc" id="L2419">            }</span>
+
+            @Override
+            protected void appendInfo(StringBuffer buf) {
+<span class="nc" id="L2423">                buf.append(&quot; &quot;);</span>
+<span class="nc bnc" id="L2424" title="All 2 branches missed.">                if (_formatter != null) {</span>
+<span class="nc" id="L2425">                    buf.append(SEP);</span>
+<span class="nc" id="L2426">                    buf.append(_formatter.prettyPrint(_sql));</span>
+<span class="nc" id="L2427">                    buf.append(SEP);</span>
+                } else {
+<span class="nc" id="L2429">                    buf.append(_sql);</span>
+                }
+
+<span class="nc" id="L2432">                StringBuilder paramBuf = null;</span>
+<span class="nc bnc" id="L2433" title="All 4 branches missed.">                if (_params != null &amp;&amp; !_params.isEmpty()) {</span>
+<span class="nc" id="L2434">                    paramBuf = new StringBuilder();</span>
+<span class="nc" id="L2435">                    for (Iterator&lt;String&gt; itr = _params.iterator(); itr</span>
+<span class="nc bnc" id="L2436" title="All 2 branches missed.">                        .hasNext();) {</span>
+<span class="nc" id="L2437">                        paramBuf.append(itr.next());</span>
+<span class="nc bnc" id="L2438" title="All 2 branches missed.">                        if (itr.hasNext())</span>
+<span class="nc" id="L2439">                            paramBuf.append(&quot;, &quot;);</span>
+                    }
+                }
+
+<span class="nc bnc" id="L2443" title="All 2 branches missed.">                if (paramBuf != null) {</span>
+<span class="nc bnc" id="L2444" title="All 2 branches missed.">                    if (!_prettyPrint)</span>
+<span class="nc" id="L2445">                        buf.append(&quot; &quot;);</span>
+<span class="nc" id="L2446">                    buf.append(&quot;[params=&quot;).</span>
+<span class="nc" id="L2447">                        append(paramBuf.toString()).append(&quot;]&quot;);</span>
+                }
+<span class="nc" id="L2449">                super.appendInfo(buf);</span>
+<span class="nc" id="L2450">            }</span>
+
+            protected void clearLogParameters(boolean batch) {
+<span class="nc bnc" id="L2453" title="All 2 branches missed.">                if (_params != null)</span>
+<span class="nc" id="L2454">                    _params.clear();</span>
+<span class="nc bnc" id="L2455" title="All 4 branches missed.">                if (batch &amp;&amp; _paramBatch != null)</span>
+<span class="nc" id="L2456">                    _paramBatch.clear();</span>
+<span class="nc" id="L2457">            }</span>
+
+            private boolean shouldTrackParameters() {
+<span class="nc bnc" id="L2460" title="All 4 branches missed.">                return _printParameters || _logs.isSQLEnabled();</span>
+            }
+
+            private void setLogParameter(int index, boolean val) {
+<span class="nc bnc" id="L2464" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L2465">                    setLogParameter(index, &quot;(boolean) &quot; + val);</span>
+<span class="nc" id="L2466">            }</span>
+
+            private void setLogParameter(int index, byte val) {
+<span class="nc bnc" id="L2469" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L2470">                    setLogParameter(index, &quot;(byte) &quot; + val);</span>
+<span class="nc" id="L2471">            }</span>
+
+            private void setLogParameter(int index, double val) {
+<span class="nc bnc" id="L2474" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L2475">                    setLogParameter(index, &quot;(double) &quot; + val);</span>
+<span class="nc" id="L2476">            }</span>
+
+            private void setLogParameter(int index, float val) {
+<span class="nc bnc" id="L2479" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L2480">                    setLogParameter(index, &quot;(float) &quot; + val);</span>
+<span class="nc" id="L2481">            }</span>
+
+            private void setLogParameter(int index, int val) {
+<span class="nc bnc" id="L2484" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L2485">                    setLogParameter(index, &quot;(int) &quot; + val);</span>
+<span class="nc" id="L2486">            }</span>
+
+            private void setLogParameter(int index, long val) {
+<span class="nc bnc" id="L2489" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L2490">                    setLogParameter(index, &quot;(long) &quot; + val);</span>
+<span class="nc" id="L2491">            }</span>
+
+            private void setLogParameter(int index, short val) {
+<span class="nc bnc" id="L2494" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L2495">                    setLogParameter(index, &quot;(short) &quot; + val);</span>
+<span class="nc" id="L2496">            }</span>
+
+            private void setLogParameter(int index, String type, Object val) {
+<span class="nc bnc" id="L2499" title="All 2 branches missed.">                if (shouldTrackParameters())</span>
+<span class="nc" id="L2500">                    setLogParameter(index, &quot;(&quot; + type + &quot;) &quot; + val);</span>
+<span class="nc" id="L2501">            }</span>
+
+            private void setLogParameter(int index, String val) {
+<span class="nc bnc" id="L2504" title="All 2 branches missed.">                if (_params == null)</span>
+<span class="nc" id="L2505">                    _params = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L2506" title="All 2 branches missed.">                while (_params.size() &lt; index)</span>
+<span class="nc" id="L2507">                    _params.add(null);</span>
+<span class="nc bnc" id="L2508" title="All 2 branches missed.">                if (val.length() &gt; 80)</span>
+<span class="nc" id="L2509">                    val = val.substring(0, 77) + &quot;...&quot;;</span>
+<span class="nc" id="L2510">                _params.set(index - 1, val);</span>
+<span class="nc" id="L2511">            }</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

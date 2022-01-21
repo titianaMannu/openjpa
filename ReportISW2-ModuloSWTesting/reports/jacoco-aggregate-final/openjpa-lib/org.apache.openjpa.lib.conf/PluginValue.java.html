@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>PluginValue.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.conf</a> &gt; <span class="el_source">PluginValue.java</span></div><h1>PluginValue.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.conf;
+
+import java.util.Objects;
+
+import org.apache.openjpa.lib.log.Log;
+import org.apache.openjpa.lib.log.LogFactory;
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.lib.util.ParseException;
+
+/**
+ * A plugin {@link Value} consisting of plugin name and properties.
+ * Plugins should be specified in the form:&lt;br /&gt;
+ * &lt;code&gt;&amp;lt;plugin-name&amp;gt;(&amp;lt;prop1&amp;gt;=&amp;lt;val1&amp;gt;, ...)&lt;/code&gt;&lt;br /&gt;
+ * Both the plugin name and prop list are optional, so that the following
+ * forms are also valid:&lt;br /&gt;
+ * &lt;code&gt;&amp;lt;plugin-name&amp;gt;&lt;/code&gt;&lt;br /&gt;
+ * &lt;code&gt;&amp;lt;prop1&amp;gt;=&amp;lt;val1&amp;gt; ...&lt;/code&gt;
+ * Defaults and aliases on plugin values apply only to the plugin name.
+ *
+ * @author Abe White
+ */
+public class PluginValue extends ObjectValue {
+
+<span class="nc" id="L42">    private static final Localizer _loc = Localizer.forPackage</span>
+<span class="nc" id="L43">        (PluginValue.class);</span>
+
+    private final boolean _singleton;
+<span class="nc" id="L46">    private String _name = null;</span>
+<span class="nc" id="L47">    private String _props = null;</span>
+
+    public PluginValue(String prop, boolean singleton) {
+<span class="nc" id="L50">        super(prop);</span>
+<span class="nc" id="L51">        _singleton = singleton;</span>
+<span class="nc" id="L52">    }</span>
+
+    /**
+     * Whether this value is a singleton.
+     */
+    public boolean isSingleton() {
+<span class="nc" id="L58">        return _singleton;</span>
+    }
+
+    /**
+     * The plugin class name.
+     */
+    public String getClassName() {
+<span class="nc" id="L65">        return _name;</span>
+    }
+
+    /**
+     * The plugin class name.
+     */
+    public void setClassName(String name) {
+<span class="nc" id="L72">        assertChangeable();</span>
+<span class="nc" id="L73">        String oldName = _name;</span>
+<span class="nc" id="L74">        _name = name;</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        if (!Objects.equals(oldName, name)) {</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">            if (_singleton)</span>
+<span class="nc" id="L77">                set(null, true);</span>
+<span class="nc" id="L78">            valueChanged();</span>
+        }
+<span class="nc" id="L80">    }</span>
+
+    /**
+     * The plugin properties.
+     */
+    public String getProperties() {
+<span class="nc" id="L86">        return _props;</span>
+    }
+
+    /**
+     * The plugin properties.
+     */
+    public void setProperties(String props) {
+<span class="nc" id="L93">        String oldProps = _props;</span>
+<span class="nc" id="L94">        _props = props;</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (!Objects.equals(oldProps, props)) {</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">            if (_singleton)</span>
+<span class="nc" id="L97">                set(null, true);</span>
+<span class="nc" id="L98">            valueChanged();</span>
+        }
+<span class="nc" id="L100">    }</span>
+
+    /**
+     * Instantiate the plugin as an instance of the given class.
+     */
+    @Override
+    public Object instantiate(Class&lt;?&gt; type, Configuration conf, boolean fatal)
+    {
+<span class="nc" id="L108">        Object obj = newInstance(_name, type, conf, fatal);</span>
+
+        // ensure plugin value is compatible with plugin type
+<span class="nc bnc" id="L111" title="All 4 branches missed.">        if (obj != null &amp;&amp; !type.isAssignableFrom(obj.getClass())) {</span>
+<span class="nc bnc" id="L112" title="All 4 branches missed.">            Log log = (conf == null || type.equals(LogFactory.class)) ? null : conf.getConfigurationLog();</span>
+<span class="nc" id="L113">            String msg = getIncompatiblePluginMessage(obj, type);</span>
+<span class="nc bnc" id="L114" title="All 4 branches missed.">            if (log != null &amp;&amp; log.isErrorEnabled()) {</span>
+<span class="nc" id="L115">            	log.error(msg);</span>
+            }
+<span class="nc bnc" id="L117" title="All 2 branches missed.">            if (fatal) {</span>
+<span class="nc" id="L118">            	throw new ParseException(msg);</span>
+            }
+<span class="nc" id="L120">            return null;</span>
+        }
+
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        Configurations.configureInstance(obj, conf, _props,</span>
+<span class="nc" id="L124">            (fatal) ? getProperty() : null);</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if (_singleton)</span>
+<span class="nc" id="L126">            set(obj, true);</span>
+<span class="nc" id="L127">        return obj;</span>
+    }
+
+    private String getIncompatiblePluginMessage(Object obj, Class&lt;?&gt; type) {
+<span class="nc bnc" id="L131" title="All 2 branches missed.">		return _loc.get(&quot;incompatible-plugin&quot;,</span>
+            new Object[]{ _name,
+<span class="nc bnc" id="L133" title="All 2 branches missed.">                          obj == null ? null : obj.getClass().getName(),</span>
+<span class="nc" id="L134">                          type == null ? null : type.getName()</span>
+<span class="nc" id="L135">                          }).toString();</span>
+	}
+
+	/**
+     * Configure the given object.
+     */
+    @Override
+    public Object configure(Object obj, Configuration conf, boolean fatal) {
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        Configurations.configureInstance(obj, conf, _props,</span>
+<span class="nc" id="L144">            (fatal) ? getProperty() : null);</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">        if (_singleton)</span>
+<span class="nc" id="L146">            set(obj, true);</span>
+<span class="nc" id="L147">        return obj;</span>
+    }
+
+
+    @Override
+    public void set(Object obj, boolean derived) {
+<span class="nc bnc" id="L153" title="All 2 branches missed.">        if (!_singleton)</span>
+<span class="nc" id="L154">            throw new IllegalStateException(_loc.get(&quot;not-singleton&quot;,</span>
+<span class="nc" id="L155">                getProperty()).getMessage());</span>
+<span class="nc" id="L156">        super.set(obj, derived);</span>
+<span class="nc" id="L157">    }</span>
+
+    @Override
+    public String getString() {
+<span class="nc" id="L161">        return Configurations.getPlugin(alias(_name), _props);</span>
+    }
+
+    @Override
+    public void setString(String str) {
+<span class="nc" id="L166">    	assertChangeable();</span>
+<span class="nc" id="L167">        _name = Configurations.getClassName(str);</span>
+<span class="nc" id="L168">        _name = unalias(_name);</span>
+<span class="nc" id="L169">        _props = Configurations.getProperties(str);</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">        if (_singleton)</span>
+<span class="nc" id="L171">            set(null, true);</span>
+<span class="nc" id="L172">        valueChanged();</span>
+<span class="nc" id="L173">    }</span>
+
+    @Override
+    public Class&lt;Object&gt; getValueType() {
+<span class="nc" id="L177">        return Object.class;</span>
+    }
+
+    @Override
+    protected void objectChanged() {
+<span class="nc" id="L182">        Object obj = get();</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        _name = (obj == null) ? unalias(null) : obj.getClass().getName();</span>
+<span class="nc" id="L184">        _props = null;</span>
+<span class="nc" id="L185">    }</span>
+
+    @Override
+    protected String getInternalString() {
+        // should never get called
+<span class="nc" id="L190">        throw new IllegalStateException();</span>
+    }
+
+    @Override
+    protected void setInternalString(String str) {
+        // should never get called
+<span class="nc" id="L196">        throw new IllegalStateException();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>Files.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">Files.java</span></div><h1>Files.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.Writer;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+
+/**
+ * Utility operations on files.
+ *
+ * @author Abe White
+ */
+<span class="nc" id="L44">public class Files {</span>
+
+    /**
+     * Backup the given file to a new file called &amp;lt;file-name&amp;gt;~. If
+     * the file does not exist or a backup could not be created, returns null.
+     */
+    public static File backup(File file, boolean copy) {
+<span class="nc bnc" id="L51" title="All 4 branches missed.">        if (file == null || !AccessController.doPrivileged(</span>
+<span class="nc" id="L52">                J2DoPrivHelper.existsAction(file)))</span>
+<span class="nc" id="L53">            return null;</span>
+
+        // create new file object copy so we don't modify the original
+<span class="nc" id="L56">        String aPath = AccessController.doPrivileged(</span>
+<span class="nc" id="L57">            J2DoPrivHelper.getAbsolutePathAction(file));</span>
+<span class="nc" id="L58">        File clone = new File(aPath);</span>
+<span class="nc" id="L59">        File bk = new File(aPath + &quot;~&quot;);</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (!AccessController.doPrivileged(</span>
+<span class="nc" id="L61">                J2DoPrivHelper.renameToAction(clone, bk)))</span>
+<span class="nc" id="L62">            return null;</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">        if (copy) {</span>
+            try {
+<span class="nc" id="L65">                copy(bk, file);</span>
+<span class="nc" id="L66">            } catch (IOException ioe) {</span>
+<span class="nc" id="L67">                throw new RuntimeException(ioe);</span>
+<span class="nc" id="L68">            }</span>
+        }
+<span class="nc" id="L70">        return bk;</span>
+    }
+
+    /**
+     * Revert the given backup file to the original location. If the given
+     * file's name does not end in '~', the '~' is appended before proceeding.
+     * If the backup file does not exist or could not be reverted, returns null.
+     */
+    public static File revert(File backup, boolean copy) {
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (backup == null)</span>
+<span class="nc" id="L80">            return null;</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (!backup.getName().endsWith(&quot;~&quot;))</span>
+<span class="nc" id="L82">            backup = new File(backup.getPath() + &quot;~&quot;);</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (!AccessController.doPrivileged(</span>
+<span class="nc" id="L84">                J2DoPrivHelper.existsAction(backup)))</span>
+<span class="nc" id="L85">            return null;</span>
+
+        // create new file object copy so we don't modify the original
+<span class="nc" id="L88">        String path = AccessController.doPrivileged(</span>
+<span class="nc" id="L89">            J2DoPrivHelper.getAbsolutePathAction(backup));</span>
+<span class="nc" id="L90">        File clone = new File(path);</span>
+<span class="nc" id="L91">        File orig = new File(path.substring(0, path.length() - 1));</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if (!AccessController.doPrivileged(</span>
+<span class="nc" id="L93">                J2DoPrivHelper.renameToAction(clone, orig)))</span>
+<span class="nc" id="L94">            return null;</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (copy) {</span>
+            try {
+<span class="nc" id="L97">                copy(orig, backup);</span>
+<span class="nc" id="L98">            } catch (IOException ioe) {</span>
+<span class="nc" id="L99">                throw new RuntimeException(ioe);</span>
+<span class="nc" id="L100">            }</span>
+        }
+<span class="nc" id="L102">        return orig;</span>
+    }
+
+    /**
+     * Return the source file for the given class, or null if the
+     * source is not in the CLASSPATH.
+     */
+    public static File getSourceFile(Class cls) {
+<span class="nc" id="L110">        return getClassFile(cls, &quot;.java&quot;);</span>
+    }
+
+    /**
+     * Return the class file of the given class, or null if the
+     * class is in a jar.
+     */
+    public static File getClassFile(Class cls) {
+<span class="nc" id="L118">        return getClassFile(cls, &quot;.class&quot;);</span>
+    }
+
+    /**
+     * Return the file for the class resource with the given extension.
+     */
+    private static File getClassFile(Class cls, String ext) {
+<span class="nc" id="L125">        String name = ClassUtil.getClassName(cls);</span>
+
+        // if it's an inner class, use the parent class name
+<span class="nc" id="L128">        int innerIdx = name.indexOf('$');</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        if (innerIdx != -1)</span>
+<span class="nc" id="L130">            name = name.substring(0, innerIdx);</span>
+
+<span class="nc" id="L132">        URL rsrc = AccessController.doPrivileged(</span>
+<span class="nc" id="L133">            J2DoPrivHelper.getResourceAction(cls, name + ext));</span>
+<span class="nc bnc" id="L134" title="All 4 branches missed.">        if (rsrc != null &amp;&amp; rsrc.getProtocol().equals(&quot;file&quot;))</span>
+<span class="nc" id="L135">            return new File(URLDecoder.decode(rsrc.getFile()));</span>
+<span class="nc" id="L136">        return null;</span>
+    }
+
+    /**
+     * Return the file for the given package. If the given base directory
+     * matches the given package structure, it will be used as-is. If not,
+     * the package structure will be added beneath the base directory. If
+     * the base directory is null, the current working directory will be
+     * used as the base.
+     */
+    public static File getPackageFile(File base, String pkg, boolean mkdirs) {
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if (base == null)</span>
+<span class="nc" id="L148">            base = new File(AccessController.doPrivileged(</span>
+<span class="nc" id="L149">                J2DoPrivHelper.getPropertyAction(&quot;user.dir&quot;)));</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if (StringUtil.isEmpty(pkg)) {</span>
+<span class="nc bnc" id="L151" title="All 4 branches missed.">            if (mkdirs &amp;&amp; !AccessController.doPrivileged(</span>
+<span class="nc" id="L152">                    J2DoPrivHelper.existsAction(base)))</span>
+<span class="nc" id="L153">                AccessController.doPrivileged(</span>
+<span class="nc" id="L154">                    J2DoPrivHelper.mkdirsAction(base));</span>
+<span class="nc" id="L155">            return base;</span>
+        }
+
+<span class="nc" id="L158">        pkg = pkg.replace('.', File.separatorChar);</span>
+<span class="nc" id="L159">        File file = null;</span>
+        try {
+<span class="nc" id="L161">            if ((AccessController.doPrivileged(</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">                J2DoPrivHelper.getCanonicalPathAction(base))).endsWith(pkg))</span>
+<span class="nc" id="L163">                file = base;</span>
+            else
+<span class="nc" id="L165">                file = new File(base, pkg);</span>
+<span class="nc" id="L166">        } catch (PrivilegedActionException pae) {</span>
+<span class="nc" id="L167">            throw new RuntimeException(</span>
+<span class="nc" id="L168">                (IOException) pae.getException());</span>
+<span class="nc" id="L169">        } catch (IOException ioe) {</span>
+<span class="nc" id="L170">            throw new RuntimeException(ioe);</span>
+<span class="nc" id="L171">        }</span>
+
+<span class="nc bnc" id="L173" title="All 4 branches missed.">        if (mkdirs &amp;&amp; !AccessController.doPrivileged(</span>
+<span class="nc" id="L174">                J2DoPrivHelper.existsAction(file)))</span>
+<span class="nc" id="L175">            AccessController.doPrivileged(J2DoPrivHelper.mkdirsAction(file));</span>
+<span class="nc" id="L176">        return file;</span>
+    }
+
+    /**
+     * Check the given string for a matching file. The string is first
+     * tested to see if it is an existing file path. If it does not
+     * represent an existing file, it is checked as a resource name of a
+     * file. If no resource exists, then it is interpreted as a path
+     * to a file that does not exist yet.
+     *
+     * @param name the file path or resource name
+     * @param loader a class loader to use in resource lookup, or null
+     * to use the thread's context loader
+     */
+    public static File getFile(String name, ClassLoader loader) {
+<span class="nc bnc" id="L191" title="All 2 branches missed.">        if (name == null)</span>
+<span class="nc" id="L192">            return null;</span>
+
+<span class="nc" id="L194">        File file = new File(name);</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        if (AccessController.doPrivileged(</span>
+<span class="nc" id="L196">                J2DoPrivHelper.existsAction(file)))</span>
+<span class="nc" id="L197">            return file;</span>
+
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        if (loader == null)</span>
+<span class="nc" id="L200">            loader = AccessController.doPrivileged(</span>
+<span class="nc" id="L201">                J2DoPrivHelper.getContextClassLoaderAction());</span>
+<span class="nc" id="L202">        URL url = AccessController.doPrivileged(</span>
+<span class="nc" id="L203">            J2DoPrivHelper.getResourceAction(loader, name));</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">        if (url != null) {</span>
+<span class="nc" id="L205">            String urlFile = url.getFile();</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">            if (urlFile != null) {</span>
+<span class="nc" id="L207">                File rsrc = new File(URLDecoder.decode(urlFile));</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">                if (AccessController.doPrivileged(</span>
+<span class="nc" id="L209">                        J2DoPrivHelper.existsAction(rsrc)))</span>
+<span class="nc" id="L210">                    return rsrc;</span>
+            }
+        }
+
+        // go back to original non-existant file path
+<span class="nc" id="L215">        return file;</span>
+    }
+
+    /**
+     * Return a writer to the stream(stdout or stderr) or file named by the
+     * given string.
+     *
+     * @see #getFile
+     */
+    public static Writer getWriter(String file, ClassLoader loader)
+        throws IOException {
+<span class="nc bnc" id="L226" title="All 2 branches missed.">        if (file == null)</span>
+<span class="nc" id="L227">            return null;</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">        if (&quot;stdout&quot;.equals(file))</span>
+<span class="nc" id="L229">            return new PrintWriter(System.out);</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">        if (&quot;stderr&quot;.equals(file))</span>
+<span class="nc" id="L231">            return new PrintWriter(System.err);</span>
+        try {
+<span class="nc" id="L233">            return new FileWriter(getFile(file, loader));</span>
+<span class="nc" id="L234">        } catch (IOException ioe) {</span>
+<span class="nc" id="L235">            throw new RuntimeException(ioe);</span>
+        }
+    }
+
+    /**
+     * Return a writer to the stream(stdout or stderr) or file named by the
+     * given string set to the provided charset encoding.
+     *
+     * @see #getOutputStream
+     */
+    public static Writer getWriter(String file, ClassLoader loader, String enc)
+        throws IOException {
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        if (file == null)</span>
+<span class="nc" id="L248">            return null;</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">        if (enc == null) {</span>
+            // call the non-encoded version of the method
+<span class="nc" id="L251">            return getWriter(file, loader);</span>
+        }
+
+        try {
+<span class="nc bnc" id="L255" title="All 2 branches missed.">            if (&quot;stdout&quot;.equals(file))</span>
+<span class="nc" id="L256">                return new PrintWriter(new OutputStreamWriter(System.out, enc));</span>
+<span class="nc bnc" id="L257" title="All 2 branches missed.">            else if (&quot;stderr&quot;.equals(file))</span>
+<span class="nc" id="L258">                return new PrintWriter(new OutputStreamWriter(System.err, enc));</span>
+            else
+<span class="nc" id="L260">                return new BufferedWriter(new OutputStreamWriter(getOutputStream(file, loader), enc));</span>
+<span class="nc" id="L261">        } catch (IOException ioe) {</span>
+<span class="nc" id="L262">            throw new RuntimeException(ioe);</span>
+        }
+    }
+
+    /**
+     * Return an output stream to the stream(stdout or stderr) or file named
+     * by the given string.
+     *
+     * @see #getFile
+     */
+    public static OutputStream getOutputStream(String file,
+        ClassLoader loader) {
+<span class="nc bnc" id="L274" title="All 2 branches missed.">        if (file == null)</span>
+<span class="nc" id="L275">            return null;</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">        if (&quot;stdout&quot;.equals(file))</span>
+<span class="nc" id="L277">            return System.out;</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">        if (&quot;stderr&quot;.equals(file))</span>
+<span class="nc" id="L279">            return System.err;</span>
+        try {
+<span class="nc" id="L281">            return AccessController.doPrivileged(</span>
+<span class="nc" id="L282">                J2DoPrivHelper.newFileOutputStreamAction(</span>
+<span class="nc" id="L283">                    getFile(file, loader)));</span>
+<span class="nc" id="L284">        } catch (PrivilegedActionException pae) {</span>
+<span class="nc" id="L285">            throw new RuntimeException(pae.getException());</span>
+<span class="nc" id="L286">        } catch (IOException ioe) {</span>
+<span class="nc" id="L287">            throw new RuntimeException(ioe);</span>
+        }
+    }
+
+    /**
+     * Copy a file. Return false if &lt;code&gt;from&lt;/code&gt; does not exist.
+     */
+    public static boolean copy(File from, File to) throws IOException {
+<span class="nc bnc" id="L295" title="All 4 branches missed.">        if (from == null || to == null ||</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">            !AccessController.doPrivileged(</span>
+<span class="nc" id="L297">                    J2DoPrivHelper.existsAction(from)))</span>
+<span class="nc" id="L298">            return false;</span>
+
+<span class="nc" id="L300">        FileInputStream in = null;</span>
+<span class="nc" id="L301">        FileOutputStream out = null;</span>
+        try {
+<span class="nc" id="L303">            in = AccessController.doPrivileged(</span>
+<span class="nc" id="L304">                J2DoPrivHelper.newFileInputStreamAction(from));</span>
+<span class="nc" id="L305">            BufferedInputStream inbuf = new BufferedInputStream(in);</span>
+<span class="nc" id="L306">            out = AccessController.doPrivileged(</span>
+<span class="nc" id="L307">                J2DoPrivHelper.newFileOutputStreamAction(to));</span>
+<span class="nc" id="L308">            BufferedOutputStream outbuf = new BufferedOutputStream(out);</span>
+<span class="nc bnc" id="L309" title="All 2 branches missed.">            for (int b; (b = inbuf.read()) != -1; outbuf.write(b)) ;</span>
+<span class="nc" id="L310">            outbuf.flush();</span>
+<span class="nc" id="L311">            return true;</span>
+<span class="nc" id="L312">        } catch (PrivilegedActionException pae) {</span>
+<span class="nc" id="L313">            throw (FileNotFoundException) pae.getException();</span>
+        } finally {
+<span class="nc bnc" id="L315" title="All 2 branches missed.">            if (in != null)</span>
+                try {
+<span class="nc" id="L317">                    in.close();</span>
+<span class="nc" id="L318">                } catch (Exception e) {</span>
+<span class="nc" id="L319">                }</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">            if (out != null)</span>
+                try {
+<span class="nc" id="L322">                    out.close();</span>
+<span class="nc" id="L323">                } catch (Exception e) {</span>
+<span class="nc" id="L324">                }</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

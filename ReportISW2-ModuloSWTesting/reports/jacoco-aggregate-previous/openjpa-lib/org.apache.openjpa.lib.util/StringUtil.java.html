@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>StringUtil.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">StringUtil.java</span></div><h1>StringUtil.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+import java.util.ArrayList;
+import java.util.List;
+
+
+
+public final class StringUtil {
+
+<span class="nc" id="L26">    private static final String[] EMPTY_STRING_ARRAY = new String[0];</span>
+
+
+<span class="nc" id="L29">    private static final Byte      BYTE_ZERO    = (byte) 0;</span>
+<span class="nc" id="L30">    private static final Character CHAR_ZERO    = (char) 0;</span>
+<span class="nc" id="L31">    private static final Double    DOUBLE_ZERO  = 0.0d;</span>
+<span class="nc" id="L32">    private static final Float     FLOAT_ZERO   = 0.0f;</span>
+<span class="nc" id="L33">    private static final Integer   INTEGER_ZERO = 0;</span>
+<span class="nc" id="L34">    private static final Long      LONG_ZERO    = 0L;</span>
+<span class="nc" id="L35">    private static final Short     SHORT_ZERO   = (short) 0;</span>
+
+    private StringUtil() {
+    }
+
+    /**
+     * @return {@code true} if the given string is null or empty.
+     */
+    public static boolean isEmpty(String val) {
+<span class="nc bnc" id="L44" title="All 4 branches missed.">        return val == null || val.isEmpty();</span>
+    }
+
+    public static boolean isNotEmpty(String val) {
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        return !isEmpty(val);</span>
+    }
+
+    /**
+     * &lt;p&gt;Checks if a CharSequence is whitespace, empty (&quot;&quot;) or null.&lt;/p&gt;
+     *
+     * &lt;pre&gt;
+     * StringUtils.isBlank(null)      = true
+     * StringUtils.isBlank(&quot;&quot;)        = true
+     * StringUtils.isBlank(&quot; &quot;)       = true
+     * StringUtils.isBlank(&quot;bob&quot;)     = false
+     * StringUtils.isBlank(&quot;  bob  &quot;) = false
+     * &lt;/pre&gt;
+     *
+     * Ported over from Apache commons-lang3
+     *
+     * @param cs  the CharSequence to check, may be null
+     * @return {@code true} if the CharSequence is null, empty or whitespace
+     */
+    public static boolean isBlank(final CharSequence cs) {
+        int strLen;
+<span class="nc bnc" id="L69" title="All 4 branches missed.">        if (cs == null || (strLen = cs.length()) == 0) {</span>
+<span class="nc" id="L70">            return true;</span>
+        }
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        for (int i = 0; i &lt; strLen; i++) {</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">            if (!Character.isWhitespace(cs.charAt(i))) {</span>
+<span class="nc" id="L74">                return false;</span>
+            }
+        }
+<span class="nc" id="L77">        return true;</span>
+    }
+
+    /**
+     * &lt;p&gt;Checks if a CharSequence is not empty (&quot;&quot;), not null and not whitespace only.&lt;/p&gt;
+     *
+     * &lt;pre&gt;
+     * StringUtils.isNotBlank(null)      = false
+     * StringUtils.isNotBlank(&quot;&quot;)        = false
+     * StringUtils.isNotBlank(&quot; &quot;)       = false
+     * StringUtils.isNotBlank(&quot;bob&quot;)     = true
+     * StringUtils.isNotBlank(&quot;  bob  &quot;) = true
+     * &lt;/pre&gt;
+     *
+     * Ported over from Apache commons-lang3
+     *
+     * @param cs  the CharSequence to check, may be null
+     * @return {@code true} if the CharSequence is not empty and not null and not whitespace
+     */
+    public static boolean isNotBlank(final CharSequence cs) {
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        return !isBlank(cs);</span>
+    }
+
+
+    /**
+     * @param val the string to search in
+     * @param charToSearchFor the character to search for
+     * @return {@code true} if the charToSearchFor is contained in the String val
+     */
+    public static boolean contains(String val, char charToSearchFor) {
+<span class="nc bnc" id="L107" title="All 4 branches missed.">        return val != null &amp;&amp; val.indexOf(charToSearchFor) &gt; -1;</span>
+    }
+
+
+    public static boolean equalsIgnoreCase(String str1, String str2) {
+<span class="nc bnc" id="L112" title="All 4 branches missed.">        if (str1 == null || str2 == null) {</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">            return str1 == str2;</span>
+        }
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        else if (str1 == str2) {</span>
+<span class="nc" id="L116">            return true;</span>
+        }
+
+<span class="nc" id="L119">        return str1.equalsIgnoreCase(str2);</span>
+    }
+
+    /**
+     * Splits the given string on the given token. Follows the semantics
+     * of the Java 1.4 {@link String#split(String, int)} method, but does
+     * not treat the given token as a regular expression.
+     */
+    public static String[] split(String str, String token, int max) {
+<span class="nc bnc" id="L128" title="All 4 branches missed.">        if (str == null || str.length() == 0) {</span>
+<span class="nc" id="L129">            return EMPTY_STRING_ARRAY;</span>
+        }
+<span class="nc bnc" id="L131" title="All 4 branches missed.">        if (token == null || token.length() == 0) {</span>
+<span class="nc" id="L132">            throw new IllegalArgumentException(&quot;token: [&quot; + token + &quot;]&quot;);</span>
+        }
+
+        // split on token
+<span class="nc" id="L136">        List&lt;String&gt; ret = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L137">        int start = 0;</span>
+<span class="nc" id="L138">        int len = str.length();</span>
+<span class="nc" id="L139">        int tlen = token.length();</span>
+
+<span class="nc" id="L141">        int pos = 0;</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        while (pos != -1) {</span>
+<span class="nc" id="L143">            pos = str.indexOf(token, start);</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">            if (pos != -1) {</span>
+<span class="nc" id="L145">                ret.add(str.substring(start, pos));</span>
+<span class="nc" id="L146">                start = pos + tlen;</span>
+            }
+        }
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        if (start &lt; len) {</span>
+<span class="nc" id="L150">            ret.add(str.substring(start));</span>
+        }
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        else if (start == len) {</span>
+<span class="nc" id="L153">            ret.add(&quot;&quot;);</span>
+        }
+
+
+        // now take max into account; this isn't the most efficient way
+        // of doing things since we split the maximum number of times
+        // regardless of the given parameters, but it makes things easy
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        if (max == 0) {</span>
+<span class="nc" id="L161">            int size = ret.size();</span>
+            // discard any trailing empty splits
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            while (ret.get(--size).isEmpty()) {</span>
+<span class="nc" id="L164">                ret.remove(size);</span>
+            }
+<span class="nc" id="L166">        }</span>
+<span class="nc bnc" id="L167" title="All 4 branches missed.">        else if (max &gt; 0 &amp;&amp; ret.size() &gt; max) {</span>
+            // move all splits over max into the last split
+<span class="nc" id="L169">            StringBuilder sb = new StringBuilder(256);</span>
+<span class="nc" id="L170">            sb.append(ret.get(max - 1));</span>
+<span class="nc" id="L171">            ret.remove(max - 1);</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">            while (ret.size() &gt;= max) {</span>
+<span class="nc" id="L173">                sb.append(token).append(ret.get(max - 1));</span>
+<span class="nc" id="L174">                ret.remove(max - 1);</span>
+            }
+<span class="nc" id="L176">            ret.add(sb.toString());</span>
+        }
+<span class="nc" id="L178">        return ret.toArray(new String[ret.size()]);</span>
+    }
+
+    /**
+     * Replace all instances of &lt;code&gt;from&lt;/code&gt; in &lt;code&gt;str&lt;/code&gt;
+     * with &lt;code&gt;to&lt;/code&gt;.
+     *
+     * @param str  the candidate string to replace
+     * @param from the token to replace
+     * @param to   the new token
+     * @return the string with all the replacements made
+     */
+    public static String replace(String str, String from, String to) {
+<span class="nc bnc" id="L191" title="All 2 branches missed.">        if (from.equals(to)) {</span>
+<span class="nc" id="L192">            return str;</span>
+        }
+<span class="nc" id="L194">        String[] split = split(str, from, Integer.MAX_VALUE);</span>
+<span class="nc" id="L195">        return join(split, to);</span>
+    }
+
+
+    /**
+     * Null-safe {@link String#trim()}
+     */
+    public static String trim(final String str) {
+<span class="nc bnc" id="L203" title="All 2 branches missed.">        return str == null ? null : str.trim();</span>
+    }
+
+    /**
+     * @return the trimmed string str or {@code null} if the trimmed string would be empty.
+     */
+    public static String trimToNull(String str) {
+<span class="nc bnc" id="L210" title="All 4 branches missed.">        if (str == null || str.isEmpty()) {</span>
+<span class="nc" id="L211">            return null;</span>
+        }
+<span class="nc" id="L213">        str = str.trim();</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">        if (str.isEmpty()) {</span>
+<span class="nc" id="L215">            return null;</span>
+        }
+<span class="nc" id="L217">        return str;</span>
+    }
+
+    public static String join(Object[] values, String joinToken) {
+<span class="nc bnc" id="L221" title="All 2 branches missed.">        if (values == null) {</span>
+<span class="nc" id="L222">            return null;</span>
+        }
+<span class="nc bnc" id="L224" title="All 2 branches missed.">        if (values.length == 0) {</span>
+<span class="nc" id="L225">            return &quot;&quot;;</span>
+        }
+<span class="nc bnc" id="L227" title="All 2 branches missed.">        if (values.length == 1) {</span>
+<span class="nc" id="L228">            return values[0].toString();</span>
+        }
+<span class="nc bnc" id="L230" title="All 2 branches missed.">        if (joinToken == null) {</span>
+<span class="nc" id="L231">            joinToken = &quot;null&quot;; // backward compat with commons-lang StringUtils...</span>
+        }
+
+<span class="nc" id="L234">        StringBuilder sb = new StringBuilder(values.length * (16 + joinToken.length()));</span>
+<span class="nc" id="L235">        sb.append(values[0]);</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        for (int i = 1; i &lt; values.length; i++) {</span>
+<span class="nc" id="L237">            sb.append(joinToken).append(values[i]);</span>
+        }
+<span class="nc" id="L239">        return sb.toString();</span>
+    }
+
+
+
+    /**
+     * Parse the given
+     *
+     * @param val  value to parse
+     * @param type the target type of the the parsed value
+     * @return the converted value
+     */
+    public static &lt;T&gt; T parse(String val, Class&lt;T&gt; type) {
+<span class="nc bnc" id="L252" title="All 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L253">            throw new NullPointerException(&quot;target type must not be null&quot;);</span>
+        }
+
+        // handle primitives
+<span class="nc bnc" id="L257" title="All 2 branches missed.">        if (type == byte.class) {</span>
+<span class="nc bnc" id="L258" title="All 2 branches missed.">            return (T) (val == null ? BYTE_ZERO : Byte.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L260" title="All 2 branches missed.">        if (type == char.class) {</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">            return (T) (val == null ? CHAR_ZERO : parseCharString(val));</span>
+        }
+<span class="nc bnc" id="L263" title="All 2 branches missed.">        if (type == double.class) {</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">            return (T) (val == null ? DOUBLE_ZERO : Double.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L266" title="All 2 branches missed.">        if (type == float.class) {</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">            return (T) (val == null ? FLOAT_ZERO : Float.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L269" title="All 2 branches missed.">        if (type == int.class) {</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">            return (T) (val == null ? INTEGER_ZERO : Integer.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L272" title="All 2 branches missed.">        if (type == long.class) {</span>
+<span class="nc bnc" id="L273" title="All 2 branches missed.">            return (T) (val == null ? LONG_ZERO : Long.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L275" title="All 2 branches missed.">        if (type == short.class) {</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">            return (T) (val == null ? SHORT_ZERO : Short.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L278" title="All 2 branches missed.">        if (type == boolean.class) {</span>
+<span class="nc bnc" id="L279" title="All 2 branches missed.">            return (T) (val == null ? Boolean.FALSE : Boolean.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L281" title="All 2 branches missed.">        if (type == void.class) {</span>
+<span class="nc" id="L282">            throw new IllegalStateException(&quot;Cannot parse void type&quot;);</span>
+        }
+
+        // handle wrapper types
+<span class="nc bnc" id="L286" title="All 2 branches missed.">        if (type == Byte.class) {</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">            return (T) (val == null ? null : Byte.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L289" title="All 2 branches missed.">        if (type == Character.class) {</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">            return (T) (val == null ? null : parseCharString(val));</span>
+        }
+<span class="nc bnc" id="L292" title="All 2 branches missed.">        if (type == Double.class) {</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">            return (T) (val == null ? null : Double.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L295" title="All 2 branches missed.">        if (type == Float.class) {</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">            return (T) (val == null ? null : Float.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L298" title="All 2 branches missed.">        if (type == Integer.class) {</span>
+<span class="nc bnc" id="L299" title="All 2 branches missed.">            return (T) (val == null ? null : Integer.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L301" title="All 2 branches missed.">        if (type == Long.class) {</span>
+<span class="nc bnc" id="L302" title="All 2 branches missed.">            return (T) (val == null ? null : Long.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L304" title="All 2 branches missed.">        if (type == Short.class) {</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">            return (T) (val == null ? null : Short.valueOf(val));</span>
+        }
+<span class="nc bnc" id="L307" title="All 2 branches missed.">        if (type == Boolean.class) {</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">            return (T) (val == null ? null : Boolean.valueOf(val));</span>
+        }
+
+<span class="nc" id="L311">        throw new IllegalArgumentException(&quot;Unsupported type: &quot; + type.getCanonicalName());</span>
+    }
+
+    /**
+     * &lt;p&gt;Capitalizes a String changing the first letter to title case as
+     * per {@link Character#toTitleCase(char)}. No other letters are changed.&lt;/p&gt;
+     *
+     *
+     * &lt;pre&gt;
+     * StringUtil.capitalize(null)  = null
+     * StringUtil.capitalize(&quot;&quot;)    = &quot;&quot;
+     * StringUtil.capitalize(&quot;cat&quot;) = &quot;Cat&quot;
+     * StringUtil.capitalize(&quot;cAt&quot;) = &quot;CAt&quot;
+     * &lt;/pre&gt;
+     *
+     * Ported over from Apache commons-lang3
+     *
+     * @param str the String to capitalize, may be null
+     * @return the capitalized String, {@code null} if null String input
+     * @see #uncapitalize(String)
+     */
+    public static String capitalize(final String str) {
+        int strLen;
+<span class="nc bnc" id="L334" title="All 4 branches missed.">        if (str == null || (strLen = str.length()) == 0) {</span>
+<span class="nc" id="L335">            return str;</span>
+        }
+
+<span class="nc" id="L338">        final char firstChar = str.charAt(0);</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">        if (Character.isTitleCase(firstChar)) {</span>
+            // already capitalized
+<span class="nc" id="L341">            return str;</span>
+        }
+
+<span class="nc" id="L344">        return new StringBuilder(strLen)</span>
+<span class="nc" id="L345">                .append(Character.toTitleCase(firstChar))</span>
+<span class="nc" id="L346">                .append(str.substring(1))</span>
+<span class="nc" id="L347">                .toString();</span>
+    }
+
+    /**
+     * &lt;p&gt;Uncapitalizes a String changing the first letter to title case as
+     * per {@link Character#toLowerCase(char)}. No other letters are changed.&lt;/p&gt;
+     *
+     * &lt;pre&gt;
+     * StringUtil.uncapitalize(null)  = null
+     * StringUtil.uncapitalize(&quot;&quot;)    = &quot;&quot;
+     * StringUtil.uncapitalize(&quot;Cat&quot;) = &quot;cat&quot;
+     * StringUtil.uncapitalize(&quot;CAT&quot;) = &quot;cAT&quot;
+     * &lt;/pre&gt;
+     *
+     * Ported over from Apache commons-lang3
+     *
+     * @param str the String to uncapitalize, may be null
+     * @return the uncapitalized String, {@code null} if null String input
+     * @see #capitalize(String)
+     */
+    public static String uncapitalize(final String str) {
+        int strLen;
+<span class="nc bnc" id="L369" title="All 4 branches missed.">        if (str == null || (strLen = str.length()) == 0) {</span>
+<span class="nc" id="L370">            return str;</span>
+        }
+
+<span class="nc" id="L373">        final char firstChar = str.charAt(0);</span>
+<span class="nc bnc" id="L374" title="All 2 branches missed.">        if (Character.isLowerCase(firstChar)) {</span>
+            // already uncapitalized
+<span class="nc" id="L376">            return str;</span>
+        }
+
+<span class="nc" id="L379">        return new StringBuilder(strLen)</span>
+<span class="nc" id="L380">                .append(Character.toLowerCase(firstChar))</span>
+<span class="nc" id="L381">                .append(str.substring(1))</span>
+<span class="nc" id="L382">                .toString();</span>
+    }
+
+    public static boolean endsWithIgnoreCase(String str, String suffix) {
+<span class="nc bnc" id="L386" title="All 4 branches missed.">        if (str == null || suffix == null) {</span>
+<span class="nc bnc" id="L387" title="All 4 branches missed.">            return str == null &amp;&amp; suffix == null;</span>
+        }
+<span class="nc" id="L389">        int strlen = str.length();</span>
+<span class="nc bnc" id="L390" title="All 2 branches missed.">        if (suffix.length() &gt; strlen) {</span>
+<span class="nc" id="L391">            return false;</span>
+        }
+
+<span class="nc" id="L394">        return str.substring(str.length() - suffix.length(), strlen).equalsIgnoreCase(suffix);</span>
+    }
+
+
+    /**
+     * &lt;p&gt;Strips any of a set of characters from the end of a String.&lt;/p&gt;
+     *
+     * &lt;p&gt;A {@code null} input String returns {@code null}.
+     * An empty string (&quot;&quot;) input returns the empty string.&lt;/p&gt;
+     *
+     * &lt;p&gt;If the stripChars String is {@code null}, whitespace is
+     * stripped as defined by {@link Character#isWhitespace(char)}.&lt;/p&gt;
+     *
+     * &lt;pre&gt;
+     * StringUtils.stripEnd(null, *)          = null
+     * StringUtils.stripEnd(&quot;&quot;, *)            = &quot;&quot;
+     * StringUtils.stripEnd(&quot;abc&quot;, &quot;&quot;)        = &quot;abc&quot;
+     * StringUtils.stripEnd(&quot;abc&quot;, null)      = &quot;abc&quot;
+     * StringUtils.stripEnd(&quot;  abc&quot;, null)    = &quot;  abc&quot;
+     * StringUtils.stripEnd(&quot;abc  &quot;, null)    = &quot;abc&quot;
+     * StringUtils.stripEnd(&quot; abc &quot;, null)    = &quot; abc&quot;
+     * StringUtils.stripEnd(&quot;  abcyx&quot;, &quot;xyz&quot;) = &quot;  abc&quot;
+     * StringUtils.stripEnd(&quot;120.00&quot;, &quot;.0&quot;)   = &quot;12&quot;
+     * &lt;/pre&gt;
+     *
+     * Ported over from Apache commons-lang3
+     *
+     * @param str  the String to remove characters from, may be null
+     * @param stripChars  the set of characters to remove, null treated as whitespace
+     * @return the stripped String, {@code null} if null String input
+     */
+    public static String stripEnd(final String str, final String stripChars) {
+        int end;
+<span class="nc bnc" id="L427" title="All 4 branches missed.">        if (str == null || (end = str.length()) == 0) {</span>
+<span class="nc" id="L428">            return str;</span>
+        }
+
+<span class="nc bnc" id="L431" title="All 2 branches missed.">        if (stripChars == null) {</span>
+<span class="nc bnc" id="L432" title="All 4 branches missed.">            while (end != 0 &amp;&amp; Character.isWhitespace(str.charAt(end - 1))) {</span>
+<span class="nc" id="L433">                end--;</span>
+            }
+<span class="nc bnc" id="L435" title="All 2 branches missed.">        } else if (stripChars.isEmpty()) {</span>
+<span class="nc" id="L436">            return str;</span>
+        } else {
+<span class="nc bnc" id="L438" title="All 4 branches missed.">            while (end != 0 &amp;&amp; stripChars.indexOf(str.charAt(end - 1)) != -1) {</span>
+<span class="nc" id="L439">                end--;</span>
+            }
+        }
+<span class="nc" id="L442">        return str.substring(0, end);</span>
+    }
+
+
+
+    private static Character parseCharString(String val) {
+<span class="nc bnc" id="L448" title="All 2 branches missed.">        if (val.length() ==  0) {</span>
+<span class="nc" id="L449">            return (char) 0;</span>
+        }
+<span class="nc bnc" id="L451" title="All 2 branches missed.">        if (val.length() ==  1) {</span>
+<span class="nc" id="L452">            return val.charAt(0);</span>
+        }
+<span class="nc" id="L454">        throw new IllegalArgumentException(&quot;'&quot; + val + &quot;' is longer than one character.&quot;);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ClassMetaDataIterator.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.meta</a> &gt; <span class="el_source">ClassMetaDataIterator.java</span></div><h1>ClassMetaDataIterator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.meta;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.NoSuchElementException;
+
+import org.apache.openjpa.lib.util.ClassUtil;
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+import org.apache.openjpa.lib.util.MultiClassLoader;
+
+/**
+ * Iterator over all metadata resources that might contain the
+ * metadata for a given class, starting with the most general. Assumes that
+ * package-level resources are named &quot;package.&amp;lt;suffix&amp;gt;&quot;.
+ *
+ * @author Abe White
+ */
+public class ClassMetaDataIterator implements MetaDataIterator {
+
+    private final ClassLoader _loader;
+    private final List&lt;String&gt; _locs;
+<span class="nc" id="L49">    private int _loc = -1;</span>
+<span class="nc" id="L50">    private final List&lt;URL&gt; _urls = new ArrayList&lt;&gt;(3);</span>
+<span class="nc" id="L51">    private int _url = -1;</span>
+
+    /**
+     * Constructor; supply the class whose metadata to find, the suffix
+     * of metadata files, and whether to parse top-down or bottom-up.
+     */
+    public ClassMetaDataIterator(Class&lt;?&gt; cls, String suffix, boolean topDown) {
+<span class="nc" id="L58">        this(cls, suffix, null, topDown);</span>
+<span class="nc" id="L59">    }</span>
+
+    /**
+     * Constructor; supply the class whose metadata to find, the suffix
+     * of metadata files, and whether to parse top-down or bottom-up.
+     */
+    public ClassMetaDataIterator(Class&lt;?&gt; cls, String suffix,
+<span class="nc" id="L66">            ClassLoader loader, boolean topDown) {</span>
+        // skip classes that can't have metadata
+<span class="nc bnc" id="L68" title="All 4 branches missed.">        if (cls != null &amp;&amp; (cls.isPrimitive()</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">            || cls.getName().startsWith(&quot;java.&quot;)</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">            || cls.getName().startsWith(&quot;javax.&quot;))) {</span>
+<span class="nc" id="L71">            _loader = null;</span>
+<span class="nc" id="L72">            _locs = Collections.emptyList();</span>
+<span class="nc" id="L73">            return;</span>
+        }
+
+<span class="nc bnc" id="L76" title="All 2 branches missed.">        if (loader == null) {</span>
+            MultiClassLoader multi = AccessController
+<span class="nc" id="L78">                .doPrivileged(J2DoPrivHelper.newMultiClassLoaderAction());</span>
+<span class="nc" id="L79">            multi.addClassLoader(MultiClassLoader.SYSTEM_LOADER);</span>
+<span class="nc" id="L80">            multi.addClassLoader(MultiClassLoader.THREAD_LOADER);</span>
+<span class="nc" id="L81">            multi.addClassLoader(getClass().getClassLoader());</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">            if (cls != null)</span>
+            {
+<span class="nc" id="L84">                ClassLoader clsLoader = (ClassLoader)</span>
+<span class="nc" id="L85">                    AccessController.doPrivileged(</span>
+<span class="nc" id="L86">                        J2DoPrivHelper.getClassLoaderAction(cls));</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">                if (clsLoader != null)</span>
+<span class="nc" id="L88">                    multi.addClassLoader(clsLoader);</span>
+            }
+<span class="nc" id="L90">            loader = multi;</span>
+        }
+<span class="nc" id="L92">        _loader = loader;</span>
+
+        // collect the set of all possible metadata locations; start with
+        // system locations
+<span class="nc" id="L96">        _locs = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L97">        _locs.add(&quot;META-INF/package&quot; + suffix);</span>
+<span class="nc" id="L98">        _locs.add(&quot;WEB-INF/package&quot; + suffix);</span>
+<span class="nc" id="L99">        _locs.add(&quot;package&quot; + suffix);</span>
+
+        // put this legacy location at the end regardless of whether we're
+        // going top down or bottom up so we don't have to parse it as often
+        // during testing
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (!topDown)</span>
+<span class="nc" id="L105">            _locs.add(&quot;system&quot; + suffix);</span>
+
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (cls != null) {</span>
+            // also check:
+            // 1. for each package from the top down to cls' package:
+            // &lt;path&gt;/package&lt;suffix&gt;
+            // &lt;path&gt;/&lt;package-name&gt;&lt;suffix&gt; (legacy support)
+            // &lt;path&gt;/../&lt;package-name&gt;&lt;suffix&gt; (legacy support)
+            // 2. &lt;path&gt;/&lt;class-name&gt;&lt;suffix&gt;
+<span class="nc" id="L114">            String pkg = ClassUtil.getPackageName(cls).replace('.', '/');</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">            if (pkg.length() &gt; 0) {</span>
+<span class="nc" id="L116">                int idx, start = 0;</span>
+<span class="nc" id="L117">                String pkgName, path, upPath = &quot;&quot;;</span>
+                do {
+<span class="nc" id="L119">                    idx = pkg.indexOf('/', start);</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">                    if (idx == -1) {</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">                        pkgName = (start == 0) ? pkg : pkg.substring(start);</span>
+<span class="nc" id="L122">                        path = pkg + &quot;/&quot;;</span>
+                    } else {
+<span class="nc" id="L124">                        pkgName = pkg.substring(start, idx);</span>
+<span class="nc" id="L125">                        path = pkg.substring(0, idx + 1);</span>
+                    }
+
+<span class="nc" id="L128">                    _locs.add(path + &quot;package&quot; + suffix);</span>
+<span class="nc" id="L129">                    _locs.add(path + pkgName + suffix); // legacy</span>
+<span class="nc" id="L130">                    _locs.add(upPath + pkgName + suffix); // legacy</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">                    if (idx == -1)</span>
+<span class="nc" id="L132">                        _locs.add(path + ClassUtil.getClassName(cls) + suffix);</span>
+
+<span class="nc" id="L134">                    start = idx + 1;</span>
+<span class="nc" id="L135">                    upPath = path;</span>
+                }
+<span class="nc bnc" id="L137" title="All 2 branches missed.">                while (idx != -1);</span>
+<span class="nc" id="L138">            } else {</span>
+                // &lt;class-name&gt;&lt;suffix&gt; for top-level classes
+<span class="nc" id="L140">                _locs.add(cls.getName() + suffix);</span>
+            }
+        }
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        if (topDown)</span>
+<span class="nc" id="L144">            _locs.add(&quot;system&quot; + suffix); // legacy</span>
+        else
+<span class="nc" id="L146">            Collections.reverse(_locs);</span>
+<span class="nc" id="L147">    }</span>
+
+    @Override
+    public boolean hasNext() throws IOException {
+        Enumeration&lt;URL&gt; e;
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        while (_url + 1 &gt;= _urls.size()) {</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">            if (++_loc &gt;= _locs.size())</span>
+<span class="nc" id="L154">                return false;</span>
+
+<span class="nc" id="L156">            _url = -1;</span>
+<span class="nc" id="L157">            _urls.clear();</span>
+            try {
+<span class="nc" id="L159">                e = AccessController.doPrivileged(</span>
+<span class="nc" id="L160">                    J2DoPrivHelper.getResourcesAction(</span>
+<span class="nc" id="L161">                        _loader, _locs.get(_loc)));</span>
+<span class="nc" id="L162">            } catch (PrivilegedActionException pae) {</span>
+<span class="nc" id="L163">                throw (IOException) pae.getException();</span>
+<span class="nc" id="L164">            }</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">            while (e.hasMoreElements())</span>
+<span class="nc" id="L166">                _urls.add(e.nextElement());</span>
+        }
+<span class="nc" id="L168">        return true;</span>
+    }
+
+    @Override
+    public URL next() throws IOException {
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        if (!hasNext())</span>
+<span class="nc" id="L174">            throw new NoSuchElementException();</span>
+<span class="nc" id="L175">        return _urls.get(++_url);</span>
+    }
+
+    @Override
+    public InputStream getInputStream() throws IOException {
+<span class="nc bnc" id="L180" title="All 4 branches missed.">        if (_url == -1 || _url &gt;= _urls.size())</span>
+<span class="nc" id="L181">            throw new IllegalStateException();</span>
+        try {
+<span class="nc" id="L183">            return AccessController.doPrivileged(</span>
+<span class="nc" id="L184">                J2DoPrivHelper.openStreamAction(_urls.get(_url)));</span>
+<span class="nc" id="L185">        } catch (PrivilegedActionException pae) {</span>
+<span class="nc" id="L186">            throw (IOException) pae.getException();</span>
+        }
+    }
+
+    @Override
+    public File getFile() throws IOException {
+<span class="nc bnc" id="L192" title="All 4 branches missed.">        if (_url == -1 || _url &gt;= _urls.size())</span>
+<span class="nc" id="L193">            throw new IllegalStateException();</span>
+<span class="nc" id="L194">        File file = new File(URLDecoder.decode((_urls.get(_url)).getFile()));</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        return (AccessController.doPrivileged(</span>
+<span class="nc" id="L196">                J2DoPrivHelper.existsAction(file))) ? file:null;</span>
+    }
+
+    @Override
+    public void close() {
+<span class="nc" id="L201">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

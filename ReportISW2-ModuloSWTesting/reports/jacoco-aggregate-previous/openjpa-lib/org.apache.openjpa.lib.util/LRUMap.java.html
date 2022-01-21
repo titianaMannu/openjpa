@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>LRUMap.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">tests</a> &gt; <a href="../index.html" class="el_bundle">openjpa-lib</a> &gt; <a href="index.source.html" class="el_package">org.apache.openjpa.lib.util</a> &gt; <span class="el_source">LRUMap.java</span></div><h1>LRUMap.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.openjpa.lib.util;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.Map;
+
+/**
+ * Extension of the commons &lt;code&gt;LRUMap&lt;/code&gt; that can change its
+ * maximum size.
+ *
+ * @author Abe White
+ */
+public class LRUMap extends org.apache.openjpa.lib.util.collections.LRUMap
+    implements SizedMap {
+
+    
+    private static final long serialVersionUID = 1L;
+<span class="nc" id="L37">    private int _max = -1;</span>
+
+<span class="nc" id="L39">    public LRUMap() {</span>
+<span class="nc" id="L40">    }</span>
+
+    public LRUMap(int initCapacity) {
+<span class="nc" id="L43">        super(initCapacity);</span>
+<span class="nc" id="L44">    }</span>
+
+    public LRUMap(int initCapacity, float loadFactor) {
+<span class="nc" id="L47">        super(initCapacity, loadFactor);</span>
+<span class="nc" id="L48">    }</span>
+
+    public LRUMap(Map map) {
+<span class="nc" id="L51">        super(map);</span>
+<span class="nc" id="L52">    }</span>
+
+    @Override
+    public int getMaxSize() {
+<span class="nc" id="L56">        return maxSize();</span>
+    }
+
+    @Override
+    public void setMaxSize(int max) {
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        if (max &lt; 0)</span>
+<span class="nc" id="L62">            throw new IllegalArgumentException(String.valueOf(max));</span>
+<span class="nc" id="L63">        _max = max;</span>
+
+        Object key;
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        while (size() &gt; _max) {</span>
+<span class="nc" id="L67">            key = lastKey();</span>
+<span class="nc" id="L68">            overflowRemoved(key, remove(key));</span>
+        }
+<span class="nc" id="L70">    }</span>
+
+    @Override
+    public void overflowRemoved(Object key, Object value) {
+<span class="nc" id="L74">    }</span>
+
+    @Override
+    public int maxSize() {
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        return (_max == -1) ? super.maxSize() : _max;</span>
+    }
+
+    @Override
+    public boolean isFull() {
+<span class="nc bnc" id="L83" title="All 4 branches missed.">        return (_max == -1) ? super.isFull() : size() &gt;= _max;</span>
+    }
+
+    @Override
+    protected boolean removeLRU(LinkEntry entry) {
+<span class="nc" id="L88">        overflowRemoved(entry.getKey(), entry.getValue());</span>
+<span class="nc" id="L89">        return super.removeLRU(entry);</span>
+    }
+
+    @Override
+    protected void doWriteObject(ObjectOutputStream out) throws IOException {
+<span class="nc" id="L94">        out.writeInt(_max);</span>
+<span class="nc" id="L95">        super.doWriteObject(out);</span>
+<span class="nc" id="L96">    }</span>
+
+    @Override
+    protected void doReadObject(ObjectInputStream in)
+        throws IOException, ClassNotFoundException {
+<span class="nc" id="L101">        _max = in.readInt();</span>
+<span class="nc" id="L102">        super.doReadObject(in);</span>
+<span class="nc" id="L103">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>
