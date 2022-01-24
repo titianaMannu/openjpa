@@ -1,6 +1,8 @@
 # Usage
 
-     mvn clean verify -Dsurefire.excludes.locking=**/* -Drat.skip=true 
+     JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64" mvn clean verify -Dsurefire.excludes.locking=**/* -Drat.skip=true
+
+Se ci sono problemi potrebbe essere utile commentare nel pom principale la riga 1962 (eventuale incompatibilità)
 
 Per generare pit-report 
 
